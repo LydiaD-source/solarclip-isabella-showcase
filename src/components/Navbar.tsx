@@ -28,11 +28,11 @@ export const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center">
+          <div className="flex items-center py-2">
             <img 
               src={clearnanoLogo} 
-              alt="ClearNanoTech" 
-              className="w-[130px] lg:w-[180px] xl:w-[200px] h-auto object-contain"
+              alt="ClearNanoTech - SolarClip Revolutionary Solar Mounting" 
+              className="w-[130px] lg:w-[180px] xl:w-[200px] h-auto object-contain mr-4"
             />
           </div>
 

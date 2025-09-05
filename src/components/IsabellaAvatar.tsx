@@ -42,7 +42,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     <div className="fixed top-24 right-4 lg:right-8 z-50">
       {/* Avatar - Much larger and prominent */}
       <div 
-        className={`isabella-avatar w-40 h-40 sm:w-48 sm:h-48 lg:w-64 lg:h-64 xl:w-80 xl:h-80 cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 ${isPlaying ? 'animate-pulse border-accent-glow shadow-accent/30' : 'shadow-black/20 hover:shadow-accent/20'}`}
+        className={`isabella-avatar w-48 h-48 sm:w-56 sm:h-56 lg:w-80 lg:h-80 xl:w-96 xl:h-96 cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 ${isPlaying ? 'animate-pulse border-accent-glow shadow-accent/30' : 'shadow-black/20 hover:shadow-accent/20'}`}
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Image */}
@@ -60,9 +60,9 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
 
       {/* Animated Tooltip - Click to Chat Hint */}
       {showTooltip && !isExpanded && (
-        <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg animate-[fade-in_0.5s_ease-out,pulse_2s_ease-in-out_infinite] pointer-events-none">
+        <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg animate-[fade-in_0.5s_ease-out,pulse_2s_ease-in-out_infinite] pointer-events-none">
           <p className="text-xs text-muted-foreground whitespace-nowrap">
-            👋 <span className="text-accent font-medium">Click to chat</span> with me
+            💬 <span className="text-accent font-medium">Click to chat with me</span>
           </p>
           <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-b-4 border-b-border"></div>
         </div>
@@ -70,7 +70,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
 
       {/* Expanded Chat Panel */}
       {isExpanded && (
-        <Card className="absolute top-56 lg:top-80 xl:top-96 right-0 w-80 sm:w-96 h-[500px] card-premium animate-fade-in-up">
+        <Card className="absolute top-64 lg:top-96 xl:top-112 right-0 w-80 sm:w-96 h-[500px] card-premium animate-fade-in-up">
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="isabella-avatar w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-purple-100 to-blue-100">
