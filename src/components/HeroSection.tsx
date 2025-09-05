@@ -12,17 +12,19 @@ export const HeroSection = () => {
         <div className="w-full h-full bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23000%22%20fill-opacity%3D%221%22%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%221%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] bg-repeat"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:pl-20 xl:pl-24 text-center lg:text-left lg:max-w-3xl xl:max-w-4xl">
-        <div className="animate-fade-in-up">
+      {/* Hero Content Grid - Two Column Layout */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+        {/* Left Column - Hero Content */}
+        <div className="lg:max-w-2xl animate-fade-in-up">
           {/* Main Headline */}
-          <h1 className="font-heading font-bold text-5xl lg:text-7xl mb-6 text-foreground leading-tight">
+          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl mb-6 text-foreground leading-tight text-center lg:text-left">
             The Future of
             <span className="block text-gradient">Lightweight Solar</span>
             is Here.
           </h1>
 
           {/* Subheadline */}
-          <p className="text-xl lg:text-2xl text-muted-foreground mb-8 max-w-4xl mx-auto leading-relaxed">
+          <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground mb-8 leading-relaxed text-center lg:text-left">
             SolarClip™ — the world's first clip-on / clip-off solar mounting system. 
             <span className="font-semibold text-foreground"> Fast. Reversible. Roof-safe.</span>
           </p>
@@ -40,21 +42,24 @@ export const HeroSection = () => {
           </div>
 
           {/* Social Proof / Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-3xl mx-auto">
-            <div className="text-center">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+            <div className="text-center lg:text-left">
               <div className="text-3xl font-bold text-gradient mb-2">4x</div>
               <div className="text-sm text-muted-foreground">Faster Installation</div>
             </div>
-            <div className="text-center">
+            <div className="text-center lg:text-left">
               <div className="text-3xl font-bold text-gradient mb-2">80%</div>
               <div className="text-sm text-muted-foreground">More Roofs Qualified</div>
             </div>
-            <div className="text-center">
+            <div className="text-center lg:text-left">
               <div className="text-3xl font-bold text-gradient mb-2">230km/h</div>
               <div className="text-sm text-muted-foreground">Wind Resistance</div>
             </div>
           </div>
         </div>
+
+        {/* Right Column - Reserved for Isabella (she's positioned fixed, so this provides spacing) */}
+        <div className="hidden lg:block"></div>
       </div>
 
       {/* Scroll Indicator */}
