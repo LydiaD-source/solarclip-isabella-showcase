@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MessageCircle, Volume2, FileText, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import isabellaNavia from '@/assets/isabella-navia.png';
 
 interface IsabellaAvatarProps {
   onChatToggle?: () => void;
@@ -43,13 +44,15 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
 
       {/* Avatar */}
       <div 
-        className={`isabella-avatar w-20 h-20 cursor-pointer relative overflow-hidden ${isPlaying ? 'animate-pulse' : ''}`}
+        className={`isabella-avatar w-24 h-24 cursor-pointer relative overflow-hidden ${isPlaying ? 'animate-pulse' : ''}`}
         onClick={onChatToggle}
       >
-        {/* Placeholder for Isabella image - will need Cloudinary integration */}
-        <div className="w-full h-full flex items-center justify-center text-4xl bg-gradient-to-br from-purple-100 to-orange-100">
-          👩‍💼
-        </div>
+        {/* Isabella Navia Image */}
+        <img 
+          src={isabellaNavia} 
+          alt="Isabella Navia - AI Solar Ambassador" 
+          className="w-full h-full object-cover"
+        />
         
         {/* Status indicators */}
         {isPlaying && (
@@ -63,9 +66,11 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="isabella-avatar w-12 h-12">
-                <div className="w-full h-full flex items-center justify-center text-2xl bg-gradient-to-br from-purple-100 to-orange-100 rounded-full">
-                  👩‍💼
-                </div>
+                <img 
+                  src={isabellaNavia} 
+                  alt="Isabella Navia" 
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div>
                 <h3 className="font-heading font-semibold text-foreground">Isabella Navia</h3>
@@ -78,7 +83,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
             <div className="space-y-3">
               <div className="bg-secondary/50 rounded-lg p-3">
                 <p className="text-sm text-foreground">
-                  Hello! I'm Isabella, your AI ambassador for SolarClip™. I can help you with:
+                  Hello! I'm Isabella Navia, ClearNanoTech's ambassador for SolarClip™. I'm here to answer any questions about our company and our product. Let's explore the future of solar together.
                 </p>
               </div>
 
