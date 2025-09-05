@@ -2,39 +2,61 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
+/* SolarClip™ Design System - ClearNanoTech Branding
+Navy blue (#002147) for trust/engineering
+Clean white/light gray (#F9FAFB) for clarity  
+Fresh green accent (#4CAF50) for sustainability
+Soft gradients for depth
 */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Core Brand Colors - ClearNanoTech */
+    --background: 220 20% 99%;
+    --foreground: 209 100% 14%;
+    
+    /* Navy Blue Primary - Trust & Engineering */
+    --primary: 209 100% 14%; /* #002147 */
+    --primary-foreground: 220 20% 99%;
+    --primary-light: 209 100% 25%;
+    --primary-glow: 209 100% 35%;
+    
+    /* Fresh Green Accent - Sustainability */
+    --accent: 122 48% 56%; /* #4CAF50 */
+    --accent-foreground: 220 20% 99%;
+    --accent-light: 122 48% 66%;
+    --accent-glow: 122 48% 76%;
+    
+    /* Clean Whites & Grays */
+    --secondary: 220 14% 96%; /* #F9FAFB */
+    --secondary-foreground: 209 100% 14%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%;
+    
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(209 100% 14%), hsl(209 100% 25%));
+    --gradient-accent: linear-gradient(135deg, hsl(122 48% 56%), hsl(122 48% 66%));
+    --gradient-premium: linear-gradient(135deg, hsl(209 100% 14%), hsl(122 48% 56%));
+    --gradient-surface: linear-gradient(180deg, hsl(220 20% 99%), hsl(220 14% 96%));
+    --gradient-isabella: linear-gradient(135deg, hsl(260 100% 97%), hsl(30 100% 96%));
+    
+    /* Shadows & Effects */
+    --shadow-premium: 0 20px 60px -20px hsl(209 100% 14% / 0.3);
+    --shadow-glow: 0 0 40px hsl(122 48% 56% / 0.4);
+    --shadow-isabella: 0 10px 30px -10px hsl(260 50% 50% / 0.3);
+    
+    /* Component Colors */
+    --card: 220 20% 99%;
+    --card-foreground: 209 100% 14%;
+    --popover: 220 20% 99%;
+    --popover-foreground: 209 100% 14%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 220 20% 99%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 122 48% 56%;
 
     --radius: 0.5rem;
 
@@ -100,6 +122,78 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-body;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-heading;
+  }
+}
+
+@layer components {
+  /* Premium Button Variants */
+  .btn-hero {
+    @apply bg-gradient-to-r from-primary to-primary-light text-primary-foreground px-8 py-4 rounded-lg font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105;
+  }
+  
+  .btn-accent {
+    @apply bg-gradient-to-r from-accent to-accent-light text-accent-foreground px-6 py-3 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-300;
+  }
+  
+  .btn-outline {
+    @apply border-2 border-primary text-primary px-6 py-3 rounded-lg font-medium hover:bg-primary hover:text-primary-foreground transition-all duration-300;
+  }
+  
+  /* Isabella Avatar Animation */
+  .isabella-avatar {
+    @apply rounded-full border-2 border-accent/30 shadow-lg transition-all duration-300;
+    background: var(--gradient-isabella);
+    box-shadow: var(--shadow-isabella);
+  }
+  
+  .isabella-avatar:hover {
+    @apply scale-105 border-accent/60;
+    box-shadow: var(--shadow-glow);
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  /* Premium Cards */
+  .card-premium {
+    @apply bg-card border border-border rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300;
+    background: var(--gradient-surface);
+  }
+  
+  /* Gradient Text */
+  .text-gradient {
+    background: var(--gradient-premium);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  
+  /* Animations */
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: var(--shadow-isabella);
+    }
+    50% {
+      box-shadow: var(--shadow-glow);
+    }
+  }
+  
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s ease-out;
   }
 }
