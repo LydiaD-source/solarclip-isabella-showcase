@@ -32,7 +32,7 @@ export const Navbar = () => {
             <img 
               src={clearnanoLogo} 
               alt="ClearNanoTech" 
-              className="h-10 w-auto min-w-[120px] sm:h-12 lg:h-14 xl:h-16 max-w-[200px] object-contain"
+              className="w-[130px] lg:w-[180px] xl:w-[200px] h-auto object-contain"
             />
           </div>
 

@@ -12,7 +12,7 @@ export const HeroSection = () => {
         <div className="w-full h-full bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23000%22%20fill-opacity%3D%221%22%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%221%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] bg-repeat"></div>
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:pl-12 xl:pl-16 text-center lg:text-left lg:max-w-4xl xl:max-w-5xl">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:pl-16 xl:pl-20 text-center lg:text-left lg:max-w-3xl xl:max-w-4xl">
         <div className="animate-fade-in-up">
           {/* Main Headline */}
           <h1 className="font-heading font-bold text-5xl lg:text-7xl mb-6 text-foreground leading-tight">

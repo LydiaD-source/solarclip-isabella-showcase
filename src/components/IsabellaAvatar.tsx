@@ -42,7 +42,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     <div className="fixed top-24 right-4 lg:right-8 z-50">
       {/* Avatar - Much larger and prominent */}
       <div 
-        className={`isabella-avatar w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 xl:w-56 xl:h-56 cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 ${isPlaying ? 'animate-pulse border-accent-glow shadow-accent/30' : 'shadow-black/20 hover:shadow-accent/20'}`}
+        className={`isabella-avatar w-40 h-40 sm:w-48 sm:h-48 lg:w-64 lg:h-64 xl:w-80 xl:h-80 cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 ${isPlaying ? 'animate-pulse border-accent-glow shadow-accent/30' : 'shadow-black/20 hover:shadow-accent/20'}`}
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Image */}
@@ -70,7 +70,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
 
       {/* Expanded Chat Panel */}
       {isExpanded && (
-        <Card className="absolute top-48 lg:top-60 xl:top-72 right-0 w-80 sm:w-96 h-[500px] card-premium animate-fade-in-up">
+        <Card className="absolute top-56 lg:top-80 xl:top-96 right-0 w-80 sm:w-96 h-[500px] card-premium animate-fade-in-up">
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="isabella-avatar w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-purple-100 to-blue-100">
