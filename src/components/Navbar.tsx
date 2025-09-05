@@ -32,7 +32,7 @@ export const Navbar = () => {
             <img 
               src="/clearnanotech-logo.png" 
               alt="ClearNanoTech - SolarClip Revolutionary Solar Mounting" 
-              className="w-[130px] lg:w-[200px] h-auto object-contain brightness-0 invert"
+              className="w-[130px] lg:w-[200px] h-auto object-contain brightness-0 invert filter contrast-125 saturate-150"
               onError={(e) => {
                 console.error('Logo failed to load: /clearnanotech-logo.png; falling back to uploaded path');
                 (e.currentTarget as HTMLImageElement).src = '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png';
