@@ -1,7 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Play } from 'lucide-react';
+import { IsabellaAvatar } from '@/components/IsabellaAvatar';
 
-export const HeroSection = () => {
+interface HeroSectionProps { isExpanded?: boolean; onChatToggle?: () => void }
+
+export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionProps) => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Gradient */}
@@ -58,8 +61,10 @@ export const HeroSection = () => {
           </div>
         </div>
 
-        {/* Right Column - Reserved for Isabella (she's positioned fixed, so this provides spacing) */}
-        <div className="hidden lg:block"></div>
+        {/* Right Column - Isabella Avatar (stacks below on mobile) */}
+        <div className="flex justify-center lg:justify-end items-center mt-10 lg:mt-0">
+          <IsabellaAvatar isExpanded={isExpanded} onChatToggle={onChatToggle} />
+        </div>
       </div>
 
       {/* Scroll Indicator */}

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navbar } from '@/components/Navbar';
-import { IsabellaAvatar } from '@/components/IsabellaAvatar';
+
 import { HeroSection } from '@/components/HeroSection';
 import { ProblemSection } from '@/components/ProblemSection';
 import { VisualizerSection } from '@/components/VisualizerSection';
@@ -20,16 +20,11 @@ const Index = () => {
       {/* Navigation Bar */}
       <Navbar />
       
-      {/* Isabella Avatar - Always Visible */}
-      <IsabellaAvatar 
-        isExpanded={isIsabellaExpanded}
-        onChatToggle={() => setIsIsabellaExpanded(!isIsabellaExpanded)}
-      />
 
       {/* Main Content - Add top padding for fixed navbar */}
       <div className="pt-16">
         {/* Hero Section */}
-        <HeroSection />
+        <HeroSection isExpanded={isIsabellaExpanded} onChatToggle={() => setIsIsabellaExpanded(!isIsabellaExpanded)} />
 
         {/* Problem Section */}
         <ProblemSection />

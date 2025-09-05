@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
-import clearnanoLogo from '/lovable-uploads/dde95b22-cdc3-41bd-ae04-0d6d62b4ff55.png';
+import clearnanoLogo from '@/assets/clearnanotech-logo.png';
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -41,7 +41,7 @@ export const Navbar = () => {
           </div>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-6">
+          <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => (
               <button
                 key={link.href}
@@ -53,7 +53,7 @@ export const Navbar = () => {
             ))}
             <Button 
               variant="default" 
-              className="bg-accent hover:bg-accent-light text-accent-foreground ml-4"
+              className="bg-accent hover:bg-accent-light text-accent-foreground ml-2"
               onClick={() => scrollToSection('#contact')}
             >
               Get Your Quote
