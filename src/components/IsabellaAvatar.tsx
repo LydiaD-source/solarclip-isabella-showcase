@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { MessageCircle, Volume2, FileText, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import isabellaNavia from '@/assets/isabella-navia.png';
+// Using approved Cloudinary image for Isabella Navia
+const isabellaNavia = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
 
 interface IsabellaAvatarProps {
   onChatToggle?: () => void;
@@ -33,25 +34,25 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
   }, []);
 
   return (
-    <div className="fixed top-6 right-6 z-50">
+    <div className="fixed top-20 right-6 z-50">
       {/* Tooltip */}
       {showTooltip && !isExpanded && (
-        <div className="absolute -left-48 top-2 bg-card border border-border rounded-lg p-3 shadow-lg animate-fade-in-up">
-          <p className="text-sm text-foreground">👋 Click me to chat with Isabella</p>
+        <div className="absolute -left-52 top-2 bg-card border border-border rounded-lg p-3 shadow-lg animate-fade-in-up">
+          <p className="text-sm text-foreground">👋 Click to chat with me</p>
           <div className="absolute right-2 top-1/2 transform -translate-y-1/2 w-0 h-0 border-l-4 border-l-card border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
         </div>
       )}
 
       {/* Avatar */}
       <div 
-        className={`isabella-avatar w-24 h-24 cursor-pointer relative overflow-hidden ${isPlaying ? 'animate-pulse' : ''}`}
+        className={`isabella-avatar w-28 h-28 cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-100 to-blue-100 border-2 border-accent shadow-lg ${isPlaying ? 'animate-pulse border-accent-glow' : ''}`}
         onClick={onChatToggle}
       >
         {/* Isabella Navia Image */}
         <img 
           src={isabellaNavia} 
           alt="Isabella Navia - AI Solar Ambassador" 
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover rounded-full"
         />
         
         {/* Status indicators */}
@@ -65,11 +66,11 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
         <Card className="absolute top-24 right-0 w-96 h-[500px] card-premium animate-fade-in-up">
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
-              <div className="isabella-avatar w-12 h-12">
+              <div className="isabella-avatar w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-purple-100 to-blue-100">
                 <img 
                   src={isabellaNavia} 
                   alt="Isabella Navia" 
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover rounded-full"
                 />
               </div>
               <div>

@@ -7,11 +7,9 @@ export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const navLinks = [
-    { href: '#problem', label: 'Problem' },
+    { href: '#about', label: 'About' },
     { href: '#visualizer', label: 'Visualizer' },
-    { href: '#features', label: 'Features' },
-    { href: '#proof', label: 'Proof' },
-    { href: '#roi', label: 'ROI' },
+    { href: '#proof', label: 'Installation Demo' },
     { href: '#pricing', label: 'Pricing' },
     { href: '#resources', label: 'Resources' },
     { href: '#contact', label: 'Contact' },
