@@ -1,7 +1,7 @@
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Facebook, Twitter, Linkedin, Mail, MapPin, Phone } from 'lucide-react';
-import clearnanoLogo from '@/assets/clearnanotech-logo.png';
+
 
 export const Footer = () => {
   const quickLinks = [
@@ -25,7 +25,7 @@ export const Footer = () => {
           <div className="md:col-span-2">
             <div className="flex items-center mb-6">
               <img 
-                src={clearnanoLogo} 
+                src="/Clearnanotech_rgb_color (2).png" 
                 alt="ClearNanoTech" 
                 className="h-8 w-auto brightness-0 invert"
               />

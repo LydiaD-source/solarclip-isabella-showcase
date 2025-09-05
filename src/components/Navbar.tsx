@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
-import clearnanoLogo from '@/assets/clearnanotech-logo.png';
+
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -30,11 +30,11 @@ export const Navbar = () => {
           {/* Logo */}
           <div className="flex items-center py-2 mr-12">
             <img 
-              src={clearnanoLogo} 
+              src="/Clearnanotech_rgb_color (2).png" 
               alt="ClearNanoTech - SolarClip Revolutionary Solar Mounting" 
-              className="w-[130px] lg:w-[180px] xl:w-[200px] h-auto object-contain"
+              className="w-[130px] lg:w-[200px] h-auto object-contain"
               onError={(e) => {
-                console.error('Logo failed to load:', clearnanoLogo);
+                console.error('Logo failed to load: /Clearnanotech_rgb_color (2).png');
                 e.currentTarget.style.display = 'none';
               }}
             />
