@@ -34,8 +34,8 @@ export const Navbar = () => {
               alt="ClearNanoTech - SolarClip Revolutionary Solar Mounting" 
               className="w-[130px] lg:w-[200px] h-auto object-contain"
               onError={(e) => {
-                console.error('Logo failed to load: /clearnanotech-logo.png');
-                e.currentTarget.style.display = 'none';
+                console.error('Logo failed to load: /clearnanotech-logo.png; falling back to uploaded path');
+                (e.currentTarget as HTMLImageElement).src = '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png';
               }}
             />
           </div>

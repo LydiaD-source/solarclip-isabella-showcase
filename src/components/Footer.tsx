@@ -27,7 +27,11 @@ export const Footer = () => {
               <img 
                 src="/clearnanotech-logo.png" 
                 alt="ClearNanoTech" 
-                className="h-8 w-auto object-contain brightness-0 invert"
+                className="w-[130px] lg:w-[200px] h-auto object-contain"
+                onError={(e) => {
+                  console.error('Logo failed to load: /clearnanotech-logo.png; falling back to uploaded path');
+                  (e.currentTarget as HTMLImageElement).src = '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png';
+                }}
               />
             </div>
             <p className="text-primary-foreground/80 mb-6 max-w-md">
