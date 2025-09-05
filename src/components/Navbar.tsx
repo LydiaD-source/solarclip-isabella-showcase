@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
-import clearnanoLogo from '@/assets/clearnanotech-logo.png';
+import clearnanoLogo from '/lovable-uploads/dde95b22-cdc3-41bd-ae04-0d6d62b4ff55.png';
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -28,7 +28,7 @@ export const Navbar = () => {
       <div className="max-w-7xl mx-auto px-6">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center py-2 mr-8">
+          <div className="flex items-center py-2 mr-12">
             <img 
               src={clearnanoLogo} 
               alt="ClearNanoTech - SolarClip Revolutionary Solar Mounting" 

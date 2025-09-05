@@ -39,10 +39,10 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
   };
 
   return (
-    <div className="fixed top-32 right-4 lg:top-24 lg:right-8 xl:right-12 z-50">
-      {/* Avatar - Much larger and prominent */}
+    <div className="fixed top-28 right-4 lg:top-20 lg:right-8 xl:right-16 z-50">
+      {/* Avatar - Enlarged for better visibility */}
       <div 
-        className={`isabella-avatar w-48 h-48 sm:w-56 sm:h-56 lg:w-80 lg:h-80 xl:w-96 xl:h-96 cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 ${isPlaying ? 'animate-pulse border-accent-glow shadow-accent/30' : 'shadow-black/20 hover:shadow-accent/20'}`}
+        className={`isabella-avatar w-60 h-72 sm:w-72 sm:h-80 lg:w-80 lg:h-96 xl:w-96 xl:h-[28rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 ${isPlaying ? 'animate-pulse border-accent-glow shadow-accent/30' : 'shadow-black/20 hover:shadow-accent/20'}`}
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Image */}
