@@ -25,9 +25,9 @@ export const Footer = () => {
           <div className="md:col-span-2">
             <div className="flex items-center mb-6">
               <img 
-                src="/Clearnanotech_rgb_color (2).png" 
+                src="/clearnanotech-logo.png" 
                 alt="ClearNanoTech" 
-                className="h-8 w-auto brightness-0 invert"
+                className="h-8 w-auto object-contain brightness-0 invert"
               />
             </div>
             <p className="text-primary-foreground/80 mb-6 max-w-md">

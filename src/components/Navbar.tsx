@@ -30,11 +30,11 @@ export const Navbar = () => {
           {/* Logo */}
           <div className="flex items-center py-2 mr-12">
             <img 
-              src="/Clearnanotech_rgb_color (2).png" 
+              src="/clearnanotech-logo.png" 
               alt="ClearNanoTech - SolarClip Revolutionary Solar Mounting" 
               className="w-[130px] lg:w-[200px] h-auto object-contain"
               onError={(e) => {
-                console.error('Logo failed to load: /Clearnanotech_rgb_color (2).png');
+                console.error('Logo failed to load: /clearnanotech-logo.png');
                 e.currentTarget.style.display = 'none';
               }}
             />

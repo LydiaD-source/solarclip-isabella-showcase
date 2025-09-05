@@ -18,7 +18,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
       {/* Hero Content Grid - Two Column Layout */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
         {/* Left Column - Hero Content */}
-        <div className="lg:max-w-2xl animate-fade-in-up">
+        <div className="lg:max-w-2xl animate-fade-in-up lg:pr-6">
           {/* Main Headline */}
           <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl mb-6 text-foreground leading-tight text-center lg:text-left">
             The Future of
@@ -62,7 +62,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         </div>
 
         {/* Right Column - Isabella Avatar (stacks below on mobile) */}
-        <div className="flex justify-center lg:justify-end items-center mt-10 lg:mt-0">
+        <div className="flex justify-center lg:justify-end items-start lg:items-center mt-10 lg:mt-8">
           <IsabellaAvatar isExpanded={isExpanded} onChatToggle={onChatToggle} />
         </div>
       </div>
