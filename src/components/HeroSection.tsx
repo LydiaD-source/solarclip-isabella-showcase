@@ -32,17 +32,6 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Product Logo - Top Left */}
-      <div className="absolute top-8 left-8 z-50">
-        <img 
-          src="/clearnanotech-logo.png" 
-          alt="ClearNanoTech - SolarClip" 
-          className="w-[120px] lg:w-[180px] h-auto object-contain brightness-0 invert filter contrast-125 saturate-150"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).src = '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png';
-          }}
-        />
-      </div>
 
       {/* Language Toggle - Bottom Right */}
       <div className="language-toggle">

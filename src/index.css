@@ -181,7 +181,7 @@ Cinematic gradients with solar energy themes
   
   /* Isabella Avatar - Refined with Gentle Glow */
   .isabella-avatar-refined {
-    @apply aspect-[4/5] rounded-[50%] border-3 border-accent/15 shadow-lg transition-all duration-500 relative overflow-hidden cursor-pointer;
+    @apply aspect-[4/5] rounded-[50%] border-2 border-accent/15 shadow-lg transition-all duration-500 relative overflow-hidden cursor-pointer;
     background: var(--gradient-isabella);
     box-shadow: var(--shadow-isabella);
     animation: gentle-pulse 4s ease-in-out infinite;
