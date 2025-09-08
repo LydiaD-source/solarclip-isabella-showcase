@@ -214,9 +214,9 @@ Cinematic gradients with solar energy themes
     transform: scale(1.1) translateY(-2px);
   }
   
-  /* Language Toggle */
-  .language-toggle {
-    @apply fixed bottom-6 right-6 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 text-white hover:bg-white/20 transition-all duration-300;
+  /* Chatbox Glow Effect */
+  .chatbox-glow {
+    box-shadow: 0 0 40px hsl(var(--accent) / 0.3), 0 20px 60px -10px hsl(var(--background) / 0.8);
   }
   
   /* Meet Isabella Button - Refined */

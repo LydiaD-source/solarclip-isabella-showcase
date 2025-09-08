@@ -33,8 +33,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
 
-      {/* Language Toggle - Bottom Right */}
-      <div className="language-toggle">
+      {/* Language Toggle - Bottom Right Corner */}
+      <div className="fixed bottom-4 right-4 z-50 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 hover:bg-white/20 transition-all duration-300">
         <Button
           variant="ghost"
           size="sm"
@@ -43,7 +43,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             const nextIndex = (currentIndex + 1) % languages.length;
             setCurrentLanguage(languages[nextIndex]);
           }}
-          className="text-white hover:text-accent"
+          className="text-white hover:text-accent p-0"
         >
           <Globe className="w-4 h-4 mr-2" />
           {currentLanguage}
@@ -54,7 +54,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
       <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center h-screen">
         
         {/* Left Column - Hero Content */}
-        <div className="flex flex-col justify-center space-y-8 lg:-mt-16">
+        <div className="flex flex-col justify-center space-y-8 lg:mt-12">
           {/* Main Headline */}
           <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight hero-text-glow">
             The Future of
@@ -91,7 +91,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         </div>
 
         {/* Right Column - Isabella Avatar */}
-        <div className="flex justify-center lg:justify-end items-center relative">
+        <div className="flex justify-center lg:justify-end items-center relative -mt-5">
           <div className="relative group">
             {/* Isabella Avatar */}
             <div 
@@ -106,9 +106,9 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
               />
             </div>
             
-            {/* Meet Isabella Button - Below Avatar */}
+            {/* Meet Isabella Button - Separated Below Avatar */}
             {showMeetButton && (
-              <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
+              <div className="absolute -bottom-24 left-1/2 transform -translate-x-1/2 text-center">
                 <Button 
                   className="meet-isabella-btn-refined"
                   onClick={handleMeetIsabella}
@@ -128,20 +128,59 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             )}
           </div>
         </div>
+
+        {/* Futuristic Chatbox Panel - Floating Between Columns */}
+        {isExpanded && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[500px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
+            {/* Chat Messages Area */}
+            <div className="flex-1 p-4 overflow-y-auto space-y-3">
+              <div className="flex justify-end">
+                <div className="bg-primary/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
+                  Hello Isabella, tell me about SolarClip™
+                </div>
+              </div>
+              <div className="flex justify-start">
+                <div className="bg-accent/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
+                  Welcome! I'm excited to show you our revolutionary SolarClip™ system. It's the world's first clip-on solar mounting solution that's completely reversible and roof-safe.
+                </div>
+              </div>
+            </div>
+            
+            {/* Input Area */}
+            <div className="p-4 border-t border-accent/20">
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  placeholder="Ask Isabella anything..."
+                  className="flex-1 bg-white/10 border border-accent/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:border-accent"
+                />
+                <Button size="sm" className="bg-accent/30 hover:bg-accent/50 text-white p-2">
+                  <Mic className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Chat/Microphone Interface - Show when expanded */}
-      {isExpanded && (
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-4">
-          <Button className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20">
+      {/* Voice/Text Interface - Positioned Below Isabella When Expanded */}
+      {isExpanded && !showMeetButton && (
+        <div className="absolute bottom-32 right-8 lg:right-16 flex flex-col gap-3">
+          <Button className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 px-6 py-3">
             <Mic className="w-5 h-5 mr-2" />
             Voice Chat
           </Button>
-          <Button className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20">
+          <Button className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 px-6 py-3">
             💬 Text Chat
           </Button>
         </div>
       )}
+
+      {/* Video Presentation Area - Reserved Space for Sliding Cards */}
+      <div id="video-presentation-area" className="absolute top-1/2 left-8 lg:left-16 transform -translate-y-1/2 w-[350px] h-[250px] pointer-events-none">
+        {/* This area is reserved for sliding video cards from Phase 2 */}
+      </div>
+
     </section>
   );
 };
