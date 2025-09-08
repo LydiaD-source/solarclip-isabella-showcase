@@ -54,7 +54,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
       <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center h-screen">
         
         {/* Left Column - Hero Content */}
-        <div className="flex flex-col justify-center space-y-8 lg:mt-12" style={{ transform: 'translateY(-12px)' }}>
+        <div className="flex flex-col justify-center space-y-8 lg:mt-12" style={{ transform: 'translateY(-20px)' }}>
           {/* Main Headline */}
           <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight hero-text-glow">
             The Future of
@@ -108,19 +108,35 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
               />
             </div>
             
-            {/* Meet Isabella Button - Positioned to Left of Avatar */}
+            {/* Meet Isabella Button - Aligned with Language Toggle */}
             {showMeetButton && (
-              <div className="absolute bottom-16 -left-48 text-center">
-                <Button 
-                  className="meet-isabella-btn-refined text-base px-6 py-3"
-                  onClick={handleMeetIsabella}
-                  style={{ transform: 'scale(1.15)' }}
-                >
-                  <Play className="mr-2 w-5 h-5" />
-                  Meet Isabella
-                </Button>
-                <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
-              </div>
+              <>
+                {/* Desktop positioning */}
+                <div className="hidden lg:block absolute bottom-6 -left-56 xl:-left-64 text-center">
+                  <Button 
+                    className="meet-isabella-btn-animated text-base px-6 py-3"
+                    onClick={handleMeetIsabella}
+                    style={{ transform: 'scale(1.15)' }}
+                  >
+                    <Play className="mr-2 w-5 h-5" />
+                    Meet Isabella
+                  </Button>
+                  <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
+                </div>
+                
+                {/* Mobile positioning */}
+                <div className="lg:hidden absolute -bottom-28 left-1/2 transform -translate-x-1/2 text-center">
+                  <Button 
+                    className="meet-isabella-btn-animated text-base px-6 py-3"
+                    onClick={handleMeetIsabella}
+                    style={{ transform: 'scale(1.15)' }}
+                  >
+                    <Play className="mr-2 w-5 h-5" />
+                    Meet Isabella
+                  </Button>
+                  <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
+                </div>
+              </>
             )}
             
             {/* Hover Tooltip */}
