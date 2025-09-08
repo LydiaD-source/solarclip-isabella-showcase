@@ -34,7 +34,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
 
       {/* Language Toggle - Bottom Right Corner */}
-      <div className="fixed bottom-6 right-4 z-50 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 hover:bg-white/20 transition-all duration-300">
+      <div className="fixed bottom-4 right-4 z-50 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 hover:bg-white/20 transition-all duration-300">
         <Button
           variant="ghost"
           size="sm"
@@ -111,8 +111,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             {/* Meet Isabella Button - Aligned with Language Toggle */}
             {showMeetButton && (
               <>
-                {/* Desktop positioning */}
-                <div className="hidden lg:block absolute bottom-6 -left-56 xl:-left-64 text-center">
+                {/* Desktop positioning - Moved down 20px and right 20px */}
+                <div className="hidden lg:block absolute bottom-1 -left-36 xl:-left-44 text-center">
                   <Button 
                     className="meet-isabella-btn-animated text-base px-6 py-3"
                     onClick={handleMeetIsabella}
@@ -124,8 +124,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                   <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
                 </div>
                 
-                {/* Mobile positioning */}
-                <div className="lg:hidden absolute -bottom-28 left-1/2 transform -translate-x-1/2 text-center">
+                {/* Mobile positioning - Adjusted for better spacing */}
+                <div className="lg:hidden absolute -bottom-32 left-1/2 transform -translate-x-1/2 text-center">
                   <Button 
                     className="meet-isabella-btn-animated text-base px-6 py-3"
                     onClick={handleMeetIsabella}
