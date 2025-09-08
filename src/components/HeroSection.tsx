@@ -65,26 +65,26 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
       <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center h-screen">
         
         {/* Left Column - Hero Content */}
-        <div className="flex flex-col justify-center space-y-8">
+        <div className="flex flex-col justify-center space-y-8 lg:-mt-16">
           {/* Main Headline */}
-          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight">
+          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight hero-text-glow">
             The Future of
             <span className="block text-gradient"> Lightweight Solar</span>
             is Here.
           </h1>
 
           {/* Subheadline */}
-          <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed">
+          <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed hero-text-glow">
             SolarClip™ — the world's first clip-on / clip-off solar mounting system. 
             <span className="font-semibold text-white"> Fast. Reversible. Roof-safe.</span>
           </p>
 
           {/* Video Thumbnails */}
-          <div className="flex gap-4">
+          <div className="flex gap-4 flex-wrap">
             {videoThumbnails.map((video) => (
               <div 
                 key={video.id}
-                className="video-thumbnail"
+                className="video-thumbnail-interactive"
                 onClick={() => handleVideoThumbnail(video.id)}
                 title={video.title}
               >
@@ -103,33 +103,37 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
 
         {/* Right Column - Isabella Avatar */}
         <div className="flex justify-center lg:justify-end items-center relative">
-          <div className="relative">
+          <div className="relative group">
             {/* Isabella Avatar */}
-            <div className="isabella-avatar w-80 lg:w-96 max-w-full">
+            <div 
+              className="isabella-avatar-refined w-72 lg:w-80 xl:w-96 max-w-[70vw] lg:max-w-full cursor-pointer"
+              onClick={onChatToggle}
+              title="Click to talk with Isabella"
+            >
               <img 
                 src="https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg"
                 alt="Isabella Navia - AI Solar Ambassador"
                 className="w-full h-full object-contain"
-                onClick={onChatToggle}
               />
             </div>
             
-            {/* Meet Isabella Button Overlay */}
+            {/* Meet Isabella Button - Below Avatar */}
             {showMeetButton && (
-              <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 text-center">
                 <Button 
-                  className="meet-isabella-btn"
+                  className="meet-isabella-btn-refined"
                   onClick={handleMeetIsabella}
                 >
                   <Play className="mr-2 w-5 h-5" />
                   Meet Isabella
                 </Button>
+                <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
               </div>
             )}
             
-            {/* Tooltip when not expanded */}
+            {/* Hover Tooltip */}
             {!isExpanded && !showMeetButton && (
-              <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 text-white text-sm border border-white/20">
+              <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 text-white text-sm border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 Click to talk with Isabella
               </div>
             )}
