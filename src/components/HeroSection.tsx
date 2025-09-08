@@ -1,72 +1,154 @@
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Play } from 'lucide-react';
-import { IsabellaAvatar } from '@/components/IsabellaAvatar';
+import { Globe, Play, Mic } from 'lucide-react';
+import { useState } from 'react';
 
-interface HeroSectionProps { isExpanded?: boolean; onChatToggle?: () => void }
+interface HeroSectionProps { 
+  isExpanded?: boolean; 
+  onChatToggle?: () => void;
+}
+
+const videoThumbnails = [
+  { id: 'ceo', title: 'CEO Testimonial', image: 'https://res.cloudinary.com/di5gj4nyp/image/upload/c_thumb,w_64,h_64,g_face/v1747229179/ceo_thumbnail.jpg' },
+  { id: 'board', title: 'Board Member', image: 'https://res.cloudinary.com/di5gj4nyp/image/upload/c_thumb,w_64,h_64,g_face/v1747229179/board_thumbnail.jpg' },
+  { id: 'client', title: 'Happy Client', image: 'https://res.cloudinary.com/di5gj4nyp/image/upload/c_thumb,w_64,h_64,g_face/v1747229179/client_thumbnail.jpg' },
+  { id: 'owner', title: 'Building Owner', image: 'https://res.cloudinary.com/di5gj4nyp/image/upload/c_thumb,w_64,h_64,g_face/v1747229179/owner_thumbnail.jpg' }
+];
 
 export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionProps) => {
+  const [showMeetButton, setShowMeetButton] = useState(true);
+  const [currentLanguage, setCurrentLanguage] = useState('EN');
+  
+  const languages = ['EN', 'FR', 'DE', 'LB'];
+
+  const handleMeetIsabella = () => {
+    setShowMeetButton(false);
+    onChatToggle?.();
+  };
+
+  const handleVideoThumbnail = (videoId: string) => {
+    console.log(`Playing video: ${videoId}`);
+    // TODO: Implement video modal with sliding card animation
+  };
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Background Gradient */}
-      <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary to-background"></div>
-      
-      {/* Grid Pattern Overlay */}
-      <div className="absolute inset-0 opacity-[0.02]">
-        <div className="w-full h-full bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23000%22%20fill-opacity%3D%221%22%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%221%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] bg-repeat"></div>
+      {/* Product Logo - Top Left */}
+      <div className="absolute top-8 left-8 z-50">
+        <img 
+          src="/clearnanotech-logo.png" 
+          alt="ClearNanoTech - SolarClip" 
+          className="w-[120px] lg:w-[180px] h-auto object-contain brightness-0 invert filter contrast-125 saturate-150"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).src = '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png';
+          }}
+        />
       </div>
 
-      {/* Hero Content Grid - Two Column Layout */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
+      {/* Language Toggle - Bottom Right */}
+      <div className="language-toggle">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => {
+            const currentIndex = languages.indexOf(currentLanguage);
+            const nextIndex = (currentIndex + 1) % languages.length;
+            setCurrentLanguage(languages[nextIndex]);
+          }}
+          className="text-white hover:text-accent"
+        >
+          <Globe className="w-4 h-4 mr-2" />
+          {currentLanguage}
+        </Button>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center h-screen">
+        
         {/* Left Column - Hero Content */}
-        <div className="lg:max-w-2xl animate-fade-in-up lg:pr-6">
+        <div className="flex flex-col justify-center space-y-8">
           {/* Main Headline */}
-          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl mb-6 text-foreground leading-tight text-center lg:text-left">
+          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight">
             The Future of
-            <span className="block text-gradient">Lightweight Solar</span>
+            <span className="block text-gradient"> Lightweight Solar</span>
             is Here.
           </h1>
 
           {/* Subheadline */}
-          <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground mb-8 leading-relaxed text-center lg:text-left">
+          <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed">
             SolarClip™ — the world's first clip-on / clip-off solar mounting system. 
-            <span className="font-semibold text-foreground"> Fast. Reversible. Roof-safe.</span>
+            <span className="font-semibold text-white"> Fast. Reversible. Roof-safe.</span>
           </p>
 
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center mb-12">
-            <Button className="btn-hero group">
-              Get Your Quote
-              <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
-            </Button>
-            <Button variant="outline" className="btn-outline group">
-              <Play className="mr-2 w-5 h-5" />
-              See How It Works
-            </Button>
-          </div>
-
-          {/* Social Proof / Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
-            <div className="text-center lg:text-left">
-              <div className="text-3xl font-bold text-gradient mb-2">4x</div>
-              <div className="text-sm text-muted-foreground">Faster Installation</div>
-            </div>
-            <div className="text-center lg:text-left">
-              <div className="text-3xl font-bold text-gradient mb-2">80%</div>
-              <div className="text-sm text-muted-foreground">More Roofs Qualified</div>
-            </div>
-            <div className="text-center lg:text-left">
-              <div className="text-3xl font-bold text-gradient mb-2">230km/h</div>
-              <div className="text-sm text-muted-foreground">Wind Resistance</div>
-            </div>
+          {/* Video Thumbnails */}
+          <div className="flex gap-4">
+            {videoThumbnails.map((video) => (
+              <div 
+                key={video.id}
+                className="video-thumbnail"
+                onClick={() => handleVideoThumbnail(video.id)}
+                title={video.title}
+              >
+                <img 
+                  src={video.image} 
+                  alt={video.title}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = `https://via.placeholder.com/64x64/4CAF50/ffffff?text=${video.title.charAt(0)}`;
+                  }}
+                />
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Right Column - Isabella Avatar (stacks below on mobile) */}
-        <div className="flex justify-center lg:justify-end items-start lg:items-center mt-10 lg:mt-8">
-          <IsabellaAvatar isExpanded={isExpanded} onChatToggle={onChatToggle} />
+        {/* Right Column - Isabella Avatar */}
+        <div className="flex justify-center lg:justify-end items-center relative">
+          <div className="relative">
+            {/* Isabella Avatar */}
+            <div className="isabella-avatar w-80 lg:w-96 max-w-full">
+              <img 
+                src="https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg"
+                alt="Isabella Navia - AI Solar Ambassador"
+                className="w-full h-full object-contain"
+                onClick={onChatToggle}
+              />
+            </div>
+            
+            {/* Meet Isabella Button Overlay */}
+            {showMeetButton && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Button 
+                  className="meet-isabella-btn"
+                  onClick={handleMeetIsabella}
+                >
+                  <Play className="mr-2 w-5 h-5" />
+                  Meet Isabella
+                </Button>
+              </div>
+            )}
+            
+            {/* Tooltip when not expanded */}
+            {!isExpanded && !showMeetButton && (
+              <div className="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 text-white text-sm border border-white/20">
+                Click to talk with Isabella
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
+      {/* Chat/Microphone Interface - Show when expanded */}
+      {isExpanded && (
+        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex gap-4">
+          <Button className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20">
+            <Mic className="w-5 h-5 mr-2" />
+            Voice Chat
+          </Button>
+          <Button className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20">
+            💬 Text Chat
+          </Button>
+        </div>
+      )}
     </section>
   );
 };

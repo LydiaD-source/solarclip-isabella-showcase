@@ -4,18 +4,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* SolarClip™ Design System - ClearNanoTech Branding
+/* Next-Gen SolarClip™ Design System - AI-First Cinematic Experience
 Navy blue (#002147) for trust/engineering
-Clean white/light gray (#F9FAFB) for clarity  
-Fresh green accent (#4CAF50) for sustainability
-Soft gradients for depth
+Fresh green (#4CAF50) for sustainability  
+Clean whites (#F9FAFB) for clarity
+Cinematic gradients with solar energy themes
 */
 
 @layer base {
   :root {
-    /* Core Brand Colors - ClearNanoTech */
-    --background: 220 20% 99%;
-    --foreground: 209 100% 14%;
+    /* Cinematic Background - Navy to space-like depth */
+    --background: 209 100% 8%; /* Deep navy space */
+    --foreground: 220 20% 99%; /* Pure white text */
     
     /* Navy Blue Primary - Trust & Engineering */
     --primary: 209 100% 14%; /* #002147 */
@@ -32,20 +32,22 @@ Soft gradients for depth
     /* Clean Whites & Grays */
     --secondary: 220 14% 96%; /* #F9FAFB */
     --secondary-foreground: 209 100% 14%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 220 14% 88%;
+    --muted-foreground: 220 14% 70%;
     
-    /* Gradients */
-    --gradient-hero: linear-gradient(135deg, hsl(209 100% 14%), hsl(209 100% 25%));
+    /* Cinematic Gradients with Sun Rays */
+    --gradient-cinematic: linear-gradient(135deg, hsl(209 100% 8%) 0%, hsl(209 100% 12%) 25%, hsl(45 100% 35%) 50%, hsl(209 100% 8%) 75%, hsl(209 100% 5%) 100%);
+    --gradient-solar: radial-gradient(ellipse at top right, hsl(45 100% 50% / 0.3) 0%, hsl(45 100% 40% / 0.2) 30%, transparent 70%);
     --gradient-accent: linear-gradient(135deg, hsl(122 48% 56%), hsl(122 48% 66%));
     --gradient-premium: linear-gradient(135deg, hsl(209 100% 14%), hsl(122 48% 56%));
-    --gradient-surface: linear-gradient(180deg, hsl(220 20% 99%), hsl(220 14% 96%));
-    --gradient-isabella: linear-gradient(135deg, hsl(260 100% 97%), hsl(30 100% 96%));
+    --gradient-isabella: linear-gradient(135deg, hsl(280 70% 95%), hsl(190 80% 95%));
+    --gradient-overlay: linear-gradient(90deg, hsla(209, 100%, 8%, 0.8) 0%, transparent 50%, hsla(209, 100%, 8%, 0.9) 100%);
     
-    /* Shadows & Effects */
-    --shadow-premium: 0 20px 60px -20px hsl(209 100% 14% / 0.3);
-    --shadow-glow: 0 0 40px hsl(122 48% 56% / 0.4);
-    --shadow-isabella: 0 10px 30px -10px hsl(260 50% 50% / 0.3);
+    /* Enhanced Shadows & Effects */
+    --shadow-premium: 0 25px 80px -20px hsl(209 100% 14% / 0.4);
+    --shadow-glow: 0 0 60px hsl(122 48% 56% / 0.6);
+    --shadow-isabella: 0 20px 60px -10px hsl(280 70% 70% / 0.4);
+    --shadow-solar: 0 0 120px hsl(45 100% 50% / 0.3);
     
     /* Component Colors */
     --card: 220 20% 99%;
@@ -145,17 +147,68 @@ Soft gradients for depth
     @apply border-2 border-primary text-primary px-6 py-3 rounded-lg font-medium hover:bg-primary hover:text-primary-foreground transition-all duration-300;
   }
   
-  /* Isabella Avatar Animation */
+  /* Cinematic Background */
+  .cinematic-bg {
+    background: var(--gradient-cinematic);
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .cinematic-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 60%;
+    height: 100%;
+    background: var(--gradient-solar);
+    pointer-events: none;
+    z-index: 1;
+  }
+  
+  /* Isabella Avatar - Large Oval with Glow */
   .isabella-avatar {
-    @apply rounded-full border-2 border-accent/30 shadow-lg transition-all duration-300;
+    @apply aspect-[4/5] rounded-[50%] border-4 border-accent/20 shadow-lg transition-all duration-500 relative overflow-hidden cursor-pointer;
     background: var(--gradient-isabella);
     box-shadow: var(--shadow-isabella);
   }
   
   .isabella-avatar:hover {
-    @apply scale-105 border-accent/60;
+    @apply border-accent/50 scale-105;
     box-shadow: var(--shadow-glow);
-    animation: pulse-glow 2s ease-in-out infinite;
+    animation: isabella-pulse 3s ease-in-out infinite;
+  }
+  
+  .isabella-avatar::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    background: linear-gradient(45deg, hsl(var(--accent)), transparent, hsl(var(--primary-glow)));
+    border-radius: 50%;
+    z-index: -1;
+    animation: rotate-glow 4s linear infinite;
+  }
+  
+  /* Video Thumbnail Circles */
+  .video-thumbnail {
+    @apply w-16 h-16 rounded-full border-2 border-accent/30 cursor-pointer transition-all duration-300 overflow-hidden;
+    box-shadow: 0 4px 15px hsl(209 100% 14% / 0.3);
+  }
+  
+  .video-thumbnail:hover {
+    @apply border-accent scale-110;
+    box-shadow: var(--shadow-glow);
+  }
+  
+  /* Language Toggle */
+  .language-toggle {
+    @apply fixed bottom-6 right-6 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 text-white hover:bg-white/20 transition-all duration-300;
+  }
+  
+  /* Meet Isabella Button */
+  .meet-isabella-btn {
+    @apply bg-gradient-to-r from-accent to-accent-light text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105;
+    box-shadow: var(--shadow-glow);
   }
   
   /* Premium Cards */
@@ -172,13 +225,36 @@ Soft gradients for depth
     -webkit-text-fill-color: transparent;
   }
   
-  /* Animations */
-  @keyframes pulse-glow {
+  /* Cinematic Animations */
+  @keyframes isabella-pulse {
     0%, 100% {
       box-shadow: var(--shadow-isabella);
+      transform: scale(1);
     }
     50% {
       box-shadow: var(--shadow-glow);
+      transform: scale(1.02);
+    }
+  }
+  
+  @keyframes rotate-glow {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  @keyframes solar-ray {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.7; }
+  }
+  
+  @keyframes slide-in-card {
+    from {
+      opacity: 0;
+      transform: translateX(100px) scale(0.9);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0) scale(1);
     }
   }
   
