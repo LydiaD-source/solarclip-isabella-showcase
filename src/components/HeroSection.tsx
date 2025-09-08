@@ -34,7 +34,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
 
       {/* Language Toggle - Bottom Right Corner */}
-      <div className="fixed bottom-4 right-4 z-50 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 hover:bg-white/20 transition-all duration-300">
+      <div className="fixed bottom-3 right-4 z-50 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 hover:bg-white/20 transition-all duration-300">
         <Button
           variant="ghost"
           size="sm"
@@ -111,8 +111,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             {/* Meet Isabella Button - Aligned with Language Toggle */}
             {showMeetButton && (
               <>
-                {/* Desktop positioning - Moved down 20px and right 20px */}
-                <div className="hidden lg:block absolute bottom-1 -left-36 xl:-left-44 text-center">
+                {/* Desktop positioning - Aligned tops horizontally */}
+                <div className="hidden lg:block absolute bottom-[-14px] -left-40 xl:-left-48 text-center">
                   <Button 
                     className="meet-isabella-btn-animated text-base px-6 py-3"
                     onClick={handleMeetIsabella}
