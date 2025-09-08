@@ -34,7 +34,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
 
       {/* Language Toggle - Bottom Right Corner */}
-      <div className="fixed bottom-4 right-4 z-50 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 hover:bg-white/20 transition-all duration-300">
+      <div className="fixed bottom-6 right-4 z-50 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 hover:bg-white/20 transition-all duration-300">
         <Button
           variant="ghost"
           size="sm"
@@ -54,7 +54,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
       <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center h-screen">
         
         {/* Left Column - Hero Content */}
-        <div className="flex flex-col justify-center space-y-8 lg:mt-12">
+        <div className="flex flex-col justify-center space-y-8 lg:mt-12" style={{ transform: 'translateY(-12px)' }}>
           {/* Main Headline */}
           <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight hero-text-glow">
             The Future of
@@ -82,7 +82,9 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                   alt={video.title}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.currentTarget as HTMLImageElement).src = `https://via.placeholder.com/64x64/4CAF50/ffffff?text=${video.title.charAt(0)}`;
+                    const target = e.currentTarget as HTMLImageElement;
+                    target.src = `https://via.placeholder.com/64x64/4CAF50/ffffff?text=${video.title.charAt(0)}`;
+                    target.onerror = null; // Prevent infinite loop
                   }}
                 />
               </div>
@@ -106,12 +108,13 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
               />
             </div>
             
-            {/* Meet Isabella Button - Separated Below Avatar */}
+            {/* Meet Isabella Button - Positioned to Left of Avatar */}
             {showMeetButton && (
-              <div className="absolute -bottom-24 left-1/2 transform -translate-x-1/2 text-center">
+              <div className="absolute bottom-16 -left-48 text-center">
                 <Button 
-                  className="meet-isabella-btn-refined"
+                  className="meet-isabella-btn-refined text-base px-6 py-3"
                   onClick={handleMeetIsabella}
+                  style={{ transform: 'scale(1.15)' }}
                 >
                   <Play className="mr-2 w-5 h-5" />
                   Meet Isabella
