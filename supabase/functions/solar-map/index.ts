@@ -27,18 +27,30 @@ serve(async (req) => {
 
     console.log(`Fetching solar data for address: ${address}, client: ${client_id}`);
 
-    // Call Google Solar API
-    const solarApiUrl = `https://solar.googleapis.com/v1/buildings:findClosest?key=${googleApiKey}`;
+    // First, geocode the address to get lat/lng coordinates
+    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${googleApiKey}`;
+    const geocodeResponse = await fetch(geocodeUrl);
+    
+    if (!geocodeResponse.ok) {
+      console.error('Geocoding API error:', await geocodeResponse.text());
+      throw new Error('Failed to geocode address');
+    }
+    
+    const geocodeData = await geocodeResponse.json();
+    
+    if (!geocodeData.results || geocodeData.results.length === 0) {
+      throw new Error('Address not found');
+    }
+    
+    const location = geocodeData.results[0].geometry.location;
+    
+    // Call Google Solar API with lat/lng coordinates
+    const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&key=${googleApiKey}`;
     const response = await fetch(solarApiUrl, {
-      method: 'POST',
+      method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        location: {
-          address: address
-        }
-      })
+        'Accept': 'application/json',
+      }
     });
 
     if (!response.ok) {
