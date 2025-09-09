@@ -149,9 +149,9 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           </div>
         </div>
 
-        {/* Enhanced Chatbox Panel - Slimmer and positioned between Isabella and hero text */}
+        {/* Enhanced Chatbox Panel - Positioned snugly next to Isabella */}
         {isExpanded && (
-          <div className="absolute top-1/2 left-[15%] lg:left-[25%] xl:left-[30%] transform -translate-x-1/2 -translate-y-1/3 w-[320px] sm:w-[360px] lg:w-[380px] h-[520px] sm:h-[580px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
+          <div className="absolute top-1/2 left-[35%] lg:left-[45%] xl:left-[50%] transform -translate-x-1/2 -translate-y-[38%] w-[320px] sm:w-[360px] lg:w-[380px] h-[480px] sm:h-[520px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
             {/* Chat Header with Clear Button */}
             <div className="flex justify-between items-center p-4 border-b border-accent/20">
               <h3 className="text-white font-medium">Isabella AI Assistant</h3>
