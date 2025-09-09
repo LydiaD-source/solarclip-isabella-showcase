@@ -29,19 +29,36 @@ serve(async (req) => {
 
     // First, geocode the address to get lat/lng coordinates
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${googleApiKey}`;
+    console.log(`Geocoding URL: ${geocodeUrl}`);
+    
     const geocodeResponse = await fetch(geocodeUrl);
     
     if (!geocodeResponse.ok) {
-      console.error('Geocoding API error:', await geocodeResponse.text());
-      throw new Error('Failed to geocode address');
+      const errorText = await geocodeResponse.text();
+      console.error('Geocoding API error:', errorText);
+      return new Response(JSON.stringify({
+        status: 'error',
+        message: "Sorry, I couldn't locate that address. Please try again.",
+        card: {
+          type: "error",
+          title: "Address Not Found",
+          content: { message: "Sorry, I couldn't locate that address. Please try again." },
+          animation: "swoop-left"
+        }
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     
     const geocodeData = await geocodeResponse.json();
+    console.log('Geocoding response:', geocodeData.status, geocodeData.results?.length);
+    
     // Handle common geocoding failure modes gracefully
     if (geocodeData.status !== 'OK' || !geocodeData.results || geocodeData.results.length === 0) {
       console.error('Geocoding failed:', geocodeData.status, geocodeData.error_message);
       return new Response(JSON.stringify({
-        error: 'address_not_found',
+        status: 'error',
         message: "Sorry, I couldn't locate that address. Please try again.",
         card: {
           type: "error",
@@ -56,54 +73,119 @@ serve(async (req) => {
     }
     
     const location = geocodeData.results[0].geometry.location;
+    const formattedAddress = geocodeData.results[0].formatted_address;
+    console.log(`Found location: ${formattedAddress} at ${location.lat}, ${location.lng}`);
     
     // Call Google Solar API with lat/lng coordinates
     const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&key=${googleApiKey}`;
+    console.log(`Calling Solar API: ${solarApiUrl}`);
+    
     const response = await fetch(solarApiUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
+        'User-Agent': 'SolarClip/1.0'
       }
     });
 
     if (!response.ok) {
-      console.error('Google Solar API error:', await response.text());
+      const errorText = await response.text();
+      console.error('Google Solar API error:', response.status, errorText);
+      
+      if (response.status === 404) {
+        return new Response(JSON.stringify({
+          status: 'error',
+          message: "No solar data available for this location yet. Please try a different address.",
+          card: {
+            type: "error",
+            title: "Solar Data Unavailable",
+            content: { message: "No solar data available for this location yet. Please try a different address." },
+            animation: "swoop-left"
+          }
+        }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       throw new Error('Failed to fetch solar data');
     }
 
     const solarData = await response.json();
+    console.log('Solar data received:', Object.keys(solarData));
     
-    // Process the solar data and create summary
-    // Prefer monthly energy direct from API if available; otherwise compute a reasonable fallback
-    const apiMonthly = solarData.solarPotential?.monthlyEnergyKwh || solarData.solarPotential?.monthlyEnergy?.map((m: any) => Math.round(m.energyKwh));
-    const fallbackMonthly = Array.from({ length: 12 }, (_, i) => Math.round(700 + Math.sin(i / 12 * 2 * Math.PI) * 200));
-    const monthly_kwh = Array.isArray(apiMonthly) && apiMonthly.length === 12 ? apiMonthly : fallbackMonthly;
-    const estAnnual = solarData.solarPotential?.maxArrayPanelsCount
-      ? Math.round(solarData.solarPotential.maxArrayPanelsCount * 300 * 365)
-      : monthly_kwh.reduce((a: number, b: number) => a + b, 0);
-
+    // Extract solar potential data with robust fallbacks
+    const solarPotential = solarData.solarPotential || {};
+    const roofSegments = solarData.roofSegmentStats || [];
+    
+    // Calculate energy data with improved extraction
+    let monthly_kwh = [];
+    let annual_kwh = 0;
+    let panel_count = 20;
+    let roof_area = 100;
+    
+    if (solarPotential.solarPanelConfigs && solarPotential.solarPanelConfigs.length > 0) {
+      // Use the best panel configuration
+      const bestConfig = solarPotential.solarPanelConfigs[0];
+      panel_count = bestConfig.panelsCount || 20;
+      annual_kwh = Math.round(bestConfig.yearlyEnergyDcKwh || 8000);
+      
+      // Extract monthly data if available
+      if (solarPotential.monthlyFlux && solarPotential.monthlyFlux.length === 12) {
+        const avgDailyKwh = annual_kwh / 365;
+        monthly_kwh = solarPotential.monthlyFlux.map((flux: any, index: number) => {
+          const daysInMonth = [31,28,31,30,31,30,31,31,30,31,30,31][index];
+          return Math.round(avgDailyKwh * daysInMonth * (flux / 1000));
+        });
+      }
+    }
+    
+    // Fallback calculations if API data is incomplete
+    if (monthly_kwh.length !== 12) {
+      monthly_kwh = Array.from({ length: 12 }, (_, i) => {
+        const baseMonthly = annual_kwh / 12;
+        const seasonalVariation = Math.sin((i - 5) / 12 * 2 * Math.PI) * 0.3;
+        return Math.round(baseMonthly * (1 + seasonalVariation));
+      });
+    }
+    
+    if (annual_kwh === 0) {
+      annual_kwh = monthly_kwh.reduce((sum, month) => sum + month, 0);
+    }
+    
+    // Extract roof area from building insights
+    if (solarData.boundingBox) {
+      const bounds = solarData.boundingBox;
+      roof_area = Math.round((bounds.ne.latitude - bounds.sw.latitude) * 
+                            (bounds.ne.longitude - bounds.sw.longitude) * 111000 * 111000);
+    }
+    
     const summary = {
-      annual_kwh: estAnnual,
+      annual_kwh,
       monthly_kwh,
-      co2_saved: Math.round(estAnnual * 0.0004),
-      panel_count: solarData.solarPotential?.maxArrayPanelsCount || 24,
-      roof_area: solarData.solarPotential?.maxArrayAreaMeters2 || 150
+      co2_saved: Math.round(annual_kwh * 0.0004),
+      panel_count,
+      roof_area,
+      max_panels: solarPotential.wholeRoofStats?.panelsCount || panel_count * 2,
+      address: formattedAddress
     };
 
     // Create embed URL for the solar map visualization
     const embedUrl = `https://solar.google.com/solar/p/${encodeURIComponent(address)}`;
 
     const response_data = {
+      status: 'success',
       embed_url: embedUrl,
       summary: summary,
-      title: `Solar potential for ${address}`,
+      title: `Solar Analysis: ${summary.address}`,
       raw_data: solarData,
       card: {
         type: "google_solar",
-        title: `Solar Analysis: ${address}`,
+        title: `Solar Analysis: ${summary.address}`,
         content: {
           summary: summary,
-          embed_url: embedUrl
+          embed_url: embedUrl,
+          interactive: true
         },
         animation: "swoop-left"
       }
@@ -125,6 +207,7 @@ serve(async (req) => {
       : "I couldn't retrieve solar data right now. Please try again later.";
 
     return new Response(JSON.stringify({ 
+      status: 'error',
       error: isAddressError ? 'address_not_found' : 'server_error',
       message: friendly,
       card: {

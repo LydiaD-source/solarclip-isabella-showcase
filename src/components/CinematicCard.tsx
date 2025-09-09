@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { X, Play, ExternalLink } from 'lucide-react';
+import { X, Play, ExternalLink, Plus, Minus } from 'lucide-react';
 
 interface CinematicCardProps {
   card: {
@@ -13,6 +13,9 @@ interface CinematicCardProps {
   onClose: () => void;
   onAction?: (action: string, data?: any) => void;
 }
+
+// Import the new SolarMapContent component
+const SolarMapContent = React.lazy(() => import('./SolarMapContent').then(module => ({ default: module.SolarMapContent })));
 
 export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -28,7 +31,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     setIsClosing(true);
     setTimeout(() => {
       onClose();
-    }, 600);
+    }, 3000); // Match the animation duration
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -61,27 +64,10 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
 
       case 'google_solar':
         return (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div className="space-y-2">
-                <p><strong>Annual Generation:</strong> {card.content.summary?.annual_kwh?.toLocaleString()} kWh</p>
-                <p><strong>Panel Count:</strong> {card.content.summary?.panel_count}</p>
-                <p><strong>CO₂ Saved:</strong> {card.content.summary?.co2_saved} tons/year</p>
-              </div>
-              <div className="space-y-2">
-                <p><strong>Roof Area:</strong> {card.content.summary?.roof_area} m²</p>
-                <p><strong>Monthly Avg:</strong> {Math.round((card.content.summary?.annual_kwh || 0) / 12).toLocaleString()} kWh</p>
-              </div>
-            </div>
-            <Button 
-              variant="outline" 
-              className="w-full gap-2"
-              onClick={() => window.open(card.content.embed_url, '_blank')}
-            >
-              <ExternalLink className="h-4 w-4" />
-              View Full Solar Analysis
-            </Button>
-          </div>
+          <SolarMapContent 
+            card={card} 
+            onAction={onAction}
+          />
         );
 
       case 'lead_form':
@@ -166,10 +152,10 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
       }`}
       onClick={handleClose}
     >
-      <div className="flex items-center justify-center min-h-screen p-4 perspective-1200">
+      <div className="flex items-center justify-center min-h-screen p-4 perspective-1200 transform-3d">
         <Card 
-          className={`w-full max-w-md shadow-2xl transform-gpu will-change-transform ${
-            isClosing ? 'animate-swoop-out' : (isVisible ? 'animate-swoop-in' : '')
+          className={`w-full max-w-md shadow-2xl transform-gpu will-change-transform transition-all duration-700 ${
+            isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
           }`}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={handleKeyDown}
