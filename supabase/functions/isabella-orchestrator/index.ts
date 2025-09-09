@@ -30,33 +30,18 @@ serve(async (req) => {
     // Check if user is asking for videos/presentation
     if (lowerMessage.includes('show') || lowerMessage.includes('video') || lowerMessage.includes('demo')) {
       response = {
-        text: "I'll show you our complete SolarClip presentation. Let me start with how our clip-on technology revolutionizes solar installation.",
+        text: "Here's our SolarClip presentation video.",
         cards: [
           {
-            type: "video_sequence",
-            sequence: [
-              {
-                id: "intro_video",
-                title: "SolarClip Introduction",
-                cloudinary_tag: "solarclip_intro",
-                announcement: "First, let me show you how SolarClip changes everything about solar installation."
-              },
-              {
-                id: "comparison_video", 
-                title: "Traditional vs SolarClip",
-                cloudinary_tag: "solarclip_comparison",
-                announcement: "Now see how we compare to traditional installation methods."
-              },
-              {
-                id: "demo_video",
-                title: "Installation Process",
-                cloudinary_tag: "solarclip_demo",
-                announcement: "Finally, watch our revolutionary installation process in action."
-              }
-            ]
+            type: "video",
+            title: "SolarClip Presentation",
+            content: {
+              url: "https://res.cloudinary.com/di5gj4nyp/video/upload/v1757341336/VIDEO-2025-04-11-11-30-14_1_xywu7x.mp4",
+              description: "Revolutionary clip-on solar technology"
+            }
           }
         ],
-        actions: ['start_video_sequence']
+        actions: ['play_video']
       };
     }
     // Check if user wants solar analysis or provided an address

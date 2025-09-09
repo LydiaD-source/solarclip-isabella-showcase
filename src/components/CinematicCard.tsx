@@ -44,21 +44,19 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     switch (card.type) {
       case 'video':
         return (
-          <div className="space-y-4">
-            <div className="aspect-video bg-muted rounded-lg flex items-center justify-center">
-              <Button 
-                variant="outline" 
-                size="lg"
-                onClick={() => onAction?.('play_video', card.content)}
-                className="gap-2"
+          <div className="w-full h-full flex flex-col">
+            <div className="flex-1 bg-black rounded-lg overflow-hidden">
+              <video 
+                className="w-full h-full object-cover"
+                autoPlay
+                muted
+                controls
+                playsInline
+                src="https://res.cloudinary.com/di5gj4nyp/video/upload/v1757341336/VIDEO-2025-04-11-11-30-14_1_xywu7x.mp4"
               >
-                <Play className="h-5 w-5" />
-                Play Video
-              </Button>
+                Your browser does not support the video tag.
+              </video>
             </div>
-            <p className="text-sm text-muted-foreground">
-              {card.content.description || "Click to play this video"}
-            </p>
           </div>
         );
 
@@ -154,7 +152,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     >
       <div className="flex items-center justify-center min-h-screen p-4 perspective-1200 transform-3d">
         <Card 
-          className={`w-[92vw] max-w-5xl shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
+          className={`w-[80vw] max-w-3xl aspect-video shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
             isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
           }`}
           onClick={(e) => e.stopPropagation()}
@@ -174,8 +172,8 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="p-0">
-            <div className="aspect-video w-full overflow-hidden bg-background">
+          <CardContent className="p-0 flex-1">
+            <div className="w-full h-full overflow-hidden bg-background rounded-b-xl">
               {renderContent()}
             </div>
           </CardContent>
