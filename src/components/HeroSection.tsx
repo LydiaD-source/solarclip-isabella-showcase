@@ -149,9 +149,9 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           </div>
         </div>
 
-        {/* Enhanced Chatbox Panel - Positioned to left of Isabella */}
+        {/* Enhanced Chatbox Panel - Slimmer and positioned between Isabella and hero text */}
         {isExpanded && (
-          <div className="absolute top-1/2 left-1/4 transform -translate-x-1/2 -translate-y-1/4 w-[480px] h-[580px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
+          <div className="absolute top-1/2 left-[15%] lg:left-[25%] xl:left-[30%] transform -translate-x-1/2 -translate-y-1/3 w-[320px] sm:w-[360px] lg:w-[380px] h-[520px] sm:h-[580px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
             {/* Chat Header with Clear Button */}
             <div className="flex justify-between items-center p-4 border-b border-accent/20">
               <h3 className="text-white font-medium">Isabella AI Assistant</h3>
@@ -205,15 +205,26 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                   <Mic className="w-4 h-4" />
                 </Button>
               </div>
-              <div className="flex gap-2 mt-2">
-                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10">
+              <div className="flex gap-1 mt-2 flex-wrap">
+                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0">
                   🎥 Videos
                 </Button>
-                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10">
-                  📄 Documents
+                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0">
+                  📄 Docs
                 </Button>
-                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10">
-                  🔊 Voice Mode
+                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0">
+                  🔊 Voice
+                </Button>
+              </div>
+              
+              {/* Voice/Text Interface - Integrated into chatbox */}
+              <div className="flex gap-2 mt-3 pt-2 border-t border-accent/10">
+                <Button size="sm" className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1">
+                  <Mic className="w-4 h-4 mr-2" />
+                  Voice Chat
+                </Button>
+                <Button size="sm" className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1">
+                  💬 Text Chat
                 </Button>
               </div>
             </div>
@@ -221,18 +232,6 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         )}
       </div>
 
-      {/* Voice/Text Interface - Positioned Below Isabella When Expanded */}
-      {isExpanded && !showMeetButton && (
-        <div className="absolute bottom-32 right-8 lg:right-16 flex flex-col gap-3">
-          <Button className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 px-6 py-3">
-            <Mic className="w-5 h-5 mr-2" />
-            Voice Chat
-          </Button>
-          <Button className="bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/20 px-6 py-3">
-            💬 Text Chat
-          </Button>
-        </div>
-      )}
 
       {/* Video Presentation Area - Reserved Space for Sliding Cards */}
       <div id="video-presentation-area" className="absolute top-1/2 left-8 lg:left-16 transform -translate-y-1/2 w-[350px] h-[250px] pointer-events-none">
