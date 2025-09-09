@@ -159,7 +159,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
       }`}
       onClick={handleClose}
     >
-      <div className="flex items-center justify-center min-h-screen p-4 perspective-1200 transform-3d">
+      <div className="flex items-center justify-center min-h-screen p-4 mb-8 md:mb-12 perspective-1200 transform-3d">
         <Card 
           className={`w-[70vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
             isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
@@ -181,7 +181,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="p-0 flex-1">
+          <CardContent className="p-4 flex-1">
             <div className="w-full h-full overflow-hidden bg-background rounded-b-xl">
               {renderContent()}
             </div>

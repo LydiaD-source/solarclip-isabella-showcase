@@ -96,7 +96,12 @@ serve(async (req) => {
           console.error('Error calling solar-map:', error);
           response = {
             text: "I'm having trouble analyzing that address right now. Please try again or provide a more complete address.",
-            cards: [],
+            cards: [{
+              type: 'error',
+              title: 'Solar Analysis Unavailable', 
+              content: { message: "I couldn't retrieve solar data right now. Please try again later." },
+              animation: 'swoop-left'
+            }],
             actions: ['request_address']
           };
         }
@@ -163,7 +168,12 @@ serve(async (req) => {
         console.error('Error calling solar-map:', error);
         response = {
           text: "I'm having trouble analyzing that address right now. Please try again or provide a more complete address.",
-          cards: [ { type: 'error', title: 'Solar Analysis Unavailable', content: { message: "I couldn't retrieve solar data right now. Please try again later." } } ],
+          cards: [{ 
+            type: 'error', 
+            title: 'Solar Analysis Unavailable', 
+            content: { message: "I couldn't retrieve solar data right now. Please try again later." },
+            animation: 'swoop-left'
+          }],
           actions: ['request_address']
         };
       }
