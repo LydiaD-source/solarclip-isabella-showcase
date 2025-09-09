@@ -59,13 +59,69 @@ serve(async (req) => {
         actions: ['start_video_sequence']
       };
     }
-    // Check if user wants solar analysis
+    // Check if user wants solar analysis or provided an address
     else if (lowerMessage.includes('solar') && (lowerMessage.includes('map') || lowerMessage.includes('analysis') || lowerMessage.includes('potential'))) {
-      response = {
-        text: "I can analyze the solar potential for any address. Please provide the address you'd like me to analyze.",
-        cards: [],
-        actions: ['request_address']
-      };
+      // Check if message contains what looks like an address
+      const hasAddress = /\d+.*\w+.*\w+/.test(message) || 
+                        message.includes(',') || 
+                        /\b(street|st|avenue|ave|drive|dr|road|rd|lane|ln|boulevard|blvd|way|court|ct|place|pl)\b/i.test(message);
+      
+      if (hasAddress) {
+        // Extract potential address from the message
+        const addressMatch = message.match(/(?:\d+.*|.*(?:street|st|avenue|ave|drive|dr|road|rd|lane|ln|boulevard|blvd|way|court|ct|place|pl).*)/i);
+        const extractedAddress = addressMatch ? addressMatch[0].trim() : message.trim();
+        
+        try {
+          console.log(`Calling solar-map for address: ${extractedAddress}`);
+          
+          // Call the solar-map function directly
+          const solarResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/solar-map`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+            },
+            body: JSON.stringify({
+              client_id,
+              address: extractedAddress,
+              session_id
+            })
+          });
+
+          if (solarResponse.ok) {
+            const solarData = await solarResponse.json();
+            
+            if (solarData.status === 'success') {
+              response = {
+                text: `Great! I found solar data for ${solarData.summary?.address || extractedAddress}. Here's your solar potential analysis:`,
+                cards: [solarData.card],
+                actions: ['solar_analysis_complete']
+              };
+            } else {
+              response = {
+                text: solarData.message || "I couldn't find solar data for that address. Please try a different address.",
+                cards: [],
+                actions: ['request_address']
+              };
+            }
+          } else {
+            throw new Error('Solar API call failed');
+          }
+        } catch (error) {
+          console.error('Error calling solar-map:', error);
+          response = {
+            text: "I'm having trouble analyzing that address right now. Please try again or provide a more complete address.",
+            cards: [],
+            actions: ['request_address']
+          };
+        }
+      } else {
+        response = {
+          text: "I can analyze the solar potential for any address. Please provide the address you'd like me to analyze (for example: '123 Main Street, City, State' or '1600 Amphitheatre Parkway, Mountain View, CA, USA').",
+          cards: [],
+          actions: ['request_address']
+        };
+      }
     }
     // Check if user is providing contact info (basic lead capture detection)
     else if (lowerMessage.includes('@') || lowerMessage.includes('email') || lowerMessage.includes('contact')) {
