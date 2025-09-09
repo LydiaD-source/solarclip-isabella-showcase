@@ -171,11 +171,14 @@ serve(async (req) => {
     };
 
     // Create embed URL for the solar map visualization
-    const embedUrl = `https://solar.google.com/solar/p/${encodeURIComponent(address)}`;
+    const embedUrl = `https://sunroof.withgoogle.com/place?address=${encodeURIComponent(formattedAddress)}`;
 
     const response_data = {
       status: 'success',
       embed_url: embedUrl,
+      annual_kwh: summary.annual_kwh,
+      monthly_kwh: summary.monthly_kwh,
+      panel_count: summary.panel_count,
       summary: summary,
       title: `Solar Analysis: ${summary.address}`,
       raw_data: solarData,

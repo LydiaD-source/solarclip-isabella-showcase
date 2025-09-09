@@ -1,1 +1,4 @@
 project_id = "mzikfyqzwepnubdsclfd"
+
+[functions.solar-map]
+verify_jwt = false
