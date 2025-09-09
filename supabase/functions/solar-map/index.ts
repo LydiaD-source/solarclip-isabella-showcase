@@ -37,9 +37,22 @@ serve(async (req) => {
     }
     
     const geocodeData = await geocodeResponse.json();
-    
-    if (!geocodeData.results || geocodeData.results.length === 0) {
-      throw new Error('Address not found');
+    // Handle common geocoding failure modes gracefully
+    if (geocodeData.status !== 'OK' || !geocodeData.results || geocodeData.results.length === 0) {
+      console.error('Geocoding failed:', geocodeData.status, geocodeData.error_message);
+      return new Response(JSON.stringify({
+        error: 'address_not_found',
+        message: "Sorry, I couldn't locate that address. Please try again.",
+        card: {
+          type: "error",
+          title: "Address Not Found",
+          content: { message: "Sorry, I couldn't locate that address. Please try again." },
+          animation: "swoop-left"
+        }
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     
     const location = geocodeData.results[0].geometry.location;
@@ -61,12 +74,18 @@ serve(async (req) => {
     const solarData = await response.json();
     
     // Process the solar data and create summary
+    // Prefer monthly energy direct from API if available; otherwise compute a reasonable fallback
+    const apiMonthly = solarData.solarPotential?.monthlyEnergyKwh || solarData.solarPotential?.monthlyEnergy?.map((m: any) => Math.round(m.energyKwh));
+    const fallbackMonthly = Array.from({ length: 12 }, (_, i) => Math.round(700 + Math.sin(i / 12 * 2 * Math.PI) * 200));
+    const monthly_kwh = Array.isArray(apiMonthly) && apiMonthly.length === 12 ? apiMonthly : fallbackMonthly;
+    const estAnnual = solarData.solarPotential?.maxArrayPanelsCount
+      ? Math.round(solarData.solarPotential.maxArrayPanelsCount * 300 * 365)
+      : monthly_kwh.reduce((a: number, b: number) => a + b, 0);
+
     const summary = {
-      annual_kwh: solarData.solarPotential?.maxArrayPanelsCount * 300 * 365 || 8420,
-      monthly_kwh: Array.from({ length: 12 }, (_, i) => 
-        Math.round(700 + Math.sin(i / 12 * 2 * Math.PI) * 200)
-      ),
-      co2_saved: Math.round((solarData.solarPotential?.maxArrayPanelsCount * 300 * 365 || 8420) * 0.0004),
+      annual_kwh: estAnnual,
+      monthly_kwh,
+      co2_saved: Math.round(estAnnual * 0.0004),
       panel_count: solarData.solarPotential?.maxArrayPanelsCount || 24,
       roof_area: solarData.solarPotential?.maxArrayAreaMeters2 || 150
     };
@@ -98,17 +117,24 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in solar-map function:', error);
+    const message = (error as Error)?.message || 'Unknown error';
+    const isAddressError = message.includes('Address not found') || message.toLowerCase().includes('geocode');
+    const status = isAddressError ? 404 : 500;
+    const friendly = isAddressError
+      ? "Sorry, I couldn't locate that address. Please try again."
+      : "I couldn't retrieve solar data right now. Please try again later.";
+
     return new Response(JSON.stringify({ 
-      error: error.message,
+      error: isAddressError ? 'address_not_found' : 'server_error',
+      message: friendly,
       card: {
         type: "error",
-        title: "Solar Analysis Unavailable",
-        content: {
-          message: "I couldn't retrieve solar data for that address. Please try a different address or contact us directly."
-        }
+        title: isAddressError ? "Address Not Found" : "Solar Analysis Unavailable",
+        content: { message: friendly },
+        animation: "swoop-left"
       }
     }), {
-      status: 500,
+      status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }

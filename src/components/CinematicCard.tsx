@@ -28,7 +28,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     setIsClosing(true);
     setTimeout(() => {
       onClose();
-    }, 300);
+    }, 600);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -166,14 +166,10 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
       }`}
       onClick={handleClose}
     >
-      <div className="flex items-center justify-center min-h-screen p-4">
+      <div className="flex items-center justify-center min-h-screen p-4 perspective-1200">
         <Card 
-          className={`w-full max-w-md shadow-2xl transition-all duration-500 transform ${
-            isVisible && !isClosing 
-              ? 'translate-x-0 scale-100' 
-              : card.animation === 'swoop-left' 
-                ? '-translate-x-full scale-95' 
-                : 'translate-y-8 scale-95'
+          className={`w-full max-w-md shadow-2xl transform-gpu will-change-transform ${
+            isClosing ? 'animate-swoop-out' : (isVisible ? 'animate-swoop-in' : '')
           }`}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={handleKeyDown}
