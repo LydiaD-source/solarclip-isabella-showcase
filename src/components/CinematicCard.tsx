@@ -31,7 +31,15 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     setIsClosing(true);
     setTimeout(() => {
       onClose();
-    }, 3000); // Match the animation duration
+    }, 3500); // Match the swoop-out animation duration
+  };
+
+  const handleAutoExit = (exitType: 'video_ended' | 'solar_completed' | 'manual' = 'manual') => {
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+      onAction?.('card_auto_exit', { exitType, cardType: card.type });
+    }, 3500); // Match the swoop-out animation duration
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -53,6 +61,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
                 controls
                 playsInline
                 src="https://res.cloudinary.com/di5gj4nyp/video/upload/v1757341336/VIDEO-2025-04-11-11-30-14_1_xywu7x.mp4"
+                onEnded={() => handleAutoExit('video_ended')}
               >
                 Your browser does not support the video tag.
               </video>
@@ -152,7 +161,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     >
       <div className="flex items-center justify-center min-h-screen p-4 perspective-1200 transform-3d">
         <Card 
-          className={`w-[80vw] max-w-3xl aspect-video shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
+          className={`w-[70vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
             isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
           }`}
           onClick={(e) => e.stopPropagation()}

@@ -178,6 +178,22 @@ export const useIsabella = (clientId: string = 'solarclip') => {
       case 'request_address':
         addMessage("Please provide the address you'd like me to analyze for solar potential.", 'isabella');
         break;
+      case 'card_auto_exit':
+        // Handle auto-exit with Isabella's follow-up
+        setTimeout(() => {
+          if (data?.exitType === 'video_ended') {
+            addMessage(
+              "I hope this gave you a clear view of our product. What would you like to explore next?", 
+              'isabella'
+            );
+          } else if (data?.exitType === 'solar_completed') {
+            addMessage(
+              "Would you like me to connect you with an expert or show you another feature?", 
+              'isabella'
+            );
+          }
+        }, 500); // Small delay after card exits
+        break;
       default:
         console.log('Unknown action:', action, data);
     }
