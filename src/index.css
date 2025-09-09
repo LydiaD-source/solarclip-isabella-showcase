@@ -343,4 +343,33 @@ Cinematic gradients with solar energy themes
       transform: scale(1.02);
     }
   }
+
+  /* Language button active state */
+  .language-active {
+    position: relative;
+  }
+
+  .language-active::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, hsl(var(--accent) / 0.8), transparent);
+    border-radius: 1px;
+    animation: language-glow 2s ease-in-out infinite alternate;
+  }
+
+  @keyframes language-glow {
+    0% {
+      opacity: 0.6;
+      box-shadow: 0 0 5px hsl(var(--accent) / 0.3);
+    }
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 10px hsl(var(--accent) / 0.6);
+    }
+  }
 }

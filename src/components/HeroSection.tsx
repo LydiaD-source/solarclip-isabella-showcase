@@ -33,8 +33,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
 
-      {/* Language Toggle - Bottom Right Corner */}
-      <div className="fixed bottom-3 right-4 z-50 bg-white/10 backdrop-blur-md rounded-full p-3 border border-white/20 hover:bg-white/20 transition-all duration-300">
+      {/* Language Toggle - Top Right Corner of Isabella's Image */}
+      <div className="absolute top-8 right-8 z-50">
         <Button
           variant="ghost"
           size="sm"
@@ -43,10 +43,11 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             const nextIndex = (currentIndex + 1) % languages.length;
             setCurrentLanguage(languages[nextIndex]);
           }}
-          className="text-white hover:text-accent p-0"
+          className="text-white/80 hover:text-white bg-transparent hover:bg-transparent p-2 font-medium tracking-wide relative group"
         >
-          <Globe className="w-4 h-4 mr-2" />
-          {currentLanguage}
+          <span className={`transition-all duration-300 ${currentLanguage === languages[languages.indexOf(currentLanguage)] ? 'text-white language-active' : 'text-white/60'}`}>
+            {currentLanguage}
+          </span>
         </Button>
       </div>
 
@@ -111,8 +112,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             {/* Meet Isabella Button - Aligned with Language Toggle */}
             {showMeetButton && (
               <>
-                {/* Desktop positioning - Aligned tops horizontally */}
-                <div className="hidden lg:block absolute bottom-[-14px] -left-40 xl:-left-48 text-center">
+                {/* Desktop positioning - Final alignment adjustment */}
+                <div className="hidden lg:block absolute bottom-[-22px] -left-36 xl:-left-44 text-center">
                   <Button 
                     className="meet-isabella-btn-animated text-base px-6 py-3"
                     onClick={handleMeetIsabella}
@@ -148,11 +149,27 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           </div>
         </div>
 
-        {/* Futuristic Chatbox Panel - Floating Between Columns */}
+        {/* Enhanced Chatbox Panel - Positioned to left of Isabella */}
         {isExpanded && (
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[400px] h-[500px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
-            {/* Chat Messages Area */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3">
+          <div className="absolute top-1/2 left-1/4 transform -translate-x-1/2 -translate-y-1/4 w-[480px] h-[580px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
+            {/* Chat Header with Clear Button */}
+            <div className="flex justify-between items-center p-4 border-b border-accent/20">
+              <h3 className="text-white font-medium">Isabella AI Assistant</h3>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  // Clear conversation logic
+                  console.log('Clearing conversation');
+                }}
+                className="text-white/60 hover:text-white hover:bg-white/10 p-2"
+              >
+                ↻
+              </Button>
+            </div>
+            
+            {/* Chat Messages Area - Enhanced scrolling */}
+            <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent">
               <div className="flex justify-end">
                 <div className="bg-primary/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
                   Hello Isabella, tell me about SolarClip™
@@ -163,18 +180,40 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                   Welcome! I'm excited to show you our revolutionary SolarClip™ system. It's the world's first clip-on solar mounting solution that's completely reversible and roof-safe.
                 </div>
               </div>
+              <div className="flex justify-start">
+                <div className="bg-accent/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
+                  Would you like me to show you how it works with a quick demonstration? I can present videos, documents, or answer any technical questions you have.
+                </div>
+              </div>
             </div>
             
-            {/* Input Area */}
+            {/* Enhanced Input Area */}
             <div className="p-4 border-t border-accent/20">
               <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder="Ask Isabella anything..."
-                  className="flex-1 bg-white/10 border border-accent/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:border-accent"
+                <textarea 
+                  placeholder="Ask Isabella anything... (Shift+Enter for new line)"
+                  className="flex-1 bg-white/10 border border-accent/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:border-accent resize-none min-h-[40px] max-h-[80px]"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      // Submit message logic
+                      console.log('Submitting message');
+                    }
+                  }}
                 />
                 <Button size="sm" className="bg-accent/30 hover:bg-accent/50 text-white p-2">
                   <Mic className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10">
+                  🎥 Videos
+                </Button>
+                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10">
+                  📄 Documents
+                </Button>
+                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10">
+                  🔊 Voice Mode
                 </Button>
               </div>
             </div>
