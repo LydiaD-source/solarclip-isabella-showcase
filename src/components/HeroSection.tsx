@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
-import { Globe, Play, Mic } from 'lucide-react';
+import { Globe, Play, Mic, Send, Video, FileText } from 'lucide-react';
 import { useState } from 'react';
+import { CinematicCard } from './CinematicCard';
+import { useIsabella } from '@/hooks/useIsabella';
 
 interface HeroSectionProps { 
   isExpanded?: boolean; 
@@ -17,12 +19,38 @@ const videoThumbnails = [
 export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionProps) => {
   const [showMeetButton, setShowMeetButton] = useState(true);
   const [currentLanguage, setCurrentLanguage] = useState('EN');
+  const [inputMessage, setInputMessage] = useState('');
+  
+  const {
+    messages,
+    isProcessing,
+    currentCard,
+    sendMessage,
+    closeCard,
+    handleCardAction,
+    initializeGreeting
+  } = useIsabella('solarclip');
   
   const languages = ['EN', 'FR', 'DE', 'LB'];
 
   const handleMeetIsabella = () => {
     setShowMeetButton(false);
     onChatToggle?.();
+    initializeGreeting();
+  };
+
+  const handleSendMessage = () => {
+    if (inputMessage.trim() && !isProcessing) {
+      sendMessage(inputMessage);
+      setInputMessage('');
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   const handleVideoThumbnail = (videoId: string) => {
@@ -170,61 +198,102 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             
             {/* Chat Messages Area - Enhanced scrolling */}
             <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent">
-              <div className="flex justify-end">
-                <div className="bg-primary/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
-                  Hello Isabella, tell me about SolarClip™
+              {messages.map((message) => (
+                <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`px-4 py-2 rounded-lg max-w-[80%] text-sm ${
+                    message.sender === 'user' 
+                      ? 'bg-primary/20 text-white' 
+                      : 'bg-accent/20 text-white'
+                  }`}>
+                    {message.text}
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-start">
-                <div className="bg-accent/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
-                  Welcome! I'm excited to show you our revolutionary SolarClip™ system. It's the world's first clip-on solar mounting solution that's completely reversible and roof-safe.
+              ))}
+              
+              {isProcessing && (
+                <div className="flex justify-start">
+                  <div className="bg-accent/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="animate-pulse">Isabella is thinking...</div>
+                      <div className="flex gap-1">
+                        <div className="w-1 h-1 bg-white rounded-full animate-bounce"></div>
+                        <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-start">
-                <div className="bg-accent/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
-                  Would you like me to show you how it works with a quick demonstration? I can present videos, documents, or answer any technical questions you have.
-                </div>
-              </div>
+              )}
             </div>
             
             {/* Enhanced Input Area */}
             <div className="p-4 border-t border-accent/20">
               <div className="flex gap-2">
                 <textarea 
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={handleKeyPress}
                   placeholder="Ask Isabella anything... (Shift+Enter for new line)"
                   className="flex-1 bg-white/10 border border-accent/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:border-accent resize-none min-h-[40px] max-h-[80px]"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      // Submit message logic
-                      console.log('Submitting message');
-                    }
-                  }}
+                  disabled={isProcessing}
                 />
-                <Button size="sm" className="bg-accent/30 hover:bg-accent/50 text-white p-2">
-                  <Mic className="w-4 h-4" />
+                <Button 
+                  size="sm" 
+                  className="bg-accent/30 hover:bg-accent/50 text-white p-2"
+                  onClick={handleSendMessage}
+                  disabled={isProcessing || !inputMessage.trim()}
+                >
+                  <Send className="w-4 h-4" />
                 </Button>
               </div>
               <div className="flex gap-1 mt-2 flex-wrap">
-                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
+                  onClick={() => sendMessage("Show me the SolarClip video presentation")}
+                  disabled={isProcessing}
+                >
                   🎥 Videos
                 </Button>
-                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
+                  onClick={() => sendMessage("I need documentation about SolarClip")}
+                  disabled={isProcessing}
+                >
                   📄 Docs
                 </Button>
-                <Button size="sm" variant="outline" className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0">
-                  🔊 Voice
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
+                  onClick={() => sendMessage("Analyze solar potential for my address")}
+                  disabled={isProcessing}
+                >
+                  🗺️ Solar
                 </Button>
               </div>
               
               {/* Voice/Text Interface - Integrated into chatbox */}
-              <div className="flex gap-2 mt-3 pt-2 border-t border-accent/10">
-                <Button size="sm" className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1">
+              <div className="flex gap-2 mt-3 pt-2 border-accent/10">
+                <Button 
+                  size="sm" 
+                  className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1"
+                  onClick={() => sendMessage("I want to schedule a consultation")}
+                  disabled={isProcessing}
+                >
                   <Mic className="w-4 h-4 mr-2" />
-                  Voice Chat
+                  Get Quote
                 </Button>
-                <Button size="sm" className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1">
-                  💬 Text Chat
+                <Button 
+                  size="sm" 
+                  className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1"
+                  onClick={() => sendMessage("Tell me about installation process")}
+                  disabled={isProcessing}
+                >
+                  💬 Learn More
                 </Button>
               </div>
             </div>
@@ -237,6 +306,15 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
       <div id="video-presentation-area" className="absolute top-1/2 left-8 lg:left-16 transform -translate-y-1/2 w-[350px] h-[250px] pointer-events-none">
         {/* This area is reserved for sliding video cards from Phase 2 */}
       </div>
+
+      {/* Cinematic Cards */}
+      {currentCard && (
+        <CinematicCard
+          card={currentCard}
+          onClose={closeCard}
+          onAction={handleCardAction}
+        />
+      )}
 
     </section>
   );
