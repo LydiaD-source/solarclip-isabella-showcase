@@ -137,6 +137,52 @@ serve(async (req) => {
         actions: ['collect_lead_info']
       };
     }
+    // Address provided without 'solar' keyword
+    else if (/\d+.*\w+.*\w+/.test(message) || message.includes(',') || /\b(street|st|avenue|ave|drive|dr|road|rd|lane|ln|boulevard|blvd|way|court|ct|place|pl)\b/i.test(message)) {
+      // Extract potential address from the message
+      const addressMatch = message.match(/(?:\d+.*|.*(?:street|st|avenue|ave|drive|dr|road|rd|lane|ln|boulevard|blvd|way|court|ct|place|pl).*)/i);
+      const extractedAddress = addressMatch ? addressMatch[0].trim() : message.trim();
+      
+      try {
+        console.log(`Calling solar-map for address: ${extractedAddress}`);
+        
+        const solarResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/solar-map`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_ANON_KEY')}`,
+          },
+          body: JSON.stringify({
+            client_id,
+            address: extractedAddress,
+            session_id
+          })
+        });
+
+        const solarData = await solarResponse.json();
+        if (solarResponse.ok && solarData.status === 'success') {
+          response = {
+            text: `Great! I found solar data for ${solarData.summary?.address || extractedAddress}. Here's your solar potential analysis:`,
+            cards: [solarData.card],
+            actions: ['solar_analysis_complete']
+          };
+        } else {
+          response = {
+            text: solarData.message || "Sorry, I couldn’t locate that address. Please try another.",
+            cards: [solarData.card || { type: 'error', title: 'Address Not Found', content: { message: "Sorry, I couldn’t locate that address. Please try another." } }],
+            actions: ['request_address']
+          };
+        }
+      } catch (error) {
+        console.error('Error calling solar-map:', error);
+        response = {
+          text: "I'm having trouble analyzing that address right now. Please try again or provide a more complete address.",
+          cards: [ { type: 'error', title: 'Solar Analysis Unavailable', content: { message: "I couldn't retrieve solar data right now. Please try again later." } } ],
+          actions: ['request_address']
+        };
+      }
+    }
     // Default greeting/general response
     else {
       response = {
