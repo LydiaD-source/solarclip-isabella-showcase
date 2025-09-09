@@ -439,6 +439,6 @@ Cinematic gradients with solar energy themes
   }
   .animate-swoop-in { animation: swoop-in-3d 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
   .animate-swoop-out { animation: swoop-out-3d 0.5s ease-in both; }
-  .animate-card-float-in { animation: card-float-in 3.5s ease-in-out forwards; }
-  .animate-card-float-out { animation: card-float-out 3.5s ease-in-out forwards; }
+  .animate-card-float-in { animation: card-float-in 4s ease-in-out forwards; }
+  .animate-card-float-out { animation: card-float-out 4s ease-in-out forwards; }
 }

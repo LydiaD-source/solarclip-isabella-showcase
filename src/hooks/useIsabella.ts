@@ -181,12 +181,12 @@ export const useIsabella = (clientId: string = 'solarclip') => {
       case 'card_auto_exit':
         // Handle auto-exit with Isabella's follow-up
         setTimeout(() => {
-          if (data?.exitType === 'video_ended') {
+          if (data?.cardType === 'video') {
             addMessage(
               "I hope this gave you a clear view of our product. What would you like to explore next?", 
               'isabella'
             );
-          } else if (data?.exitType === 'solar_completed') {
+          } else if (data?.cardType === 'google_solar') {
             addMessage(
               "Would you like me to connect you with an expert or show you another feature?", 
               'isabella'

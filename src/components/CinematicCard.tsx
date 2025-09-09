@@ -31,7 +31,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     setIsClosing(true);
     setTimeout(() => {
       onClose();
-    }, 3500); // Match the swoop-out animation duration
+    }, 4000); // Match the swoop-out animation duration
   };
 
   const handleAutoExit = (exitType: 'video_ended' | 'solar_completed' | 'manual' = 'manual') => {
@@ -39,7 +39,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     setTimeout(() => {
       onClose();
       onAction?.('card_auto_exit', { exitType, cardType: card.type });
-    }, 3500); // Match the swoop-out animation duration
+    }, 4000); // Match the swoop-out animation duration
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -159,9 +159,9 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
       }`}
       onClick={handleClose}
     >
-      <div className="flex items-center justify-center min-h-screen p-4 mb-8 md:mb-12 perspective-1200 transform-3d">
+      <div className="flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16 perspective-1200 transform-3d">
         <Card 
-          className={`w-[70vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
+          className={`w-[65vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
             isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
           }`}
           onClick={(e) => e.stopPropagation()}
