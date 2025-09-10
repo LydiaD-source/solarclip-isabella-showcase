@@ -171,7 +171,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
 
   return (
     <div 
-      className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
+      className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-all duration-500 ${
         isVisible && !isClosing ? 'opacity-100' : 'opacity-0'
       }`}
       onClick={isFullscreen ? undefined : handleClose}
@@ -180,10 +180,10 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         <Card 
           className={`${
             isFullscreen 
-              ? `w-full h-full rounded-none shadow-none transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
-                  isClosing ? 'animate-slide-out-right' : (isVisible ? 'animate-swoop-in-right' : 'translate-x-full opacity-0')
+              ? `w-full h-full rounded-none shadow-none transform-gpu will-change-transform transition-all duration-[4s] ease-out [transform-origin:50%_50%] ${
+                  isClosing ? 'animate-slide-out-right' : (isVisible ? 'animate-smooth-reveal' : 'translate-x-full opacity-0 scale-75')
                 }`
-              : `w-[65vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
+              : `w-[65vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-all duration-[4s] ease-out [transform-origin:50%_50%] ${
                   isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
                 }`
           }`}
