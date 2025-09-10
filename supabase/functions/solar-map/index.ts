@@ -1149,12 +1149,12 @@ serve(async (req) => {
 
                   // Click to inspect segment
                   polygon.addListener('click', (e) => {
-                    const content = `<div style="font-family: 'Google Sans', 'Roboto', sans-serif; font-size:12px;">
-                      <div style="font-weight:600; margin-bottom:4px;">Segment ${segment.id}</div>
-                      <div>Potential: ${segment.potential}</div>
-                      <div>Area: ${segment.area ?? 'n/a'} m²</div>
-                      <div>Est. yearly: ${segment.yearlyEnergyDcKwh ?? 'n/a'} kWh</div>
-                    </div>`;
+                    const content = '<div style="font-family: \'Google Sans\', \'Roboto\', sans-serif; font-size:12px;">'
+                      + '<div style="font-weight:600; margin-bottom:4px;">Segment ' + segment.id + '</div>'
+                      + '<div>Potential: ' + segment.potential + '</div>'
+                      + '<div>Area: ' + (segment.area ?? 'n/a') + ' m²</div>'
+                      + '<div>Est. yearly: ' + (segment.yearlyEnergyDcKwh ?? 'n/a') + ' kWh</div>'
+                      + '</div>';
                     new google.maps.InfoWindow({ content }).open({ map, position: e.latLng });
                   });
                 });
