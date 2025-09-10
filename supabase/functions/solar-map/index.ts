@@ -866,15 +866,14 @@ serve(async (req) => {
       status: 'success',
       data: summary,
       card: {
-        type: "iframe",
+        type: "google_solar",
         title: "Interactive Solar Map",
-        subtitle: formattedAddress,
         content: {
-          url: embedUrl,
-          height: "100vh"
+          embed_url: embedUrl,
+          summary: summary,
+          interactive: true
         },
-        animation: "swoop-right",
-        fullscreen: true
+        animation: "swoop-right"
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

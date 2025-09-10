@@ -70,6 +70,20 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         );
 
       case 'google_solar':
+        // If an embed_url is provided, render it fullscreen like the Google demo
+        if ((card as any)?.content?.embed_url || (card as any)?.content?.url) {
+          const embed = (card as any).content.embed_url || (card as any).content.url;
+          return (
+            <iframe
+              src={embed}
+              className="w-full h-full border-0"
+              title="Interactive Solar Map"
+              loading="lazy"
+              allow="geolocation"
+            />
+          );
+        }
+        // Fallback to legacy internal renderer
         return (
           <SolarMapContent 
             card={card} 
