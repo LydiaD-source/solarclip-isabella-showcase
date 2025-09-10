@@ -132,7 +132,7 @@ serve(async (req) => {
       maxPanelCount: summary.max_panels,
     };
 
-    // 5) Build a clean, cinematic Google-only embed (no Mapbox, no extra overlays)
+    // 5) Build enhanced Google-only embed with roof visualization and seasonal animation
     const embedHtml = `<!DOCTYPE html>
 <html>
   <head>
@@ -164,7 +164,7 @@ serve(async (req) => {
       .slider { display:flex; gap:10px; align-items:center; }
       .slider input { flex:1; -webkit-appearance:none; appearance:none; height:6px; background:#e8eaed; border-radius:3px; outline:none; }
       .slider input::-webkit-slider-thumb { width:18px; height:18px; border-radius:50%; background:#1a73e8; -webkit-appearance:none; box-shadow:0 2px 4px rgba(0,0,0,.2); }
-      .map { flex:1; min-width:0; }
+      .map { flex:1; min-width:0; position: relative; }
       #map { height: 100%; width: 100%; }
       @keyframes slideIn { from{ transform:translateX(-320px); opacity:0; } to { transform:translateX(0); opacity:1; } }
     </style>
@@ -197,62 +197,177 @@ serve(async (req) => {
       window.roofSegments = ${JSON.stringify(roof_segments)};
       window.baseAnnual = ${actualSolarData.baseAnnualKwh};
       window.basePanels = ${actualSolarData.basePanelCount};
+      window.allPolygons = [];
+      window.animationId = null;
 
-      window.color = function(p){
-        return p==='high' ? '#FF69B4' : p==='low' ? '#4299E1' : '#9F7AEA';
+      // Enhanced seasonal color mapping (bright yellow to dark purple)
+      window.getSeasonalColor = function(month, potential) {
+        // Seasonal intensity: 0 = winter (dark), 1 = summer (bright)
+        const intensity = 0.5 + 0.5 * Math.sin((month - 2) * Math.PI / 6);
+        
+        if (potential === 'high') {
+          // Yellow (summer) to Orange-Red (winter)
+          const r = Math.round(255);
+          const g = Math.round(255 * (0.4 + 0.6 * intensity));
+          const b = Math.round(50 * (1 - intensity));
+          return \`rgb(\${r}, \${g}, \${b})\`;
+        } else if (potential === 'medium') {
+          // Orange (summer) to Purple (winter)  
+          const r = Math.round(255 * (0.6 + 0.4 * intensity));
+          const g = Math.round(165 * intensity);
+          const b = Math.round(150 + 105 * (1 - intensity));
+          return \`rgb(\${r}, \${g}, \${b})\`;
+        } else {
+          // Light Blue (summer) to Dark Purple (winter)
+          const r = Math.round(100 + 55 * (1 - intensity));
+          const g = Math.round(150 * intensity);
+          const b = Math.round(200 + 55 * (1 - intensity));
+          return \`rgb(\${r}, \${g}, \${b})\`;
+        }
+      };
+
+      // Animate seasonal colors cycling through 12 months
+      window.animateSeasons = function() {
+        let month = 0;
+        const animate = () => {
+          window.allPolygons.forEach(polyData => {
+            const color = window.getSeasonalColor(month, polyData.potential);
+            polyData.polygon.setOptions({
+              fillColor: color,
+              strokeColor: color
+            });
+          });
+          month = (month + 1) % 12;
+          window.animationId = setTimeout(animate, 1200); // Change every 1.2 seconds
+        };
+        animate();
       };
 
       window.initMap = function(){
         const bounds = new google.maps.LatLngBounds();
         let hasSeg = false;
-        (window.roofSegments || []).forEach(s=>{
-          (s.coordinates||[]).forEach(([lng,lat])=>{ if(typeof lat==='number'&&typeof lng==='number'){ bounds.extend(new google.maps.LatLng(lat,lng)); hasSeg=true; } });
+        
+        // Calculate bounds from segments
+        (window.roofSegments || []).forEach(s => {
+          (s.coordinates || []).forEach(([lng, lat]) => {
+            if (typeof lat === 'number' && typeof lng === 'number') {
+              bounds.extend(new google.maps.LatLng(lat, lng));
+              hasSeg = true;
+            }
+          });
         });
-        const map = new google.maps.Map(document.getElementById('map'),{
+
+        const map = new google.maps.Map(document.getElementById('map'), {
           center: hasSeg ? bounds.getCenter() : {lat: ${location.lat}, lng: ${location.lng}},
           zoom: hasSeg ? 20 : 18,
-          mapTypeId:'satellite',
-          streetViewControl:false, mapTypeControl:false, fullscreenControl:true, gestureHandling:'greedy',
-          styles:[{ featureType:'all', elementType:'labels', stylers:[{visibility:'off'}]}]
+          mapTypeId: 'satellite',
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: true,
+          gestureHandling: 'greedy',
+          styles: [
+            { featureType: 'all', elementType: 'labels', stylers: [{ visibility: 'off' }] }
+          ]
         });
-        if(hasSeg){ map.fitBounds(bounds); map.setZoom(Math.min(map.getZoom(),20)); }
 
-        // Staggered reveal with fade-in
-        (window.roofSegments || []).forEach((seg, i)=>{
-          if(!seg.coordinates || seg.coordinates.length<3) return;
-          setTimeout(()=>{
-            const path = seg.coordinates.map(([lng,lat])=>({lat,lng}));
-            const poly = new google.maps.Polygon({
+        if (hasSeg) {
+          map.fitBounds(bounds);
+          setTimeout(() => {
+            map.setZoom(Math.min(map.getZoom(), 20));
+          }, 100);
+        }
+
+        // Enhanced roof segment rendering with visibility
+        (window.roofSegments || []).forEach((seg, i) => {
+          if (!seg.coordinates || seg.coordinates.length < 3) return;
+          
+          setTimeout(() => {
+            const path = seg.coordinates.map(([lng, lat]) => ({ lat, lng }));
+            const initialColor = window.getSeasonalColor(6, seg.potential); // Start with summer
+            
+            const polygon = new google.maps.Polygon({
               paths: path,
-              strokeColor: window.color(seg.potential), strokeOpacity:.9, strokeWeight:2,
-              fillColor: window.color(seg.potential), fillOpacity: 0,
-              map
+              strokeColor: initialColor,
+              strokeOpacity: 0.9,
+              strokeWeight: 2,
+              fillColor: initialColor,
+              fillOpacity: 0,
+              map: map,
+              zIndex: 1000
             });
-            setTimeout(()=> poly.setOptions({ fillOpacity: .65 }), 140);
-            poly.addListener('mouseover',()=> poly.setOptions({ fillOpacity:.85, strokeWeight:3 }));
-            poly.addListener('mouseout',()=> poly.setOptions({ fillOpacity:.65, strokeWeight:2 }));
-          }, i*160);
+
+            // Store polygon reference for animation
+            window.allPolygons.push({
+              polygon: polygon,
+              potential: seg.potential
+            });
+
+            // Fade in effect
+            setTimeout(() => {
+              polygon.setOptions({ fillOpacity: 0.7 });
+            }, 200);
+
+            // Hover effects
+            polygon.addListener('mouseover', () => {
+              polygon.setOptions({ 
+                fillOpacity: 0.9, 
+                strokeWeight: 3,
+                zIndex: 2000
+              });
+            });
+            
+            polygon.addListener('mouseout', () => {
+              polygon.setOptions({ 
+                fillOpacity: 0.7, 
+                strokeWeight: 2,
+                zIndex: 1000
+              });
+            });
+
+          }, i * 200); // Stagger segment appearance
         });
+
+        // Start seasonal animation after all segments are loaded
+        setTimeout(() => {
+          if (window.allPolygons.length > 0) {
+            window.animateSeasons();
+          }
+        }, (window.roofSegments || []).length * 200 + 500);
       };
 
       // Panel slider updates
       window.update = function(n){
-        const ratio = n / window.basePanels; const a = Math.round(window.baseAnnual*ratio); const m = Math.round(a/12); const c = Math.round(a*0.0004);
+        const ratio = n / window.basePanels;
+        const a = Math.round(window.baseAnnual * ratio);
+        const m = Math.round(a / 12);
+        const c = Math.round(a * 0.0004);
+        
         const panelCountEl = document.getElementById('panelCount');
         const aEl = document.getElementById('annualKwh');
         const mEl = document.getElementById('monthlyKwh');
         const cEl = document.getElementById('co2Saved');
-        if(panelCountEl) panelCountEl.textContent = String(n);
-        if(aEl) aEl.textContent = a.toLocaleString();
-        if(mEl) mEl.textContent = m.toLocaleString();
-        if(cEl) cEl.textContent = c.toLocaleString()+ ' tons';
+        
+        if (panelCountEl) panelCountEl.textContent = String(n);
+        if (aEl) aEl.textContent = a.toLocaleString();
+        if (mEl) mEl.textContent = m.toLocaleString();
+        if (cEl) cEl.textContent = c.toLocaleString() + ' tons';
       };
+      
       window.updatePanelCount = window.update;
 
       window.addEventListener('load', function(){
         const slider = document.getElementById('panelSlider');
-        if(slider){
-          slider.addEventListener('input', function(e){ window.update(parseInt(e.target.value,10)); });
+        if (slider) {
+          slider.addEventListener('input', function(e) {
+            window.update(parseInt(e.target.value, 10));
+          });
+        }
+      });
+
+      // Cleanup animation on page unload
+      window.addEventListener('beforeunload', function() {
+        if (window.animationId) {
+          clearTimeout(window.animationId);
         }
       });
     </script>
