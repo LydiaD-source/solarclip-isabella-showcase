@@ -10,10 +10,10 @@ interface HeroSectionProps {
 }
 
 const videoThumbnails = [
-  { id: 'ceo', title: 'CEO Testimonial', image: 'https://res.cloudinary.com/di5gj4nyp/image/upload/c_thumb,w_64,h_64,g_face/v1747229179/ceo_thumbnail.jpg' },
-  { id: 'board', title: 'Board Member', image: 'https://res.cloudinary.com/di5gj4nyp/image/upload/c_thumb,w_64,h_64,g_face/v1747229179/board_thumbnail.jpg' },
-  { id: 'client', title: 'Happy Client', image: 'https://res.cloudinary.com/di5gj4nyp/image/upload/c_thumb,w_64,h_64,g_face/v1747229179/client_thumbnail.jpg' },
-  { id: 'owner', title: 'Building Owner', image: 'https://res.cloudinary.com/di5gj4nyp/image/upload/c_thumb,w_64,h_64,g_face/v1747229179/owner_thumbnail.jpg' }
+  { id: 'ceo', title: 'CEO Testimonial', image: '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png' },
+  { id: 'board', title: 'Board Member', image: '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png' },
+  { id: 'client', title: 'Happy Client', image: '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png' },
+  { id: 'owner', title: 'Building Owner', image: '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png' }
 ];
 
 export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionProps) => {
