@@ -207,9 +207,55 @@ serve(async (req) => {
       address: formattedAddress
     };
 
-    // Create embed URL for the solar map visualization
-    // Use Google Maps embed with satellite view showing the location
-    const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${googleApiKey}&center=${location.lat},${location.lng}&zoom=20&maptype=satellite`;
+    // Create a data URL for the solar map visualization using the building's actual data
+    // We'll use the solar data to create a visualization without requiring additional APIs
+    const embedUrl = `data:text/html;charset=utf-8,${encodeURIComponent(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <style>
+            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #f0f8ff; }
+            .roof-viz { width: 100%; height: 200px; background: linear-gradient(45deg, #8B4513, #D2691E); 
+                       border-radius: 10px; position: relative; overflow: hidden; margin: 10px 0; }
+            .panel { width: 30px; height: 20px; background: #1a365d; border: 1px solid #2563eb; 
+                    border-radius: 2px; position: absolute; }
+            .stats { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+            .location { font-size: 14px; color: #666; margin-bottom: 10px; }
+            .energy { font-size: 18px; font-weight: bold; color: #2563eb; }
+          </style>
+        </head>
+        <body>
+          <div class="location">${formattedAddress}</div>
+          <div class="roof-viz" id="roof">
+            <div style="position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); 
+                       padding: 5px 10px; border-radius: 15px; font-size: 12px;">
+              🏠 Roof Analysis
+            </div>
+          </div>
+          <div class="stats">
+            <div class="energy">${panel_count} Solar Panels</div>
+            <div style="color: #666; margin-top: 5px;">${annual_kwh.toLocaleString()} kWh/year</div>
+            <div style="color: #10b981; margin-top: 5px;">💚 ${Math.round(annual_kwh * 0.0004)} tons CO₂ saved</div>
+          </div>
+          <script>
+            const roof = document.getElementById('roof');
+            const panelCount = ${panel_count};
+            const cols = Math.ceil(Math.sqrt(panelCount));
+            const rows = Math.ceil(panelCount / cols);
+            
+            for(let i = 0; i < panelCount; i++) {
+              const panel = document.createElement('div');
+              panel.className = 'panel';
+              const col = i % cols;
+              const row = Math.floor(i / cols);
+              panel.style.left = (20 + col * 35) + 'px';
+              panel.style.top = (20 + row * 25) + 'px';
+              roof.appendChild(panel);
+            }
+          </script>
+        </body>
+      </html>
+    `)}`;
 
     const response_data = {
       status: 'success',
