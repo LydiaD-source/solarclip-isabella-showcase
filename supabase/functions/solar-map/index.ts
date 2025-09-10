@@ -97,6 +97,12 @@ serve(async (req) => {
         console.info(`[solar-map] Segment ${i} geometry flags => plane.boundary: ${hasPlaneBoundary}, polygons: ${hasPolygons}, boundary: ${hasBoundary}, polygon: ${hasPolygon}`);
 
         // Try multiple polygon sources in priority order (handle nested arrays)
+        const bboxVerts = seg?.boundingBox ? [
+          { latitude: seg.boundingBox.sw?.latitude, longitude: seg.boundingBox.sw?.longitude },
+          { latitude: seg.boundingBox.sw?.latitude, longitude: seg.boundingBox.ne?.longitude },
+          { latitude: seg.boundingBox.ne?.latitude, longitude: seg.boundingBox.ne?.longitude },
+          { latitude: seg.boundingBox.ne?.latitude, longitude: seg.boundingBox.sw?.longitude },
+        ] : null;
         const candidates: any[] = [
           seg?.plane?.boundary?.vertices,
           seg?.polygons?.[0]?.vertices,
@@ -111,6 +117,7 @@ serve(async (req) => {
           seg?.plane?.outerBoundary?.vertices,
           seg?.plane?.exterior?.vertices,
           Array.isArray(seg?.polygons) ? seg.polygons.map((p: any) => p?.vertices) : null,
+          bboxVerts,
         ].filter(Boolean);
 
         const tryParse = (v: any): { lat: number; lng: number }[] => {
@@ -266,15 +273,15 @@ serve(async (req) => {
     <div class="main">
       <div class="panel">
         <div class="sec">
-          <div class="row"><span class="label">Address</span><span class="value">${formattedAddress}</span></div>
-          <div class="row"><span class="label">Segments</span><span class="value">${roof_segments.length}</span></div>
-        </div>
-        <div class="sec">
           <div class="label" style="margin:6px 0 10px">Month</div>
           <div class="slider">
             <div id="monthLabel" class="value" style="min-width:48px;text-align:center;background:#e8f0fe;padding:6px 10px;border-radius:6px">Jul</div>
             <input id="monthSlider" type="range" min="0" max="11" value="6" />
           </div>
+        </div>
+        <div class="sec">
+          <div class="row"><span class="label">Address</span><span class="value">${formattedAddress}</span></div>
+          <div class="row"><span class="label">Segments</span><span class="value">${roof_segments.length}</span></div>
         </div>
         <div class="sec">
           <div class="label" style="margin:6px 0 10px">Solar Panels</div>
@@ -306,18 +313,23 @@ serve(async (req) => {
 
       // Potential-based seasonal color mapping using monthly flux
       (function(){
-        function purple(){ return [128, 0, 180]; }
-        function yellow(){ return [255, 220, 0]; }
         function blend(a, b, t){ return [
           Math.round(a[0] + (b[0]-a[0]) * t),
           Math.round(a[1] + (b[1]-a[1]) * t),
           Math.round(a[2] + (b[2]-a[2]) * t)
         ]; }
         function rgb(arr){ return 'rgb(' + arr[0] + ', ' + arr[1] + ', ' + arr[2] + ')'; }
-        window.colorFor = function(_potential, month){
+        function baseFor(p){
+          // Base hues by potential: high=yellow, medium=purple/pink, low=blue
+          if (p === 'high') return [255, 215, 0];      // yellow
+          if (p === 'low') return [66, 133, 244];      // blue (Google blue)
+          return [186, 85, 211];                       // medium = orchid/purple
+        }
+        window.colorFor = function(potential, month){
           var flux = (window.monthlyFlux && window.monthlyFlux[month] != null) ? window.monthlyFlux[month] : 0;
           var t = (window.maxFlux && window.maxFlux > 0) ? (flux / window.maxFlux) : 0.5; // 0 winter -> 1 summer
-          var c = blend(purple(), yellow(), t);
+          // Shade intensity by blending from white to base color
+          var c = blend([255,255,255], baseFor(potential), t);
           return rgb(c);
         };
         window.setMonthColor = function(month){
@@ -419,8 +431,8 @@ serve(async (req) => {
 
             // Fade in effect with stronger opacity
             setTimeout(() => {
-              polygon.setOptions({ fillOpacity: 0.8 });
-            }, 300);
+              polygon.setOptions({ fillOpacity: 0.7 });
+            }, 200);
 
             // Enhanced hover effects
             polygon.addListener('mouseover', () => {
