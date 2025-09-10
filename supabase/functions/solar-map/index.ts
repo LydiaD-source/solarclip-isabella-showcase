@@ -207,52 +207,180 @@ serve(async (req) => {
       address: formattedAddress
     };
 
-    // Create a data URL for the solar map visualization using the building's actual data
-    // We'll use the solar data to create a visualization without requiring additional APIs
+    // Create interactive Google Solar map with real satellite imagery and solar overlay
     const embedUrl = `data:text/html;charset=utf-8,${encodeURIComponent(`
       <!DOCTYPE html>
       <html>
         <head>
           <style>
-            body { margin: 0; padding: 20px; font-family: Arial, sans-serif; background: #f0f8ff; }
-            .roof-viz { width: 100%; height: 200px; background: linear-gradient(45deg, #8B4513, #D2691E); 
-                       border-radius: 10px; position: relative; overflow: hidden; margin: 10px 0; }
-            .panel { width: 30px; height: 20px; background: #1a365d; border: 1px solid #2563eb; 
-                    border-radius: 2px; position: absolute; }
-            .stats { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-            .location { font-size: 14px; color: #666; margin-bottom: 10px; }
-            .energy { font-size: 18px; font-weight: bold; color: #2563eb; }
+            body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+            #map { width: 100%; height: 400px; }
+            .solar-controls { 
+              position: absolute; 
+              top: 10px; 
+              right: 10px; 
+              background: white; 
+              padding: 15px; 
+              border-radius: 8px; 
+              box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+              z-index: 1000;
+              min-width: 200px;
+            }
+            .panel-control { 
+              display: flex; 
+              align-items: center; 
+              gap: 10px; 
+              margin: 10px 0; 
+            }
+            .panel-control button { 
+              background: #2563eb; 
+              color: white; 
+              border: none; 
+              width: 30px; 
+              height: 30px; 
+              border-radius: 4px; 
+              cursor: pointer; 
+            }
+            .panel-control button:hover { background: #1d4ed8; }
+            .energy-display { 
+              background: #f0f9ff; 
+              padding: 10px; 
+              border-radius: 6px; 
+              margin-top: 10px; 
+            }
+            .roof-segment { 
+              fill-opacity: 0.6; 
+              stroke: #fff; 
+              stroke-width: 2; 
+            }
+            .solar-panel { 
+              fill: #1e40af; 
+              stroke: #3b82f6; 
+              stroke-width: 1; 
+            }
           </style>
         </head>
         <body>
-          <div class="location">${formattedAddress}</div>
-          <div class="roof-viz" id="roof">
-            <div style="position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.9); 
-                       padding: 5px 10px; border-radius: 15px; font-size: 12px;">
-              🏠 Roof Analysis
+          <div class="solar-controls">
+            <div style="font-weight: bold; margin-bottom: 10px;">${formattedAddress}</div>
+            <div class="panel-control">
+              <button onclick="adjustPanels(-1)">-</button>
+              <span id="panel-count">${panel_count}</span>
+              <button onclick="adjustPanels(1)">+</button>
+              <span style="margin-left: 5px;">panels</span>
+            </div>
+            <div class="energy-display">
+              <div style="font-weight: bold; color: #2563eb;" id="energy-output">${annual_kwh.toLocaleString()} kWh/year</div>
+              <div style="font-size: 12px; color: #666; margin-top: 5px;" id="co2-savings">${Math.round(annual_kwh * 0.0004)} tons CO₂ saved</div>
             </div>
           </div>
-          <div class="stats">
-            <div class="energy">${panel_count} Solar Panels</div>
-            <div style="color: #666; margin-top: 5px;">${annual_kwh.toLocaleString()} kWh/year</div>
-            <div style="color: #10b981; margin-top: 5px;">💚 ${Math.round(annual_kwh * 0.0004)} tons CO₂ saved</div>
-          </div>
+          <div id="map"></div>
+          
           <script>
-            const roof = document.getElementById('roof');
-            const panelCount = ${panel_count};
-            const cols = Math.ceil(Math.sqrt(panelCount));
-            const rows = Math.ceil(panelCount / cols);
+            let currentPanels = ${panel_count};
+            const maxPanels = ${summary.max_panels};
+            const baseEnergyPerPanel = ${Math.round(annual_kwh / panel_count)};
             
-            for(let i = 0; i < panelCount; i++) {
-              const panel = document.createElement('div');
-              panel.className = 'panel';
-              const col = i % cols;
-              const row = Math.floor(i / cols);
-              panel.style.left = (20 + col * 35) + 'px';
-              panel.style.top = (20 + row * 25) + 'px';
-              roof.appendChild(panel);
+            function adjustPanels(change) {
+              const newCount = Math.max(1, Math.min(maxPanels, currentPanels + change));
+              if (newCount !== currentPanels) {
+                currentPanels = newCount;
+                updateDisplay();
+                updatePanelsOnMap();
+              }
+            }
+            
+            function updateDisplay() {
+              document.getElementById('panel-count').textContent = currentPanels;
+              const newEnergy = currentPanels * baseEnergyPerPanel;
+              document.getElementById('energy-output').textContent = newEnergy.toLocaleString() + ' kWh/year';
+              document.getElementById('co2-savings').textContent = Math.round(newEnergy * 0.0004) + ' tons CO₂ saved';
+            }
+            
+            function initMap() {
+              const map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: ${location.lat}, lng: ${location.lng} },
+                zoom: 21,
+                mapTypeId: 'satellite',
+                tilt: 45,
+                heading: 0,
+                disableDefaultUI: false,
+                zoomControl: true,
+                mapTypeControl: true,
+                streetViewControl: false,
+                fullscreenControl: true
+              });
+              
+              // Add building outline if available from solar data
+              ${solarData.boundingBox ? `
+              const buildingBounds = new google.maps.Rectangle({
+                bounds: {
+                  north: ${solarData.boundingBox.ne.latitude},
+                  south: ${solarData.boundingBox.sw.latitude},
+                  east: ${solarData.boundingBox.ne.longitude},
+                  west: ${solarData.boundingBox.sw.longitude}
+                },
+                strokeColor: '#FF6B35',
+                strokeOpacity: 0.8,
+                strokeWeight: 3,
+                fillColor: '#FF6B35',
+                fillOpacity: 0.2,
+                map: map
+              });
+              ` : ''}
+              
+              // Add solar panels visualization
+              window.solarPanels = [];
+              updatePanelsOnMap();
+            }
+            
+            function updatePanelsOnMap() {
+              // Clear existing panels
+              window.solarPanels.forEach(panel => panel.setMap(null));
+              window.solarPanels = [];
+              
+              // Add new panels in a grid pattern
+              const centerLat = ${location.lat};
+              const centerLng = ${location.lng};
+              const panelSpacing = 0.00001; // Approximate spacing between panels
+              
+              const cols = Math.ceil(Math.sqrt(currentPanels));
+              const rows = Math.ceil(currentPanels / cols);
+              
+              for (let i = 0; i < currentPanels; i++) {
+                const col = i % cols;
+                const row = Math.floor(i / cols);
+                
+                const panelLat = centerLat + (row - rows/2) * panelSpacing;
+                const panelLng = centerLng + (col - cols/2) * panelSpacing;
+                
+                const panel = new google.maps.Rectangle({
+                  bounds: {
+                    north: panelLat + panelSpacing/3,
+                    south: panelLat - panelSpacing/3,
+                    east: panelLng + panelSpacing/2,
+                    west: panelLng - panelSpacing/2
+                  },
+                  strokeColor: '#1e40af',
+                  strokeOpacity: 1,
+                  strokeWeight: 1,
+                  fillColor: '#3b82f6',
+                  fillOpacity: 0.8,
+                  map: window.map || new google.maps.Map(document.getElementById('map'))
+                });
+                
+                window.solarPanels.push(panel);
+              }
+            }
+            
+            // Initialize map when Google Maps API is loaded
+            if (typeof google !== 'undefined') {
+              initMap();
+            } else {
+              window.initMap = initMap;
             }
           </script>
+          <script src="https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&callback=initMap&libraries=geometry"></script>
         </body>
       </html>
     `)}`;
