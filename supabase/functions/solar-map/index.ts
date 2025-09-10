@@ -359,6 +359,8 @@ serve(async (req) => {
       <html>
         <head>
           <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+          <!-- Mapbox GL CSS for fallback rendering -->
+          <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
           <style>
             * { 
               margin: 0; 
@@ -980,10 +982,10 @@ serve(async (req) => {
             // Store the actual solar data for calculations
             const solarData = ${JSON.stringify(actualSolarData)};
             let currentPanelCount = ${panel_count};
+            const mapboxToken = '${Deno.env.get('MAPBOX_PUBLIC_TOKEN') || ''}';
             
             // Calculate energy based on panel count (real API calculations)
             function calculateEnergyFromPanels(panelCount) {
-              // Use actual solar potential data for calculations
               const baseKwhPerPanel = solarData.baseAnnualKwh / solarData.basePanelCount;
               return Math.round(panelCount * baseKwhPerPanel);
             }
@@ -995,17 +997,17 @@ serve(async (req) => {
               const co2Savings = Math.round(yearlyEnergy * 0.0004);
               
               // Update all displays
-              document.getElementById('current-panels').textContent = currentPanelCount;
-              document.getElementById('slider-count').textContent = currentPanelCount + ' panels';
-              document.getElementById('yearly-energy').textContent = yearlyEnergy.toLocaleString() + ' kWh';
-              document.getElementById('co2-savings').textContent = co2Savings + ' kg/MWh';
+              const cp = document.getElementById('current-panels'); if (cp) cp.textContent = currentPanelCount;
+              const sc = document.getElementById('slider-count'); if (sc) sc.textContent = currentPanelCount + ' panels';
+              const ye = document.getElementById('yearly-energy'); if (ye) ye.textContent = yearlyEnergy.toLocaleString() + ' kWh';
+              const co2 = document.getElementById('co2-savings'); if (co2) co2.textContent = co2Savings + ' kg/MWh';
               
-              // Log the action for tracking
               console.info('Unknown action: adjust_panels', {
                 panel_count: currentPanelCount,
                 annual_kwh: yearlyEnergy
               });
             }
+
             
             // Initialize Google Maps with precise roof segmentation
             function initMap() {
@@ -1262,21 +1264,136 @@ serve(async (req) => {
               window.mapInstance = map;
             }
             
+            // Mapbox GL fallback when Google Maps fails (e.g., key restrictions)
+            function initMapbox() {
+              try {
+                if (!mapboxgl || !mapboxToken) return;
+                mapboxgl.accessToken = mapboxToken;
+                const map = new mapboxgl.Map({
+                  container: 'map',
+                  style: 'mapbox://styles/mapbox/satellite-v9',
+                  center: [${location.lng}, ${location.lat}],
+                  zoom: 19,
+                  pitch: 0,
+                });
+                window.mapInstance = map;
+
+                map.addControl(new mapboxgl.NavigationControl({ visualizePitch: false }), 'bottom-right');
+
+                const segs = (window.__roofSegments || []).filter(s => (s.coordinates || []).length >= 3);
+                const features = segs.map((s, i) => ({
+                  type: 'Feature',
+                  id: i,
+                  properties: { potential: s.potential || 'medium', id: s.id || i },
+                  geometry: { type: 'Polygon', coordinates: [s.coordinates] }
+                }));
+                const fc = { type: 'FeatureCollection', features };
+
+                map.on('load', () => {
+                  map.addSource('roof-polys', { type: 'geojson', data: fc });
+
+                  // Base fill layer with discrete color mapping
+                  map.addLayer({
+                    id: 'roof-fill',
+                    type: 'fill',
+                    source: 'roof-polys',
+                    paint: {
+                      'fill-color': [
+                        'match', ['get', 'potential'],
+                        'high', '#ff69b4',
+                        'medium', '#8a2be2',
+                        /* other */ '#1e90ff'
+                      ],
+                      'fill-opacity': 0
+                    }
+                  });
+
+                  map.addLayer({
+                    id: 'roof-outline',
+                    type: 'line',
+                    source: 'roof-polys',
+                    paint: {
+                      'line-color': [
+                        'match', ['get', 'potential'],
+                        'high', '#ff69b4',
+                        'medium', '#8a2be2',
+                        /* other */ '#1e90ff'
+                      ],
+                      'line-width': 2,
+                      'line-opacity': 0
+                    }
+                  });
+
+                  // Fit bounds
+                  const b = new mapboxgl.LngLatBounds();
+                  features.forEach(f => f.geometry.coordinates[0].forEach(c => b.extend(c)));
+                  if (!b.isEmpty()) map.fitBounds(b, { padding: 60, maxZoom: 20 });
+
+                  // Staggered fade-in
+                  features.forEach((f, i) => {
+                    setTimeout(() => {
+                      const step = 10; let cur = 0;
+                      const iv = setInterval(() => {
+                        cur += 1;
+                        const op = Math.min(cur / step, 0.85);
+                        map.setPaintProperty('roof-fill', 'fill-opacity', op);
+                        map.setPaintProperty('roof-outline', 'line-opacity', Math.min(op + 0.1, 0.95));
+                        if (cur >= step) clearInterval(iv);
+                      }, 40);
+                    }, i * 180);
+                  });
+
+                  // Hover + click popups
+                  const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true });
+                  map.on('mouseenter', 'roof-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+                  map.on('mouseleave', 'roof-fill', () => { map.getCanvas().style.cursor = ''; });
+                  map.on('click', 'roof-fill', (e) => {
+                    const f = e.features && e.features[0];
+                    if (!f) return;
+                    const p = f.properties || {};
+                    const html = '<div style="font-family: \'Google Sans\', \'Roboto\', sans-serif; font-size:12px;">'
+                      + '<div style="font-weight:600; margin-bottom:4px;">Segment ' + (p.id || '') + '</div>'
+                      + '<div>Potential: ' + (p.potential || 'n/a') + '</div>'
+                      + '</div>';
+                    popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
+                  });
+                });
+              } catch (e) { console.warn('Mapbox init failed', e); }
+            }
+            
             // Zoom controls
             function zoomIn() {
-              if (window.mapInstance) {
-                window.mapInstance.setZoom(window.mapInstance.getZoom() + 1);
+              if (window.mapInstance && window.mapInstance.setZoom) {
+                const z = window.mapInstance.getZoom ? window.mapInstance.getZoom() : 19;
+                window.mapInstance.setZoom(z + 1);
               }
             }
             
             function zoomOut() {
-              if (window.mapInstance) {
-                window.mapInstance.setZoom(window.mapInstance.getZoom() - 1);
+              if (window.mapInstance && window.mapInstance.setZoom) {
+                const z = window.mapInstance.getZoom ? window.mapInstance.getZoom() : 19;
+                window.mapInstance.setZoom(z - 1);
               }
             }
             
             // Initialize the demo
             document.addEventListener('DOMContentLoaded', function() {
+              // Ensure slider updates work in all browsers
+              const slider = document.getElementById('panel-count-slider');
+              if (slider) slider.addEventListener('input', (e) => updatePanelCount((e.target || slider).value));
+              
+              // If Google Maps hasn't loaded shortly after, fall back to Mapbox
+              setTimeout(() => {
+                if (!(window.google && window.google.maps)) {
+                  if (mapboxToken) {
+                    // Load Mapbox script dynamically then init
+                    const s = document.createElement('script');
+                    s.src = 'https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js';
+                    s.onload = () => initMapbox();
+                    document.head.appendChild(s);
+                  }
+                }
+              }, 3000);
               console.log('Solar analysis tool loaded successfully');
             });
           </script>
