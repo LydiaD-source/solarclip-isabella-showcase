@@ -21,6 +21,8 @@ const SolarMapContent = React.lazy(() => import('./SolarMapContent').then(module
 export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [isExpandingToFullscreen, setIsExpandingToFullscreen] = useState(false);
+  const [isFullscreenMode, setIsFullscreenMode] = useState(false);
 
   useEffect(() => {
     // Trigger entrance animation
@@ -28,11 +30,32 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    // For google_solar cards, transition to fullscreen after swoosh settles
+    if (card.type === 'google_solar' && isVisible && !isClosing) {
+      const expandTimer = setTimeout(() => {
+        setIsExpandingToFullscreen(true);
+        // Complete fullscreen transition after 2s
+        const fullscreenTimer = setTimeout(() => {
+          setIsFullscreenMode(true);
+        }, 2000);
+        return () => clearTimeout(fullscreenTimer);
+      }, 4000); // After swoosh animation completes
+      return () => clearTimeout(expandTimer);
+    }
+  }, [card.type, isVisible, isClosing]);
+
   const handleClose = () => {
     setIsClosing(true);
     setTimeout(() => {
       onClose();
     }, 4000); // Match the swoop-out animation duration
+  };
+
+  const handleMinimize = () => {
+    // Return from fullscreen to card view
+    setIsFullscreenMode(false);
+    setIsExpandingToFullscreen(false);
   };
 
   const handleAutoExit = (exitType: 'video_ended' | 'solar_completed' | 'manual' = 'manual') => {
@@ -71,17 +94,93 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         );
 
       case 'google_solar':
-        // If an embed_url is provided, render it fullscreen like the Google demo
+        // If an embed_url is provided, render it with enhanced cinematic experience
         if ((card as any)?.content?.embed_url || (card as any)?.content?.url) {
           const embed = (card as any).content.embed_url || (card as any).content.url;
           return (
-            <iframe
-              src={embed}
-              className="w-full h-full border-0"
-              title="Interactive Solar Map"
-              loading="lazy"
-              allow="geolocation"
-            />
+            <div className="w-full h-full relative">
+              <iframe
+                src={embed}
+                className="w-full h-full border-0 rounded-xl"
+                title="Interactive Solar Map"
+                loading="lazy"
+                allow="geolocation"
+              />
+              {/* Fullscreen controls overlay */}
+              {isFullscreenMode && (
+                <motion.div 
+                  className="absolute inset-0 pointer-events-none"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 1, duration: 0.8 }}
+                >
+                  {/* Legend */}
+                  <motion.div 
+                    className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-lg pointer-events-auto"
+                    initial={{ y: 100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 2, duration: 0.6, ease: "easeOut" }}
+                  >
+                    <h3 className="font-semibold text-sm mb-3 text-gray-800">Solar Potential</h3>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-pink-500"></div>
+                        <span className="text-xs text-gray-700">High</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-purple-500"></div>
+                        <span className="text-xs text-gray-700">Medium</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                        <span className="text-xs text-gray-700">Low</span>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Seasonal Controls */}
+                  <motion.div 
+                    className="absolute top-6 left-6 bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-lg pointer-events-auto"
+                    initial={{ y: -100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 2.5, duration: 0.6, ease: "easeOut" }}
+                  >
+                    <h3 className="font-semibold text-sm mb-3 text-gray-800">Season</h3>
+                    <div className="flex gap-2">
+                      {['Winter', 'Spring', 'Summer', 'Fall'].map((season) => (
+                        <button
+                          key={season}
+                          className="px-3 py-1 text-xs rounded-full bg-gray-100 hover:bg-gray-200 transition-colors"
+                        >
+                          {season}
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+
+                  {/* Sun Angle Control */}
+                  <motion.div 
+                    className="absolute top-6 right-20 bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-lg pointer-events-auto"
+                    initial={{ y: -100, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 3, duration: 0.6, ease: "easeOut" }}
+                  >
+                    <h3 className="font-semibold text-sm mb-3 text-gray-800">Sun Angle</h3>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-600">Morning</span>
+                      <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        defaultValue="50"
+                        className="flex-1 accent-orange-500"
+                      />
+                      <span className="text-xs text-gray-600">Evening</span>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </div>
           );
         }
         // Fallback to legacy internal renderer
@@ -167,15 +266,15 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     }
   };
 
-  // Always render inside the cinematic card (no fullscreen)
-  const isFullscreen = false;
+  // Determine rendering mode based on expansion state
+  const isFullscreen = isFullscreenMode;
 
   const containerVariants = {
     hidden: { 
       opacity: 0,
-      x: isFullscreen ? "100%" : "-100%",
+      x: "-100%",
       scale: 0.7,
-      rotateY: isFullscreen ? 25 : -25,
+      rotateY: -25,
       filter: "blur(8px)"
     },
     visible: { 
@@ -185,9 +284,23 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
       rotateY: 0,
       filter: "blur(0px)"
     },
+    expandToFullscreen: {
+      opacity: 1,
+      x: 0,
+      scale: 1.2,
+      rotateY: 0,
+      filter: "blur(0px)"
+    },
+    fullscreen: {
+      opacity: 1,
+      x: 0,
+      scale: 1,
+      rotateY: 0,
+      filter: "blur(0px)"
+    },
     exit: {
       opacity: 0,
-      x: isFullscreen ? "100%" : "-100%",
+      x: "-100%",
       scale: 0.8
     }
   };
@@ -196,9 +309,14 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     <AnimatePresence>
       {(isVisible || isClosing) && (
         <motion.div 
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+          className={`fixed inset-0 z-50 ${
+            isExpandingToFullscreen || isFullscreenMode ? 'bg-black/70' : 'bg-black/50'
+          } backdrop-blur-sm`}
           initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          animate={{ 
+            opacity: 1,
+            backgroundColor: isExpandingToFullscreen || isFullscreenMode ? 'rgba(0,0,0,0.7)' : 'rgba(0,0,0,0.5)'
+          }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
           onClick={isFullscreen ? undefined : handleClose}
@@ -207,20 +325,27 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
             <motion.div
               variants={containerVariants}
               initial="hidden"
-              animate={isClosing ? "exit" : "visible"}
+              animate={
+                isClosing ? "exit" : 
+                isExpandingToFullscreen ? "expandToFullscreen" :
+                isFullscreenMode ? "fullscreen" :
+                "visible"
+              }
               transition={{
-                duration: 4,
-                ease: "easeInOut",
+                duration: isExpandingToFullscreen ? 2 : 4,
+                ease: isExpandingToFullscreen ? "easeInOut" : "easeInOut",
                 staggerChildren: 0.2
               }}
               style={{ transformOrigin: "center" }}
             >
               <Card 
                 className={`${
-                  isFullscreen 
-                    ? "w-full h-full rounded-none shadow-none"
+                  isFullscreenMode 
+                    ? "w-screen h-screen rounded-none shadow-none fixed inset-0"
+                    : isExpandingToFullscreen
+                    ? "w-screen h-screen rounded-xl shadow-2xl fixed inset-0"
                     : "w-[70vw] max-w-2xl aspect-video mb-12 mx-auto shadow-2xl rounded-2xl"
-                } transform-gpu will-change-transform`}
+                } transform-gpu will-change-transform transition-all duration-1000 ease-in-out`}
                 onClick={(e) => e.stopPropagation()}
                 onKeyDown={handleKeyDown}
                 tabIndex={0}
@@ -245,16 +370,32 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
               {renderContent()}
             </div>
           </CardContent>
-          {isFullscreen && (
-            <Button 
-              variant="ghost" 
-              size="sm"
-              onClick={handleClose}
-              aria-label="Close solar analysis"
-              className="absolute top-4 right-4 z-50 bg-background/80 backdrop-blur-sm hover:bg-background/90"
+          {(isExpandingToFullscreen || isFullscreenMode) && (
+            <motion.div
+              className="absolute top-4 right-4 z-50 flex gap-2"
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.5, duration: 0.5 }}
             >
-              <X className="h-4 w-4" />
-            </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={handleMinimize}
+                aria-label="Minimize to card view"
+                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-800 shadow-lg"
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={handleClose}
+                aria-label="Close solar analysis"
+                className="bg-white/90 backdrop-blur-sm hover:bg-white text-gray-800 shadow-lg"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </motion.div>
           )}
               </Card>
             </motion.div>
