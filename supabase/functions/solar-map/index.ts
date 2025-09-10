@@ -512,6 +512,8 @@ serve(async (req) => {
             }
             
             #map {
+              position: absolute;
+              inset: 0;
               width: 100%;
               height: 100%;
               border-radius: 0;
@@ -1109,6 +1111,25 @@ serve(async (req) => {
                   });
                 });
               }
+              
+              // Ensure proper sizing after cinematic reveal
+              setTimeout(() => {
+                try {
+                  const bounds = new google.maps.LatLngBounds();
+                  if (actualRoofSegments && actualRoofSegments.length) {
+                    actualRoofSegments.forEach(seg => {
+                      (seg.coordinates || []).forEach(coord => {
+                        bounds.extend(new google.maps.LatLng(coord[1], coord[0]));
+                      });
+                    });
+                  }
+                  google.maps.event.trigger(map, 'resize');
+                  if (!bounds.isEmpty()) {
+                    map.fitBounds(bounds);
+                    map.setZoom(Math.min(map.getZoom(), 21));
+                  }
+                } catch (e) { console.warn('Post-animation resize failed', e); }
+              }, 3800);
               
               // Add enhanced legend with smooth slide-up animation
               setTimeout(() => {

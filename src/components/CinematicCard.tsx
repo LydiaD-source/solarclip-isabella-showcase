@@ -203,7 +203,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
           transition={{ duration: 0.5 }}
           onClick={isFullscreen ? undefined : handleClose}
         >
-          <div className={isFullscreen ? "w-full h-full" : "flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16"}>
+          <div className={isFullscreen ? "w-full h-full min-h-screen" : "flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16"}>
             <motion.div
               variants={containerVariants}
               initial="hidden"
