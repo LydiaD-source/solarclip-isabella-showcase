@@ -1023,68 +1023,105 @@ serve(async (req) => {
                 fullscreenControl: false
               });
               
-              // Enhanced roof segmentation to match Google's precision
-              // Create realistic building roof segments based on typical building architecture
-              const buildingBounds = {
-                sw: { latitude: ${location.lat} - 0.000025, longitude: ${location.lng} - 0.000045 },
-                ne: { latitude: ${location.lat} + 0.000025, longitude: ${location.lng} + 0.000045 }
+              // Prepare actual roof segments and viewport
+              window.__roofSegments = ${JSON.stringify(roof_segments)};
+
+              // Fit bounds to actual roof segments immediately for visibility
+              (function fitInitialBounds() {
+                try {
+                  const bounds = new google.maps.LatLngBounds();
+                  const segs = window.__roofSegments || [];
+                  if (segs.length) {
+                    segs.forEach(seg => {
+                      (seg.coordinates || []).forEach(c => bounds.extend(new google.maps.LatLng(c[1], c[0])));
+                    });
+                    map.fitBounds(bounds);
+                    map.setZoom(Math.min(map.getZoom(), 21));
+                  } else {
+                    map.setCenter({ lat: ${location.lat}, lng: ${location.lng} });
+                    map.setZoom(20);
+                  }
+                } catch (e) { console.warn('Initial bounds fit failed', e); }
+              })();
+
+              // Canvas overlay to render a smooth yellow→purple gradient inside each roof polygon
+              function CanvasRoofOverlay(map, segments) {
+                this.map = map;
+                this.segments = segments;
+                this.canvas = null;
+                this.setMap(map);
+              }
+              CanvasRoofOverlay.prototype = new google.maps.OverlayView();
+              CanvasRoofOverlay.prototype.onAdd = function() {
+                this.canvas = document.createElement('canvas');
+                this.canvas.style.position = 'absolute';
+                this.getPanes().overlayLayer.appendChild(this.canvas);
               };
-              
-              // Create multiple roof segments like Google's app
-              const roofSegments = [
-                {
-                  // Main north-facing roof section (highest potential)
-                  path: [
-                    { lat: buildingBounds.sw.latitude + 0.000008, lng: buildingBounds.sw.longitude + 0.000005 },
-                    { lat: buildingBounds.sw.latitude + 0.000008, lng: buildingBounds.ne.longitude - 0.000005 },
-                    { lat: buildingBounds.ne.latitude - 0.000003, lng: buildingBounds.ne.longitude - 0.000005 },
-                    { lat: buildingBounds.ne.latitude - 0.000003, lng: buildingBounds.sw.longitude + 0.000005 }
-                  ],
-                  color: '#f43f5e', // Pink for high potential
-                  opacity: 0.75,
-                  delay: 600
-                },
-                {
-                  // South-east roof section (medium-high potential) 
-                  path: [
-                    { lat: buildingBounds.ne.latitude - 0.000015, lng: buildingBounds.ne.longitude - 0.000020 },
-                    { lat: buildingBounds.ne.latitude - 0.000015, lng: buildingBounds.ne.longitude - 0.000003 },
-                    { lat: buildingBounds.ne.latitude - 0.000005, lng: buildingBounds.ne.longitude - 0.000003 },
-                    { lat: buildingBounds.ne.latitude - 0.000005, lng: buildingBounds.ne.longitude - 0.000020 }
-                  ],
-                  color: '#7c3aed', // Purple for medium potential
-                  opacity: 0.7,
-                  delay: 900
-                },
-                {
-                  // South-west roof section (medium potential)
-                  path: [
-                    { lat: buildingBounds.sw.latitude + 0.000003, lng: buildingBounds.sw.longitude + 0.000003 },
-                    { lat: buildingBounds.sw.latitude + 0.000003, lng: buildingBounds.sw.longitude + 0.000020 },
-                    { lat: buildingBounds.sw.latitude + 0.000012, lng: buildingBounds.sw.longitude + 0.000020 },
-                    { lat: buildingBounds.sw.latitude + 0.000012, lng: buildingBounds.sw.longitude + 0.000003 }
-                  ],
-                  color: '#7c3aed', // Purple for medium potential
-                  opacity: 0.65,
-                  delay: 1200
-                },
-                {
-                  // Small dormer/attic section (lower potential)
-                  path: [
-                    { lat: buildingBounds.sw.latitude + 0.000015, lng: buildingBounds.sw.longitude + 0.000025 },
-                    { lat: buildingBounds.sw.latitude + 0.000015, lng: buildingBounds.sw.longitude + 0.000035 },
-                    { lat: buildingBounds.sw.latitude + 0.000020, lng: buildingBounds.sw.longitude + 0.000035 },
-                    { lat: buildingBounds.sw.latitude + 0.000020, lng: buildingBounds.sw.longitude + 0.000025 }
-                  ],
-                  color: '#3b82f6', // Blue for low potential
-                  opacity: 0.6,
-                  delay: 1500
-                }
-              ];
+              CanvasRoofOverlay.prototype.draw = function() {
+                const projection = this.getProjection();
+                if (!projection) return;
+                const pane = this.getPanes().overlayLayer;
+                const w = pane.offsetWidth || this.map.getDiv().offsetWidth;
+                const h = pane.offsetHeight || this.map.getDiv().offsetHeight;
+                this.canvas.width = w;
+                this.canvas.height = h;
+                const ctx = this.canvas.getContext('2d');
+                if (!ctx) return;
+                ctx.clearRect(0, 0, w, h);
+
+                const toPx = (lat, lng) => {
+                  const p = projection.fromLatLngToDivPixel(new google.maps.LatLng(lat, lng));
+                  return { x: p.x, y: p.y };
+                };
+
+                (this.segments || []).forEach(seg => {
+                  const coords = (seg.coordinates || []).map(c => toPx(c[1], c[0]));
+                  if (coords.length < 3) return;
+
+                  // Build polygon path and clip
+                  ctx.save();
+                  ctx.beginPath();
+                  coords.forEach((pt, i) => {
+                    if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
+                  });
+                  ctx.closePath();
+                  ctx.clip();
+
+                  // Compute gradient line using segment azimuth
+                  const xs = coords.map(p => p.x); const ys = coords.map(p => p.y);
+                  const minX = Math.min(...xs), maxX = Math.max(...xs);
+                  const minY = Math.min(...ys), maxY = Math.max(...ys);
+                  const cx = (minX + maxX) / 2; const cy = (minY + maxY) / 2;
+                  const len = Math.max(maxX - minX, maxY - minY) * 0.9;
+                  const angle = ((seg.azimuthDegrees ?? 180) * Math.PI) / 180;
+                  const x1 = cx - Math.cos(angle) * len, y1 = cy - Math.sin(angle) * len;
+                  const x2 = cx + Math.cos(angle) * len, y2 = cy + Math.sin(angle) * len;
+
+                  const grad = ctx.createLinearGradient(x1, y1, x2, y2);
+                  // Yellow → pink/purple → deep purple
+                  grad.addColorStop(0, 'rgba(255, 235, 59, 0.85)');
+                  grad.addColorStop(0.5, seg.potential === 'high' ? 'rgba(255, 105, 180, 0.75)' : 'rgba(138, 43, 226, 0.65)');
+                  grad.addColorStop(1, 'rgba(128, 0, 128, 0.6)');
+
+                  ctx.fillStyle = grad;
+                  ctx.fillRect(minX - 2, minY - 2, (maxX - minX) + 4, (maxY - minY) + 4);
+                  ctx.restore();
+                });
+              };
+              CanvasRoofOverlay.prototype.onRemove = function() {
+                if (this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
+                this.canvas = null;
+              };
+
+              const roofOverlay = new CanvasRoofOverlay(map, window.__roofSegments || []);
+              google.maps.event.addListener(map, 'idle', () => roofOverlay.draw());
+              google.maps.event.addListener(map, 'zoom_changed', () => roofOverlay.draw());
+              google.maps.event.addListener(map, 'dragend', () => roofOverlay.draw());
+
               
               // Add actual roof segments with smooth staggered animations  
-              const actualRoofSegments = ${JSON.stringify(roof_segments)};
-              console.log('Rendering roof segments:', actualRoofSegments.length);
+               const actualRoofSegments = window.__roofSegments || [];
+               console.log('Rendering roof segments:', actualRoofSegments.length);
               
               if (actualRoofSegments && actualRoofSegments.length > 0) {
                 actualRoofSegments.forEach((segment, index) => {
