@@ -92,14 +92,15 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error('Google Solar API error:', response.status, errorText);
       
-      if (response.status === 404) {
+      // Handle API errors gracefully
+      if (response.status === 404 || response.status === 403 || errorText.includes('REQUEST_DENIED')) {
         return new Response(JSON.stringify({
           status: 'error',
-          message: "No solar data available for this location yet. Please try a different address.",
+          message: "Sorry, I couldn't locate that address. Please try another.",
           card: {
             type: "error",
-            title: "Solar Data Unavailable",
-            content: { message: "No solar data available for this location yet. Please try a different address." },
+            title: "Solar Analysis Unavailable",
+            content: { message: "Sorry, I couldn't locate that address. Please try another." },
             animation: "swoop-left"
           }
         }), {
