@@ -229,19 +229,19 @@ serve(async (req) => {
           const r = Math.round(255);
           const g = Math.round(255 * (0.2 + 0.8 * intensity));
           const b = Math.round(30 * (1 - intensity));
-          return \`rgb(\${r}, \${g}, \${b})\`;
+          return 'rgb(' + r + ', ' + g + ', ' + b + ')';
         } else if (potential === 'medium') {
           // Orange (summer) to Purple (winter)  
           const r = Math.round(255 * (0.5 + 0.5 * intensity));
           const g = Math.round(140 * intensity);
           const b = Math.round(120 + 135 * (1 - intensity));
-          return \`rgb(\${r}, \${g}, \${b})\`;
+          return 'rgb(' + r + ', ' + g + ', ' + b + ')';
         } else {
           // Light Orange (summer) to Dark Purple (winter)
           const r = Math.round(150 + 105 * intensity);
           const g = Math.round(100 * intensity);
           const b = Math.round(180 + 75 * (1 - intensity));
-          return \`rgb(\${r}, \${g}, \${b})\`;
+          return 'rgb(' + r + ', ' + g + ', ' + b + ')';
         }
       };
 
@@ -297,15 +297,15 @@ serve(async (req) => {
         }
 
         // Enhanced roof segment rendering with visibility
-        console.log(`[Map] Rendering ${(window.roofSegments || []).length} roof segments`);
+        console.log('[Map] Rendering ' + (window.roofSegments || []).length + ' roof segments');
         
         (window.roofSegments || []).forEach((seg, i) => {
           if (!seg.coordinates || seg.coordinates.length < 3) {
-            console.log(`[Map] Skipping segment ${i}: Invalid coordinates`);
+            console.log('[Map] Skipping segment ' + i + ': Invalid coordinates');
             return;
           }
           
-          console.log(`[Map] Rendering segment ${i} with ${seg.coordinates.length} points, potential: ${seg.potential}`);
+          console.log('[Map] Rendering segment ' + i + ' with ' + seg.coordinates.length + ' points, potential: ' + seg.potential);
           
           setTimeout(() => {
             const path = seg.coordinates.map(([lng, lat]) => ({ lat, lng }));
@@ -356,11 +356,11 @@ serve(async (req) => {
 
         // Start seasonal animation after all segments are loaded
         setTimeout(() => {
-          console.log(`[Map] Starting seasonal animation for ${window.allPolygons.length} polygons`);
+          console.log('[Map] Starting seasonal animation for ' + window.allPolygons.length + ' polygons');
           if (window.allPolygons.length > 0) {
             window.animateSeasons();
           } else {
-            console.log(`[Map] No polygons found for animation`);
+            console.log('[Map] No polygons found for animation');
           }
         }, (window.roofSegments || []).length * 300 + 1000);
       };
