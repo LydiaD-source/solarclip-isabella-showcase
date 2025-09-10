@@ -199,7 +199,18 @@ serve(async (req) => {
       address: formattedAddress
     };
 
-    // Create exact Google Solar API demo layout with Building Insights and interactive controls
+    // Get actual API data for calculations
+    const actualSolarData = {
+      solarPotential: solarPotential,
+      maxPanelCount: solarPotential.wholeRoofStats?.panelsCount || 300,
+      panelConfigs: solarPotential.solarPanelConfigs || [],
+      monthlyFlux: solarPotential.monthlyFlux || [],
+      roofArea: roof_area,
+      baseAnnualKwh: annual_kwh,
+      basePanelCount: panel_count
+    };
+
+    // Create exact Google Solar API demo layout with real interactive calculations
     const embedUrl = `data:text/html;charset=utf-8,${encodeURIComponent(`
       <!DOCTYPE html>
       <html>
@@ -210,21 +221,28 @@ serve(async (req) => {
               font-family: 'Google Sans', 'Roboto', Arial, sans-serif; 
               background: #f8f9fa;
               height: 100vh;
+              overflow: hidden;
+            }
+            
+            .main-container {
               display: flex;
+              height: 100vh;
+              position: relative;
             }
             
             /* Left Panel - Building Insights */
             .left-panel {
-              width: 280px;
+              width: 300px;
               background: white;
               display: flex;
               flex-direction: column;
-              box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+              box-shadow: 2px 0 12px rgba(0,0,0,0.15);
               z-index: 1000;
+              position: relative;
             }
             
             .building-insights {
-              padding: 16px;
+              padding: 20px;
               border-bottom: 1px solid #e8eaed;
             }
             
@@ -232,7 +250,7 @@ serve(async (req) => {
               display: flex;
               align-items: center;
               gap: 8px;
-              margin-bottom: 16px;
+              margin-bottom: 20px;
               color: #5d6bb3;
               font-size: 16px;
               font-weight: 500;
@@ -242,13 +260,14 @@ serve(async (req) => {
               display: flex;
               align-items: center;
               gap: 12px;
-              margin-bottom: 12px;
+              margin-bottom: 16px;
             }
             
             .insight-icon {
-              width: 20px;
-              height: 20px;
+              width: 24px;
+              height: 24px;
               color: #5d6bb3;
+              flex-shrink: 0;
             }
             
             .insight-content {
@@ -262,14 +281,14 @@ serve(async (req) => {
             }
             
             .insight-value {
-              font-size: 16px;
+              font-size: 18px;
               font-weight: 500;
               color: #202124;
             }
             
-            /* Panel Controls */
+            /* Panel Controls - Interactive like Google demo */
             .panel-controls {
-              padding: 16px;
+              padding: 20px;
               background: white;
               border-bottom: 1px solid #e8eaed;
             }
@@ -277,33 +296,44 @@ serve(async (req) => {
             .control-header {
               display: grid;
               grid-template-columns: 1fr 1fr;
-              gap: 20px;
-              margin-bottom: 12px;
+              gap: 24px;
+              margin-bottom: 16px;
               font-size: 14px;
               font-weight: 500;
               color: #5f6368;
+              text-align: center;
             }
             
             .panel-row {
               display: grid;
               grid-template-columns: 1fr 1fr;
-              gap: 20px;
-              margin-bottom: 8px;
+              gap: 24px;
+              margin-bottom: 12px;
             }
             
-            .panel-label {
-              font-size: 20px;
+            .panel-display {
               text-align: center;
             }
             
-            .panel-value {
-              font-size: 16px;
+            .panel-count {
+              font-size: 24px;
+              font-weight: 500;
+              color: #5d6bb3;
+            }
+            
+            .max-count {
+              font-size: 12px;
+              color: #5f6368;
+            }
+            
+            .yearly-energy {
+              font-size: 20px;
               font-weight: 500;
               color: #202124;
               text-align: center;
             }
             
-            /* Main Map Area */
+            /* Map Container - Full screen behind panels */
             .map-container {
               flex: 1;
               position: relative;
@@ -315,30 +345,37 @@ serve(async (req) => {
               height: 100%;
             }
             
-            /* Right Panel */
+            /* Right Panel - Controls overlay */
             .right-panel {
-              width: 300px;
+              width: 320px;
               background: white;
-              box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+              box-shadow: -2px 0 12px rgba(0,0,0,0.15);
               overflow-y: auto;
               z-index: 1000;
+              position: relative;
             }
             
             .search-section {
-              padding: 16px;
+              padding: 20px;
               border-bottom: 1px solid #e8eaed;
+            }
+            
+            .search-label {
+              font-size: 14px;
+              color: #5f6368;
+              margin-bottom: 8px;
             }
             
             .search-input {
               width: 100%;
-              padding: 8px 12px;
+              padding: 12px;
               border: 1px solid #dadce0;
               border-radius: 4px;
               font-size: 14px;
             }
             
             .api-info {
-              padding: 16px;
+              padding: 20px;
               border-bottom: 1px solid #e8eaed;
             }
             
@@ -350,19 +387,19 @@ serve(async (req) => {
             }
             
             .api-description {
-              font-size: 12px;
+              font-size: 13px;
               color: #5f6368;
-              line-height: 1.4;
+              line-height: 1.5;
             }
             
             .endpoints-section {
-              padding: 16px;
+              padding: 20px;
             }
             
             .endpoint-item {
-              margin-bottom: 16px;
+              margin-bottom: 20px;
               cursor: pointer;
-              padding: 12px;
+              padding: 16px;
               border: 1px solid #e8eaed;
               border-radius: 8px;
               transition: all 0.2s;
@@ -370,7 +407,7 @@ serve(async (req) => {
             
             .endpoint-item:hover {
               border-color: #5d6bb3;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+              box-shadow: 0 2px 8px rgba(93,107,179,0.15);
             }
             
             .endpoint-item.active {
@@ -382,82 +419,87 @@ serve(async (req) => {
               display: flex;
               align-items: center;
               gap: 8px;
-              margin-bottom: 4px;
+              margin-bottom: 6px;
             }
             
             .endpoint-icon {
-              width: 16px;
-              height: 16px;
+              width: 18px;
+              height: 18px;
               color: #5d6bb3;
             }
             
             .endpoint-title {
-              font-size: 14px;
+              font-size: 15px;
               font-weight: 500;
               color: #5d6bb3;
             }
             
             .endpoint-subtitle {
-              font-size: 12px;
+              font-size: 13px;
               color: #5f6368;
+              margin-bottom: 12px;
             }
             
             .endpoint-controls {
-              margin-top: 12px;
-              padding-top: 12px;
+              margin-top: 16px;
+              padding-top: 16px;
               border-top: 1px solid #e8eaed;
             }
             
             .panel-slider-container {
-              margin: 8px 0;
+              margin: 12px 0;
             }
             
             .slider-label {
-              font-size: 12px;
+              font-size: 13px;
               color: #5f6368;
-              margin-bottom: 4px;
+              margin-bottom: 8px;
+              display: flex;
+              justify-content: space-between;
             }
             
             .panel-slider {
               width: 100%;
-              height: 4px;
-              border-radius: 2px;
+              height: 6px;
+              border-radius: 3px;
               background: #e8eaed;
               outline: none;
               -webkit-appearance: none;
+              cursor: pointer;
             }
             
             .panel-slider::-webkit-slider-thumb {
               -webkit-appearance: none;
               appearance: none;
-              width: 16px;
-              height: 16px;
+              width: 20px;
+              height: 20px;
               border-radius: 50%;
               background: #5d6bb3;
               cursor: pointer;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             }
             
             .panel-capacity-input {
               width: 100%;
-              padding: 6px 8px;
+              padding: 8px 12px;
               border: 1px solid #dadce0;
               border-radius: 4px;
-              font-size: 12px;
-              margin: 8px 0;
+              font-size: 13px;
+              margin: 12px 0;
             }
             
             .toggle-container {
               display: flex;
               align-items: center;
-              gap: 8px;
-              margin: 8px 0;
+              gap: 12px;
+              margin: 12px 0;
             }
             
             .toggle-switch {
-              width: 32px;
-              height: 16px;
+              width: 40px;
+              height: 20px;
               background: #5d6bb3;
-              border-radius: 8px;
+              border-radius: 10px;
               position: relative;
               cursor: pointer;
             }
@@ -465,8 +507,8 @@ serve(async (req) => {
             .toggle-switch::after {
               content: '';
               position: absolute;
-              width: 12px;
-              height: 12px;
+              width: 16px;
+              height: 16px;
               border-radius: 50%;
               background: white;
               top: 2px;
@@ -475,7 +517,7 @@ serve(async (req) => {
             }
             
             .toggle-label {
-              font-size: 12px;
+              font-size: 13px;
               color: #202124;
             }
             
@@ -483,36 +525,33 @@ serve(async (req) => {
               background: #e8eaff;
               color: #5d6bb3;
               border: none;
-              padding: 6px 12px;
+              padding: 8px 16px;
               border-radius: 4px;
-              font-size: 12px;
+              font-size: 13px;
               cursor: pointer;
-              margin-top: 8px;
+              margin-top: 12px;
             }
             
-            .solar-potential-overlay {
+            /* Solar potential legend - overlay on map */
+            .solar-legend {
               position: absolute;
               bottom: 20px;
               left: 20px;
               background: rgba(255,255,255,0.95);
-              padding: 16px;
+              padding: 12px 16px;
               border-radius: 8px;
               box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-              z-index: 1000;
-            }
-            
-            .potential-legend {
+              z-index: 500;
               display: flex;
+              gap: 16px;
               align-items: center;
-              gap: 8px;
-              font-size: 12px;
-              color: #5f6368;
             }
             
             .legend-item {
               display: flex;
               align-items: center;
-              gap: 4px;
+              gap: 6px;
+              font-size: 12px;
             }
             
             .legend-color {
@@ -520,354 +559,340 @@ serve(async (req) => {
               height: 16px;
               border-radius: 2px;
             }
+            
+            .high-potential { background: #ff1493; }
+            .medium-potential { background: #9932cc; }
+            .low-potential { background: #1e90ff; }
+            
+            /* Map controls */
+            .map-controls {
+              position: absolute;
+              bottom: 20px;
+              right: 20px;
+              z-index: 500;
+            }
+            
+            .zoom-controls {
+              background: white;
+              border-radius: 8px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+              overflow: hidden;
+            }
+            
+            .zoom-btn {
+              display: block;
+              width: 40px;
+              height: 40px;
+              border: none;
+              background: white;
+              cursor: pointer;
+              font-size: 18px;
+              font-weight: bold;
+              color: #5f6368;
+            }
+            
+            .zoom-btn:hover {
+              background: #f8f9fa;
+            }
+            
+            .zoom-btn:not(:last-child) {
+              border-bottom: 1px solid #e8eaed;
+            }
           </style>
         </head>
         <body>
-          <!-- Left Panel - Building Insights -->
-          <div class="left-panel">
-            <div class="building-insights">
-              <div class="insights-header">
-                🏠 Building Insights endpoint
-              </div>
-              <div class="insight-item">
-                ☀️
-                <div class="insight-content">
-                  <div class="insight-label">Annual sunshine</div>
-                  <div class="insight-value">${Math.round(annual_kwh / 4.5)} hr</div>
+          <div class="main-container">
+            <!-- Left Panel: Building Insights -->
+            <div class="left-panel">
+              <div class="building-insights">
+                <div class="insights-header">
+                  🏠 Building Insights endpoint
+                </div>
+                
+                <div class="insight-item">
+                  <div class="insight-icon">☀️</div>
+                  <div class="insight-content">
+                    <div class="insight-label">Annual sunshine</div>
+                    <div class="insight-value" id="annual-sunshine">${Math.round(solarPotential.yearlyEnergyDcKwh / panel_count * 6) || 1800} hr</div>
+                  </div>
+                </div>
+                
+                <div class="insight-item">
+                  <div class="insight-icon">🏠</div>
+                  <div class="insight-content">
+                    <div class="insight-label">Roof area</div>
+                    <div class="insight-value" id="roof-area">${roof_area.toLocaleString()} m²</div>
+                  </div>
+                </div>
+                
+                <div class="insight-item">
+                  <div class="insight-icon">🔋</div>
+                  <div class="insight-content">
+                    <div class="insight-label">Max panel count</div>
+                    <div class="insight-value" id="max-panels">${actualSolarData.maxPanelCount} panels</div>
+                  </div>
+                </div>
+                
+                <div class="insight-item">
+                  <div class="insight-icon">🌿</div>
+                  <div class="insight-content">
+                    <div class="insight-label">CO₂ savings</div>
+                    <div class="insight-value" id="co2-savings">${Math.round(annual_kwh * 0.0004)} kg/MWh</div>
+                  </div>
                 </div>
               </div>
-              <div class="insight-item">
-                📐
-                <div class="insight-content">
-                  <div class="insight-label">Roof area</div>
-                  <div class="insight-value">${roof_area.toLocaleString()} m²</div>
+              
+              <div class="panel-controls">
+                <div class="control-header">
+                  <div>Panels count</div>
+                  <div>Yearly energy</div>
                 </div>
-              </div>
-              <div class="insight-item">
-                🔲
-                <div class="insight-content">
-                  <div class="insight-label">Max panel count</div>
-                  <div class="insight-value">${summary.max_panels.toLocaleString()} panels</div>
-                </div>
-              </div>
-              <div class="insight-item">
-                🌿
-                <div class="insight-content">
-                  <div class="insight-label">CO₂ savings</div>
-                  <div class="insight-value">${Math.round(annual_kwh * 0.0004 * summary.max_panels / panel_count)} kg/MWh</div>
+                
+                <div class="panel-row">
+                  <div class="panel-display">
+                    <div class="panel-count" id="current-panels">${panel_count}</div>
+                    <div class="max-count">/ ${actualSolarData.maxPanelCount}</div>
+                  </div>
+                  <div class="yearly-energy" id="yearly-energy">${annual_kwh.toLocaleString()} kWh</div>
                 </div>
               </div>
             </div>
             
-            <div class="panel-controls">
-              <div class="control-header">
-                <div>Panels count</div>
-                <div>Yearly energy</div>
-              </div>
-              <div class="panel-row">
-                <div class="panel-label">🔲</div>
-                <div class="panel-label">⚡</div>
-              </div>
-              <div class="panel-row">
-                <div class="panel-value" id="panel-count">${panel_count} / ${summary.max_panels.toLocaleString()}</div>
-                <div class="panel-value" id="energy-output">${(annual_kwh/1000).toFixed(1)} kWh</div>
-              </div>
-            </div>
-          </div>
-          
-          <!-- Map Container -->
-          <div class="map-container">
-            <div id="map"></div>
-            <div class="solar-potential-overlay">
-              <div class="potential-legend">
+            <!-- Map Container -->
+            <div class="map-container">
+              <div id="map"></div>
+              
+              <!-- Solar potential legend overlay -->
+              <div class="solar-legend">
                 <div class="legend-item">
-                  <div class="legend-color" style="background: #ff0080;"></div>
+                  <div class="legend-color high-potential"></div>
                   <span>High solar potential</span>
                 </div>
                 <div class="legend-item">
-                  <div class="legend-color" style="background: #8000ff;"></div>
+                  <div class="legend-color medium-potential"></div>
                   <span>Medium potential</span>
                 </div>
                 <div class="legend-item">
-                  <div class="legend-color" style="background: #0080ff;"></div>
+                  <div class="legend-color low-potential"></div>
                   <span>Low potential</span>
                 </div>
               </div>
-            </div>
-          </div>
-          
-          <!-- Right Panel -->
-          <div class="right-panel">
-            <div class="search-section">
-              <input type="text" class="search-input" placeholder="Search an address" value="${formattedAddress}" readonly>
-            </div>
-            
-            <div class="api-info">
-              <div class="api-title">Two distinct endpoints of the Solar API</div>
-              <div class="api-description">offer many benefits to solar marketplace websites, solar installers, and solar SaaS designers.</div>
-              <br>
-              <div class="api-description">Click on an area below to see what type of information the Solar API can provide.</div>
+              
+              <!-- Map zoom controls -->
+              <div class="map-controls">
+                <div class="zoom-controls">
+                  <button class="zoom-btn" onclick="zoomIn()">+</button>
+                  <button class="zoom-btn" onclick="zoomOut()">−</button>
+                </div>
+              </div>
             </div>
             
-            <div class="endpoints-section">
-              <div class="endpoint-item active">
-                <div class="endpoint-header">
-                  <div class="endpoint-icon">🏠</div>
-                  <div>
+            <!-- Right Panel: API Controls -->
+            <div class="right-panel">
+              <div class="search-section">
+                <div class="search-label">Search an address</div>
+                <input type="text" class="search-input" value="${formattedAddress}" readonly>
+              </div>
+              
+              <div class="api-info">
+                <div class="api-title">Two distinct endpoints of the Solar API ↗</div>
+                <div class="api-description">
+                  offer many benefits to solar marketplace websites, solar installers, and solar SaaS designers.
+                </div>
+                <br>
+                <div class="api-description">
+                  <strong>Click on an area below</strong> to see what type of information the Solar API can provide.
+                </div>
+              </div>
+              
+              <div class="endpoints-section">
+                <!-- Building Insights Endpoint -->
+                <div class="endpoint-item active" id="building-insights-endpoint">
+                  <div class="endpoint-header">
+                    <div class="endpoint-icon">🏠</div>
                     <div class="endpoint-title">Building Insights endpoint</div>
-                    <div class="endpoint-subtitle">Yearly energy: ${(annual_kwh/1000).toFixed(1)} MWh</div>
+                  </div>
+                  <div class="endpoint-subtitle">Yearly energy: ${annual_kwh.toLocaleString()} kWh</div>
+                  <div class="api-description">
+                    Building Insights endpoint provides data on the location, dimensions & solar potential of a building.
+                  </div>
+                  
+                  <div class="endpoint-controls">
+                    <div class="panel-slider-container">
+                      <div class="slider-label">
+                        <span>Panels count</span>
+                        <span id="slider-count">${panel_count} panels</span>
+                      </div>
+                      <input type="range" class="panel-slider" id="panel-count-slider" 
+                             min="1" max="${actualSolarData.maxPanelCount}" value="${panel_count}"
+                             oninput="updatePanelCount(this.value)">
+                    </div>
+                    
+                    <input type="text" class="panel-capacity-input" placeholder="Panel capacity" value="250 Watts">
+                    
+                    <div class="toggle-container">
+                      <div class="toggle-switch"></div>
+                      <div class="toggle-label">Solar panels</div>
+                    </div>
+                    
+                    <button class="api-response-btn">API response</button>
                   </div>
                 </div>
-                <div class="endpoint-controls">
-                  <div class="slider-label">Panels count</div>
-                  <div class="panel-slider-container">
-                    <input type="range" min="1" max="${summary.max_panels}" value="${panel_count}" class="panel-slider" id="main-panel-slider" oninput="setPanels(this.value)">
-                  </div>
-                  <div class="panel-value" id="panels-display">${panel_count} panels</div>
-                  
-                  <div class="slider-label">Panel capacity</div>
-                  <input type="text" class="panel-capacity-input" value="250" readonly>
-                  <div style="text-align: right; font-size: 11px; color: #5f6368;">Watts</div>
-                  
-                  <div class="toggle-container">
-                    <div class="toggle-switch"></div>
-                    <div class="toggle-label">Solar panels</div>
-                  </div>
-                  
-                  <button class="api-response-btn">API response</button>
-                </div>
-              </div>
-              
-              <div class="endpoint-item">
-                <div class="endpoint-header">
-                  <div class="endpoint-icon">💎</div>
-                  <div>
+                
+                <!-- Data Layers Endpoint -->
+                <div class="endpoint-item" id="data-layers-endpoint">
+                  <div class="endpoint-header">
+                    <div class="endpoint-icon">🗂️</div>
                     <div class="endpoint-title">Data Layers endpoint</div>
-                    <div class="endpoint-subtitle">Monthly sunshine</div>
                   </div>
+                  <div class="endpoint-subtitle">Monthly sunshine</div>
                 </div>
-              </div>
-              
-              <div class="endpoint-item">
-                <div class="endpoint-header">
-                  <div class="endpoint-icon">📊</div>
-                  <div>
+                
+                <!-- Solar Potential Analysis -->
+                <div class="endpoint-item" id="solar-potential-endpoint">
+                  <div class="endpoint-header">
+                    <div class="endpoint-icon">📊</div>
                     <div class="endpoint-title">Solar Potential analysis</div>
-                    <div class="endpoint-subtitle">Values are only placeholders.</div>
                   </div>
+                  <div class="endpoint-subtitle">Values are only placeholders. Update with your own values.</div>
                 </div>
               </div>
             </div>
           </div>
           
           <script>
-            let currentPanels = ${panel_count};
-            const maxPanels = ${summary.max_panels};
-            const baseEnergyPerPanel = ${Math.round(annual_kwh / panel_count)};
-            let map;
-            let solarPanels = [];
+            // Store the actual solar data for calculations
+            const solarData = ${JSON.stringify(actualSolarData)};
+            let currentPanelCount = ${panel_count};
             
-            function setPanels(count) {
-              currentPanels = parseInt(count);
-              updateDisplay();
-              updatePanelsOnMap();
+            // Calculate energy based on panel count (real API calculations)
+            function calculateEnergyFromPanels(panelCount) {
+              // Use actual solar potential data for calculations
+              const baseKwhPerPanel = solarData.baseAnnualKwh / solarData.basePanelCount;
+              return Math.round(panelCount * baseKwhPerPanel);
             }
             
-            function updateDisplay() {
-              document.getElementById('panel-count').textContent = currentPanels + ' / ' + maxPanels.toLocaleString();
-              document.getElementById('panels-display').textContent = currentPanels + ' panels';
-              const newEnergy = currentPanels * baseEnergyPerPanel;
-              document.getElementById('energy-output').textContent = (newEnergy/1000).toFixed(1) + ' kWh';
+            // Update panel count and all related calculations
+            function updatePanelCount(newCount) {
+              currentPanelCount = parseInt(newCount);
+              const yearlyEnergy = calculateEnergyFromPanels(currentPanelCount);
+              const co2Savings = Math.round(yearlyEnergy * 0.0004);
+              
+              // Update all displays
+              document.getElementById('current-panels').textContent = currentPanelCount;
+              document.getElementById('slider-count').textContent = currentPanelCount + ' panels';
+              document.getElementById('yearly-energy').textContent = yearlyEnergy.toLocaleString() + ' kWh';
+              document.getElementById('co2-savings').textContent = co2Savings + ' kg/MWh';
+              
+              // Log the action for tracking
+              console.info('Unknown action: adjust_panels', {
+                panel_count: currentPanelCount,
+                annual_kwh: yearlyEnergy
+              });
             }
             
+            // Initialize Google Maps
             function initMap() {
-              map = new google.maps.Map(document.getElementById('map'), {
-                center: { lat: ${location.lat}, lng: ${location.lng} },
-                zoom: 21,
+              const location = { lat: ${location.lat}, lng: ${location.lng} };
+              
+              const map = new google.maps.Map(document.getElementById('map'), {
+                zoom: 20,
+                center: location,
                 mapTypeId: 'satellite',
                 tilt: 0,
-                heading: 0,
-                disableDefaultUI: true,
-                zoomControl: true,
-                fullscreenControl: true,
-                styles: [
-                  {
-                    featureType: 'all',
-                    elementType: 'labels',
-                    stylers: [{ visibility: 'off' }]
-                  }
-                ]
+                gestureHandling: 'greedy',
+                zoomControl: false,
+                mapTypeControl: false,
+                streetViewControl: false,
+                fullscreenControl: false
               });
               
-              addSolarPotentialOverlay();
-              updatePanelsOnMap();
-            }
-            
-            function addSolarPotentialOverlay() {
-              ${solarData.boundingBox ? `
-              const bounds = {
-                north: ${solarData.boundingBox.ne.latitude},
-                south: ${solarData.boundingBox.sw.latitude},
-                east: ${solarData.boundingBox.ne.longitude},
-                west: ${solarData.boundingBox.sw.longitude}
-              };
-              
-              // Create infrared-style solar potential visualization
-              const zones = [
-                { bounds: bounds, color: '#ff0080', opacity: 0.7, potential: 'high' },
-                { 
-                  bounds: {
-                    north: bounds.north - (bounds.north - bounds.south) * 0.2,
-                    south: bounds.south + (bounds.north - bounds.south) * 0.2,
-                    east: bounds.east - (bounds.east - bounds.west) * 0.2,
-                    west: bounds.west + (bounds.east - bounds.west) * 0.2
-                  }, 
-                  color: '#8000ff', 
-                  opacity: 0.6, 
-                  potential: 'medium' 
+              // Add solar potential overlay simulation
+              const solarOverlay = new google.maps.Rectangle({
+                bounds: {
+                  north: ${location.lat} + 0.0002,
+                  south: ${location.lat} - 0.0002,
+                  east: ${location.lng} + 0.0003,
+                  west: ${location.lng} - 0.0003
                 },
-                { 
-                  bounds: {
-                    north: bounds.north - (bounds.north - bounds.south) * 0.4,
-                    south: bounds.south + (bounds.north - bounds.south) * 0.4,
-                    east: bounds.east - (bounds.east - bounds.west) * 0.4,
-                    west: bounds.west + (bounds.east - bounds.west) * 0.4
-                  }, 
-                  color: '#0080ff', 
-                  opacity: 0.4, 
-                  potential: 'low' 
-                }
-              ];
-              
-              zones.forEach(zone => {
-                new google.maps.Rectangle({
-                  bounds: zone.bounds,
-                  strokeOpacity: 0,
-                  fillColor: zone.color,
-                  fillOpacity: zone.opacity,
-                  map: map
-                });
-              });
-              
-              // Add building outline
-              new google.maps.Rectangle({
-                bounds: bounds,
-                strokeColor: '#ffffff',
-                strokeOpacity: 0.8,
-                strokeWeight: 2,
-                fillOpacity: 0,
+                fillColor: '#ff1493',
+                fillOpacity: 0.6,
+                strokeWeight: 0,
                 map: map
               });
-              ` : ''}
+              
+              window.mapInstance = map;
             }
             
-            function updatePanelsOnMap() {
-              solarPanels.forEach(panel => panel.setMap(null));
-              solarPanels = [];
-              
-              ${solarData.boundingBox ? `
-              const bounds = {
-                north: ${solarData.boundingBox.ne.latitude},
-                south: ${solarData.boundingBox.sw.latitude},
-                east: ${solarData.boundingBox.ne.longitude},
-                west: ${solarData.boundingBox.sw.longitude}
-              };
-              
-              const panelWidth = (bounds.east - bounds.west) * 0.6 / Math.ceil(Math.sqrt(currentPanels));
-              const panelHeight = (bounds.north - bounds.south) * 0.6 / Math.ceil(Math.sqrt(currentPanels));
-              
-              const cols = Math.ceil(Math.sqrt(currentPanels));
-              const rows = Math.ceil(currentPanels / cols);
-              
-              const startLat = bounds.south + (bounds.north - bounds.south) * 0.2;
-              const startLng = bounds.west + (bounds.east - bounds.west) * 0.2;
-              
-              for (let i = 0; i < currentPanels; i++) {
-                const col = i % cols;
-                const row = Math.floor(i / cols);
-                
-                const panelLat = startLat + row * panelHeight;
-                const panelLng = startLng + col * panelWidth;
-                
-                const panel = new google.maps.Rectangle({
-                  bounds: {
-                    north: panelLat + panelHeight * 0.8,
-                    south: panelLat,
-                    east: panelLng + panelWidth * 0.8,
-                    west: panelLng
-                  },
-                  strokeColor: '#1e40af',
-                  strokeOpacity: 1,
-                  strokeWeight: 1,
-                  fillColor: '#3b82f6',
-                  fillOpacity: 0.9,
-                  map: map
-                });
-                
-                solarPanels.push(panel);
+            // Zoom controls
+            function zoomIn() {
+              if (window.mapInstance) {
+                window.mapInstance.setZoom(window.mapInstance.getZoom() + 1);
               }
-              ` : ''}
             }
             
-            if (typeof google !== 'undefined') {
-              initMap();
-            } else {
-              window.initMap = initMap;
+            function zoomOut() {
+              if (window.mapInstance) {
+                window.mapInstance.setZoom(window.mapInstance.getZoom() - 1);
+              }
             }
+            
+            // Endpoint interactions
+            document.addEventListener('DOMContentLoaded', function() {
+              const endpoints = document.querySelectorAll('.endpoint-item');
+              
+              endpoints.forEach(endpoint => {
+                endpoint.addEventListener('click', function() {
+                  // Remove active class from all
+                  endpoints.forEach(ep => ep.classList.remove('active'));
+                  // Add active class to clicked
+                  this.classList.add('active');
+                });
+              });
+            });
           </script>
-          <script src="https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&callback=initMap&libraries=geometry"></script>
+          
+          <!-- Google Maps API -->
+          <script async defer 
+            src="https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&callback=initMap">
+          </script>
         </body>
       </html>
-    `)}`;
-
-    const response_data = {
-      status: 'success',
-      embed_url: embedUrl,
-      annual_kwh: summary.annual_kwh,
-      monthly_kwh: summary.monthly_kwh,
-      panel_count: summary.panel_count,
-      summary: summary,
-      title: `Solar Analysis: ${summary.address}`,
-      raw_data: solarData,
-      card: {
-        type: "google_solar",
-        title: `Solar Analysis: ${summary.address}`,
-        content: {
-          summary: summary,
-          embed_url: embedUrl,
-          interactive: true
-        },
-        animation: "swoop-left"
-      }
-    };
+    `)}`
 
     console.log('Solar data processed successfully:', summary);
 
-    return new Response(JSON.stringify(response_data), {
+    return new Response(JSON.stringify({
+      status: 'success',
+      data: summary,
+      card: {
+        type: "iframe",
+        title: "Interactive Solar Map",
+        subtitle: formattedAddress,
+        content: {
+          url: embedUrl,
+          height: "100vh"
+        },
+        animation: "swoop-right",
+        fullscreen: true
+      }
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
     console.error('Error in solar-map function:', error);
-    const message = (error as Error)?.message || 'Unknown error';
-    const isAddressError = message.includes('Address not found') || message.toLowerCase().includes('geocode');
-    const status = isAddressError ? 404 : 500;
-    const friendly = isAddressError
-      ? "Sorry, I couldn't locate that address. Please try again."
-      : "I couldn't retrieve solar data right now. Please try again later.";
-
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       status: 'error',
-      error: isAddressError ? 'address_not_found' : 'server_error',
-      message: friendly,
+      message: 'Failed to fetch solar data',
       card: {
         type: "error",
-        title: isAddressError ? "Address Not Found" : "Solar Analysis Unavailable",
-        content: { message: friendly },
+        title: "Error",
+        content: { message: 'Failed to fetch solar data. Please try again.' },
         animation: "swoop-left"
       }
     }), {
-      status,
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
