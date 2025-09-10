@@ -150,123 +150,149 @@ serve(async (req) => {
     // Extract solar potential data with robust fallbacks
     const solarPotential = solarData.solarPotential || {};
     const roofSegmentStats = solarData.roofSegmentStats || solarPotential.roofSegmentStats || [];
-    const buildingStats = solarData.buildingStats || {};
+    const buildingStats = (solarPotential as any).buildingStats || (solarData as any).buildingStats || {};
     
     // Process roof segments for polygon rendering using actual Google Solar API data
     let roof_segments = [];
     if (roofSegmentStats && roofSegmentStats.length > 0) {
       console.log(`Processing ${roofSegmentStats.length} roof segments from Google Solar API`);
       
-      roof_segments = roofSegmentStats.map((segment: any, index: number) => {
+      // Prefer true roof polygons over bounding boxes. Build an array that may include
+      // multiple polygons per roof segment (when 'segments' exist).
+      const collected: any[] = [];
+      roofSegmentStats.forEach((segment: any, index: number) => {
         const stats = segment.stats || {};
         const center = segment.center || {};
-        const plane = segment.planeHeightAtCenterMeters || {};
-        
-        // Extract actual polygon coordinates from multiple possible properties (Google Solar API variants)
-        let coordinates: any[] = [];
+
+        const classifyPotential = () => {
+          let potential = 'medium';
+          if (stats.sunshineQuantiles && stats.sunshineQuantiles.length > 0) {
+            const avgSunshine = stats.sunshineQuantiles.reduce((a: number, b: number) => a + b, 0) / stats.sunshineQuantiles.length;
+            if (avgSunshine > 1700) potential = 'high';
+            else if (avgSunshine < 1400) potential = 'low';
+          } else if (stats.azimuthDegrees !== undefined) {
+            const azimuth = stats.azimuthDegrees;
+            if (azimuth >= 135 && azimuth <= 225) potential = 'high';
+            else if (azimuth >= 90 && azimuth <= 270) potential = 'medium';
+            else potential = 'low';
+          }
+          return potential;
+        };
+
+        const normalizeVerts = (verts: any[]): any[] => {
+          return (verts || [])
+            .map((v: any) => [
+              (v.longitude ?? v.lng ?? v.lon ?? v.latLng?.longitude),
+              (v.latitude ?? v.lat ?? v.latLng?.latitude)
+            ])
+            .filter(([lng, lat]) => typeof lat === 'number' && typeof lng === 'number');
+        };
+
+        const pushPoly = (verts: any[], keySuffix = '') => {
+          const coords = normalizeVerts(verts);
+          if (coords.length >= 3) {
+            collected.push({
+              id: `segment_${index}${keySuffix}`,
+              coordinates: coords,
+              potential: classifyPotential(),
+              area: stats.areaMeters2 || 50,
+              panelsCount: stats.panelsCount || 0,
+              yearlyEnergyDcKwh: stats.yearlyEnergyDcKwh || 0,
+              azimuthDegrees: stats.azimuthDegrees || 180,
+              tiltDegrees: stats.tiltDegrees || 30
+            });
+          }
+        };
+
         try {
-          const verts = segment.polygon?.vertices 
-            || segment.polygons?.[0]?.vertices 
-            || segment.plane?.polygon?.vertices 
-            || segment.plane?.vertices 
-            || segment.boundary?.vertices;
-          if (Array.isArray(verts) && verts.length) {
-            coordinates = verts
-              .map((v: any) => [
-                (v.longitude ?? v.lng ?? v.latLng?.longitude),
-                (v.latitude ?? v.lat ?? v.latLng?.latitude)
-              ])
-              .filter(([lng, lat]) => typeof lat === 'number' && typeof lng === 'number');
+          // 1) Prefer nested segments polygons
+          if (Array.isArray(segment.segments) && segment.segments.length) {
+            segment.segments.forEach((sg: any, sIdx: number) => {
+              const verts = sg.polygon?.vertices || sg.polygon?.latLngs || sg.boundary?.vertices || sg.boundary?.latLngs;
+              if (verts) pushPoly(verts, `_${sIdx}`);
+            });
+          }
+          // 2) plane.boundary polygon forms
+          const planeBoundary = segment.plane?.boundary?.vertices || segment.plane?.boundary?.latLngs || segment.boundary?.vertices || segment.boundary?.latLngs;
+          if (planeBoundary && (!Array.isArray(segment.segments) || collected.length === 0)) {
+            pushPoly(planeBoundary);
+          }
+          // 3) direct polygon variants
+          const directVerts = segment.polygon?.vertices || segment.polygons?.[0]?.vertices;
+          if (directVerts && collected.length === 0) {
+            pushPoly(directVerts);
           }
         } catch (_) { /* noop */ }
-        
-        // If no vertices found, fall back to a refined shape from the bounding box
-        if (!coordinates.length && segment.boundingBox) {
-          const bbox = segment.boundingBox;
-          const ne = bbox.ne || { latitude: center.latitude + 0.0001, longitude: center.longitude + 0.0001 };
-          const sw = bbox.sw || { latitude: center.latitude - 0.0001, longitude: center.longitude - 0.0001 };
-          const width = ne.longitude - sw.longitude;
-          const height = ne.latitude - sw.latitude;
-          coordinates = [
-            [sw.longitude + width * 0.05, sw.latitude + height * 0.1],
-            [ne.longitude - width * 0.05, sw.latitude + height * 0.1],
-            [ne.longitude - width * 0.15, ne.latitude - height * 0.05],
-            [sw.longitude + width * 0.15, ne.latitude - height * 0.05],
-            [sw.longitude + width * 0.05, sw.latitude + height * 0.1]
-          ];
-        }
-        
-        // Extra logging to verify structure in logs
+
+        // Extra logging for the first segment
         if (index === 0) {
           try {
             console.log('roofSegmentStats[0] keys:', Object.keys(segment));
             if (segment.plane) console.log('segment.plane keys:', Object.keys(segment.plane));
             if (segment.polygon) console.log('segment.polygon keys:', Object.keys(segment.polygon));
+            if (segment.segments) console.log('segment.segments length:', segment.segments.length);
           } catch (_) { /* ignore */ }
         }
-        
-        // Determine solar potential based on actual Google Solar API metrics
-        let potential = 'medium';
-        if (stats.sunshineQuantiles && stats.sunshineQuantiles.length > 0) {
-          const avgSunshine = stats.sunshineQuantiles.reduce((a: number, b: number) => a + b, 0) / stats.sunshineQuantiles.length;
-          // Use Google's sunshine quantile thresholds for more accurate classification
-          if (avgSunshine > 1700) potential = 'high';
-          else if (avgSunshine < 1400) potential = 'low';
-        } else if (stats.azimuthDegrees !== undefined) {
-          // Use roof orientation as backup - south-facing is best in northern hemisphere
-          const azimuth = stats.azimuthDegrees;
-          if (azimuth >= 135 && azimuth <= 225) potential = 'high'; // South-facing
-          else if (azimuth >= 90 && azimuth <= 270) potential = 'medium'; // East/West-facing
-          else potential = 'low'; // North-facing
+
+        // DO NOT create boxes here; we'll try other sources first.
+      });
+
+      roof_segments = collected;
+    }
+
+    // If we still have no polygons, try solarPotential.buildingStats.roofSegments
+    if ((!roof_segments || roof_segments.length === 0) && buildingStats) {
+      try {
+        const bsRoofSegs = (buildingStats as any).roofSegments || (buildingStats as any).segments || [];
+        if (Array.isArray(bsRoofSegs) && bsRoofSegs.length) {
+          roof_segments = bsRoofSegs.map((rs: any, i: number) => {
+            const verts = rs.polygon?.vertices || rs.boundary?.vertices || rs.polygon?.latLngs || rs.boundary?.latLngs || rs.vertices;
+            const coords = (verts || []).map((v: any) => [
+              (v.longitude ?? v.lng ?? v.lon ?? v.latLng?.longitude),
+              (v.latitude ?? v.lat ?? v.latLng?.latitude)
+            ]).filter(([lng, lat]: any[]) => typeof lat === 'number' && typeof lng === 'number');
+            return {
+              id: `bs_segment_${i}`,
+              coordinates: coords.length >= 3 ? coords : null,
+              potential: 'medium',
+              area: rs.areaMeters2 || 50,
+              panelsCount: rs.panelsCount || 0,
+              yearlyEnergyDcKwh: rs.yearlyEnergyDcKwh || 0,
+              azimuthDegrees: rs.azimuthDegrees || 180,
+              tiltDegrees: rs.tiltDegrees || 30
+            };
+          }).filter((s: any) => s.coordinates);
         }
-        
-        return {
-          id: `segment_${index}`,
-          coordinates: coordinates.length > 0 ? coordinates : null,
-          potential,
-          area: stats.areaMeters2 || 50,
-          panelsCount: stats.panelsCount || 0,
-          yearlyEnergyDcKwh: stats.yearlyEnergyDcKwh || 0,
-          azimuthDegrees: stats.azimuthDegrees || 180,
-          tiltDegrees: stats.tiltDegrees || 30
-        };
-      }).filter(segment => segment.coordinates !== null); // Only include segments with valid coordinates
-    } else {
-      // Fallback: create realistic roof segments from building bounds
+      } catch (_) { /* ignore */ }
+    }
+
+    // Final fallback: derive simple boxes only if absolutely necessary
+    if (!roof_segments || roof_segments.length === 0) {
       const bounds = solarData.boundingBox;
       if (bounds) {
         const centerLat = (bounds.ne.latitude + bounds.sw.latitude) / 2;
         const centerLng = (bounds.ne.longitude + bounds.sw.longitude) / 2;
-        const width = (bounds.ne.longitude - bounds.sw.longitude) * 0.7; // 70% of building
+        const width = (bounds.ne.longitude - bounds.sw.longitude) * 0.7;
         const height = (bounds.ne.latitude - bounds.sw.latitude) * 0.7;
-        
-        // Create 2-3 realistic roof segments
-        const segmentCount = Math.min(3, Math.max(2, Math.floor(Math.random() * 3) + 1));
+        const segmentCount = 2;
         for (let i = 0; i < segmentCount; i++) {
           const segmentWidth = width / segmentCount;
           const offsetX = (i - segmentCount/2 + 0.5) * segmentWidth;
-          const offsetY = (Math.random() - 0.5) * height * 0.3;
-          
           const segmentCoords = [
-            [centerLng + offsetX - segmentWidth/2, centerLat + offsetY - height/2],
-            [centerLng + offsetX + segmentWidth/2, centerLat + offsetY - height/2],
-            [centerLng + offsetX + segmentWidth/2, centerLat + offsetY + height/2],
-            [centerLng + offsetX - segmentWidth/2, centerLat + offsetY + height/2],
-            [centerLng + offsetX - segmentWidth/2, centerLat + offsetY - height/2]
+            [centerLng + offsetX - segmentWidth/2, centerLat - height/2],
+            [centerLng + offsetX + segmentWidth/2, centerLat - height/2],
+            [centerLng + offsetX + segmentWidth/2, centerLat + height/2],
+            [centerLng + offsetX - segmentWidth/2, centerLat + height/2]
           ];
-          
           roof_segments.push({
-            id: `fallback_segment_${i}`,
+            id: `bbox_fallback_${i}`,
             coordinates: segmentCoords,
-            potential: i === 0 ? 'high' : (i === 1 ? 'medium' : 'low'),
-            area: 80 + Math.random() * 40,
-            panelsCount: 8 + Math.floor(Math.random() * 12),
-            yearlyEnergyDcKwh: 2000 + Math.random() * 3000
+            potential: i === 0 ? 'high' : 'medium'
           });
         }
       }
     }
-    
+
     // Calculate energy data with improved extraction
     let monthly_kwh = [];
     let annual_kwh = 0;
@@ -1102,7 +1128,7 @@ serve(async (req) => {
                       }
                     }, 40);
                     
-                  }, index * 300); // 300ms stagger between segments
+                  }, index * 180); // 180ms stagger between segments
                   
                   // Add hover effects
                   polygon.addListener('mouseover', () => {
@@ -1119,6 +1145,17 @@ serve(async (req) => {
                                  segment.potential === 'medium' ? 0.75 : 0.7,
                       strokeWeight: 2
                     });
+                  });
+
+                  // Click to inspect segment
+                  polygon.addListener('click', (e) => {
+                    const content = `<div style="font-family: 'Google Sans', 'Roboto'; font-size:12px;">
+                      <div style="font-weight:600; margin-bottom:4px;">Segment ${segment.id}</div>
+                      <div>Potential: ${segment.potential}</div>
+                      <div>Area: ${segment.area ?? 'n/a'} m²</div>
+                      <div>Est. yearly: ${segment.yearlyEnergyDcKwh ?? 'n/a'} kWh</div>
+                    </div>`;
+                    new google.maps.InfoWindow({ content }).open({ map, position: e.latLng });
                   });
                 });
               }
