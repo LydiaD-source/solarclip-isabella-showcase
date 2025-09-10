@@ -208,7 +208,8 @@ serve(async (req) => {
     };
 
     // Create embed URL for the solar map visualization
-    const embedUrl = `https://sunroof.withgoogle.com/place?address=${encodeURIComponent(formattedAddress)}`;
+    // Use Google Maps embed with satellite view showing the location
+    const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${googleApiKey}&center=${location.lat},${location.lng}&zoom=20&maptype=satellite`;
 
     const response_data = {
       status: 'success',
