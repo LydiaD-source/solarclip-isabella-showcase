@@ -392,58 +392,16 @@ serve(async (req) => {
               line-height: 1.5;
             }
             
-            .endpoints-section {
+            .solar-potential-section {
               padding: 20px;
             }
             
-            .endpoint-item {
-              margin-bottom: 20px;
-              cursor: pointer;
-              padding: 16px;
-              border: 1px solid #e8eaed;
-              border-radius: 8px;
-              transition: all 0.2s;
-            }
-            
-            .endpoint-item:hover {
-              border-color: #5d6bb3;
-              box-shadow: 0 2px 8px rgba(93,107,179,0.15);
-            }
-            
-            .endpoint-item.active {
-              border-color: #5d6bb3;
-              background: #f8f9ff;
-            }
-            
-            .endpoint-header {
-              display: flex;
-              align-items: center;
-              gap: 8px;
-              margin-bottom: 6px;
-            }
-            
-            .endpoint-icon {
-              width: 18px;
-              height: 18px;
-              color: #5d6bb3;
-            }
-            
-            .endpoint-title {
-              font-size: 15px;
-              font-weight: 500;
-              color: #5d6bb3;
-            }
-            
-            .endpoint-subtitle {
-              font-size: 13px;
-              color: #5f6368;
-              margin-bottom: 12px;
-            }
-            
-            .endpoint-controls {
+            .solar-controls {
               margin-top: 20px;
-              padding-top: 20px;
-              border-top: 1px solid #e8eaed;
+              padding: 20px;
+              background: #f8f9ff;
+              border-radius: 8px;
+              border: 1px solid #e8eaed;
             }
             
             /* Minimal Google-style panel controls */
@@ -699,63 +657,26 @@ serve(async (req) => {
                 <input type="text" class="search-input" value="${formattedAddress}" readonly>
               </div>
               
-              <div class="api-info">
-                <div class="api-title">Building Insights endpoint</div>
-                <div class="api-description">
-                  Provides data on the location, dimensions & solar potential of a building.
-                </div>
-              </div>
-              
-              <div class="endpoints-section">
-                <!-- Building Insights Endpoint -->
-                <div class="endpoint-item active" id="building-insights-endpoint">
-                  <div class="endpoint-header">
-                    <div class="endpoint-icon">🏠</div>
-                    <div class="endpoint-title">Building Insights endpoint</div>
-                  </div>
-                  <div class="endpoint-subtitle">Yearly energy: ${annual_kwh.toLocaleString()} kWh</div>
-                  <div class="api-description">
-                    Building Insights endpoint provides data on the location, dimensions & solar potential of a building.
+              <div class="solar-potential-section">
+                <div class="solar-controls">
+                  <div class="panels-section">
+                    <div class="panels-label">
+                      <svg class="panels-icon" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                      </svg>
+                      <span class="panels-text">Panels count</span>
+                      <span class="panels-count" id="slider-count">${panel_count} panels</span>
+                    </div>
+                    <input type="range" class="panel-slider" id="panel-count-slider" 
+                           min="1" max="${actualSolarData.maxPanelCount}" value="${panel_count}"
+                           oninput="updatePanelCount(this.value)">
                   </div>
                   
-                  <div class="endpoint-controls">
-                    <div class="panels-section">
-                      <div class="panels-label">
-                        <svg class="panels-icon" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                        </svg>
-                        <span class="panels-text">Panels count</span>
-                        <span class="panels-count" id="slider-count">${panel_count} panels</span>
-                      </div>
-                      <input type="range" class="panel-slider" id="panel-count-slider" 
-                             min="1" max="${actualSolarData.maxPanelCount}" value="${panel_count}"
-                             oninput="updatePanelCount(this.value)">
-                    </div>
-                    
-                    <div class="watts-section">
-                      <div class="watts-label">Panel capacity</div>
-                      <input type="number" class="watts-input" value="250" min="100" max="500" step="10">
-                      <div class="watts-suffix">Watts</div>
-                    </div>
+                  <div class="watts-section">
+                    <div class="watts-label">Panel capacity</div>
+                    <input type="number" class="watts-input" value="250" min="100" max="500" step="10">
+                    <div class="watts-suffix">Watts</div>
                   </div>
-                </div>
-                
-                <!-- Data Layers Endpoint -->
-                <div class="endpoint-item" id="data-layers-endpoint">
-                  <div class="endpoint-header">
-                    <div class="endpoint-icon">🗂️</div>
-                    <div class="endpoint-title">Data Layers endpoint</div>
-                  </div>
-                  <div class="endpoint-subtitle">Monthly sunshine</div>
-                </div>
-                
-                <!-- Solar Potential Analysis -->
-                <div class="endpoint-item" id="solar-potential-endpoint">
-                  <div class="endpoint-header">
-                    <div class="endpoint-icon">📊</div>
-                    <div class="endpoint-title">Solar Potential analysis</div>
-                  </div>
-                  <div class="endpoint-subtitle">Values are only placeholders. Update with your own values.</div>
                 </div>
               </div>
             </div>
@@ -808,39 +729,89 @@ serve(async (req) => {
                 fullscreenControl: false
               });
               
-              // Add realistic building roof segmentation overlay
-              const buildingPaths = [
-                // Main building roof section
-                [
-                  { lat: ${location.lat} + 0.00008, lng: ${location.lng} - 0.00012 },
-                  { lat: ${location.lat} + 0.00008, lng: ${location.lng} + 0.00012 },
-                  { lat: ${location.lat} - 0.00008, lng: ${location.lng} + 0.00012 },
-                  { lat: ${location.lat} - 0.00008, lng: ${location.lng} - 0.00012 }
-                ],
-                // Secondary roof section
-                [
-                  { lat: ${location.lat} + 0.00006, lng: ${location.lng} + 0.00015 },
-                  { lat: ${location.lat} + 0.00006, lng: ${location.lng} + 0.00025 },
-                  { lat: ${location.lat} - 0.00006, lng: ${location.lng} + 0.00025 },
-                  { lat: ${location.lat} - 0.00006, lng: ${location.lng} + 0.00015 }
-                ]
-              ];
+              // Add realistic roof segmentation using Google Solar API data
+              const roofSegments = ${JSON.stringify(roofSegments)};
               
-              // Create segmented roof overlays with different solar potentials
-              buildingPaths.forEach((path, index) => {
-                const colors = ['#ff1493', '#9932cc']; // High and medium potential
-                const opacities = [0.7, 0.6];
-                
-                new google.maps.Polygon({
-                  paths: path,
-                  fillColor: colors[index] || '#1e90ff',
-                  fillOpacity: opacities[index] || 0.5,
-                  strokeColor: '#ffffff',
-                  strokeOpacity: 0.8,
-                  strokeWeight: 1,
-                  map: map
+              if (roofSegments && roofSegments.length > 0) {
+                // Use actual roof segment data from Google Solar API
+                roofSegments.forEach((segment, index) => {
+                  if (segment.boundingBox) {
+                    const bounds = segment.boundingBox;
+                    const roofPath = [
+                      { lat: bounds.sw.latitude, lng: bounds.sw.longitude },
+                      { lat: bounds.sw.latitude, lng: bounds.ne.longitude },
+                      { lat: bounds.ne.latitude, lng: bounds.ne.longitude },
+                      { lat: bounds.ne.latitude, lng: bounds.sw.longitude }
+                    ];
+                    
+                    // Color based on solar potential
+                    let color = '#1e90ff'; // Low potential (blue)
+                    let opacity = 0.5;
+                    
+                    if (segment.stats && segment.stats.sunshineQuantiles) {
+                      const sunshine = segment.stats.sunshineQuantiles[5]; // Median sunshine
+                      if (sunshine > 1800) {
+                        color = '#ff1493'; // High potential (pink)
+                        opacity = 0.7;
+                      } else if (sunshine > 1400) {
+                        color = '#9932cc'; // Medium potential (purple)
+                        opacity = 0.6;
+                      }
+                    }
+                    
+                    new google.maps.Polygon({
+                      paths: roofPath,
+                      fillColor: color,
+                      fillOpacity: opacity,
+                      strokeColor: '#ffffff',
+                      strokeOpacity: 0.9,
+                      strokeWeight: 2,
+                      map: map
+                    });
+                  }
                 });
-              });
+              } else {
+                // Fallback: Create smaller, more realistic roof segments around the building
+                const roofSections = [
+                  // Main roof section (north-facing)
+                  [
+                    { lat: ${location.lat} + 0.00004, lng: ${location.lng} - 0.00008 },
+                    { lat: ${location.lat} + 0.00004, lng: ${location.lng} + 0.00008 },
+                    { lat: ${location.lat} + 0.00001, lng: ${location.lng} + 0.00008 },
+                    { lat: ${location.lat} + 0.00001, lng: ${location.lng} - 0.00008 }
+                  ],
+                  // South-facing roof section (highest potential)
+                  [
+                    { lat: ${location.lat} - 0.00001, lng: ${location.lng} - 0.00008 },
+                    { lat: ${location.lat} - 0.00001, lng: ${location.lng} + 0.00008 },
+                    { lat: ${location.lat} - 0.00004, lng: ${location.lng} + 0.00008 },
+                    { lat: ${location.lat} - 0.00004, lng: ${location.lng} - 0.00008 }
+                  ],
+                  // Side extension
+                  [
+                    { lat: ${location.lat} + 0.00002, lng: ${location.lng} + 0.00009 },
+                    { lat: ${location.lat} + 0.00002, lng: ${location.lng} + 0.00013 },
+                    { lat: ${location.lat} - 0.00002, lng: ${location.lng} + 0.00013 },
+                    { lat: ${location.lat} - 0.00002, lng: ${location.lng} + 0.00009 }
+                  ]
+                ];
+                
+                // Create roof overlays with realistic solar potential colors
+                roofSections.forEach((path, index) => {
+                  const colors = ['#9932cc', '#ff1493', '#1e90ff']; // Medium, High, Low potential
+                  const opacities = [0.6, 0.7, 0.5];
+                  
+                  new google.maps.Polygon({
+                    paths: path,
+                    fillColor: colors[index],
+                    fillOpacity: opacities[index],
+                    strokeColor: '#ffffff',
+                    strokeOpacity: 0.9,
+                    strokeWeight: 2,
+                    map: map
+                  });
+                });
+              }
               
               window.mapInstance = map;
             }
@@ -858,18 +829,9 @@ serve(async (req) => {
               }
             }
             
-            // Endpoint interactions
+            // Initialize the demo
             document.addEventListener('DOMContentLoaded', function() {
-              const endpoints = document.querySelectorAll('.endpoint-item');
-              
-              endpoints.forEach(endpoint => {
-                endpoint.addEventListener('click', function() {
-                  // Remove active class from all
-                  endpoints.forEach(ep => ep.classList.remove('active'));
-                  // Add active class to clicked
-                  this.classList.add('active');
-                });
-              });
+              console.log('Solar analysis tool loaded successfully');
             });
           </script>
           
