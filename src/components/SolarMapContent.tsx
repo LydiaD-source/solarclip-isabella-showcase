@@ -8,6 +8,7 @@ interface SolarMapContentProps {
       summary: {
         annual_kwh: number;
         monthly_kwh: number[];
+        monthly_flux?: number[];
         co2_saved: number;
         panel_count: number;
         roof_area: number;
@@ -16,6 +17,7 @@ interface SolarMapContentProps {
       };
       embed_url: string;
       interactive?: boolean;
+      roof_segments?: { id: string; polygon: [number, number][]; potential?: string }[];
     };
   };
   onAction?: (action: string, data?: any) => void;

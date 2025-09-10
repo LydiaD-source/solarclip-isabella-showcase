@@ -61,8 +61,9 @@ serve(async (req) => {
 
     const location = geocodeData.results[0].geometry.location;
     const formattedAddress = geocodeData.results[0].formatted_address;
+    const viewport = geocodeData.results[0].geometry.viewport || null;
 
-    console.info("[solar-map] Geocoded:", formattedAddress, location);
+    console.info("[solar-map] Geocoded:", formattedAddress, location, viewport ? "with viewport" : "no viewport");
 
     // 2) Google Solar API - Building Insights (closest)
     const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&key=${googleApiKey}`;
@@ -74,11 +75,26 @@ serve(async (req) => {
     const roofSegmentStats: any[] = solarData.roofSegmentStats || solarPotential.roofSegmentStats || [];
 
     console.info(`[solar-map] Segments returned: ${roofSegmentStats.length}`);
+    if (roofSegmentStats.length) {
+      const sample = roofSegmentStats[0] || {};
+      try {
+        console.info('[solar-map] Sample segment keys:', Object.keys(sample));
+        console.info('[solar-map] Sample plane.boundary points:', sample?.plane?.boundary?.vertices?.length || 0);
+        console.info('[solar-map] Sample polygons count:', Array.isArray(sample?.polygons) ? sample.polygons.length : 0);
+      } catch (_) {}
+    }
 
     // 3) Extract REAL roof polygons - multiple sources and formats
-    const roof_segments = (roofSegmentStats || [])
+    let roof_segments = (roofSegmentStats || [])
       .map((seg: any, i: number) => {
         const stats = seg?.stats || {};
+
+        // Debug: log available geometry fields for this segment
+        const hasPlaneBoundary = !!seg?.plane?.boundary?.vertices?.length;
+        const hasPolygons = Array.isArray(seg?.polygons) && seg.polygons.length > 0;
+        const hasBoundary = !!seg?.boundary?.vertices?.length;
+        const hasPolygon = !!seg?.polygon?.vertices?.length;
+        console.info(`[solar-map] Segment ${i} geometry flags => plane.boundary: ${hasPlaneBoundary}, polygons: ${hasPolygons}, boundary: ${hasBoundary}, polygon: ${hasPolygon}`);
 
         // Try multiple polygon sources in priority order (handle nested arrays)
         const candidates: any[] = [
@@ -121,11 +137,11 @@ serve(async (req) => {
         
         // Skip if no valid polygon found
         if (coords.length < 3) {
-          console.log(`[solar-map] Segment ${i}: No valid polygon found`);
+          console.warn(`[solar-map] Segment ${i}: No valid polygon found in known fields`);
           return null;
         }
         
-        console.log(`[solar-map] Segment ${i}: Found polygon with ${coords.length} points`);
+        console.info(`[solar-map] Segment ${i}: Using polygon with ${coords.length} points`);
         
         return {
           id: seg?.roofSegmentId || seg?.segmentId || `segment_${i}`,
@@ -144,6 +160,35 @@ serve(async (req) => {
         };
       })
       .filter(Boolean as any);
+
+    // 3b) Fallback to geocode viewport bounding box if no polygons were found
+    if ((!roof_segments || roof_segments.length === 0) && viewport) {
+      console.warn('[solar-map] No segment polygons available – falling back to geocode viewport bounding box');
+      try {
+        const ne = viewport.northeast;
+        const sw = viewport.southwest;
+        const nw = { lat: ne.lat, lng: sw.lng } as any;
+        const se = { lat: sw.lat, lng: ne.lng } as any;
+        const coords = [
+          { lat: sw.lat, lng: sw.lng },
+          { lat: se.lat, lng: se.lng },
+          { lat: ne.lat, lng: ne.lng },
+          { lat: nw.lat, lng: nw.lng },
+        ];
+        roof_segments = [{
+          id: 'bbox_fallback',
+          polygon: coords.map((p) => [p.lng, p.lat]),
+          coordinates: coords.map((p) => [p.lng, p.lat]),
+          potential: 'medium',
+          area: 0,
+          panelsCount: 0,
+          yearlyEnergyDcKwh: 0,
+          center: null,
+        }];
+      } catch (e) {
+        console.error('[solar-map] Failed to build viewport fallback polygon:', e);
+      }
+    }
 
     // 4) Energy summary (fallbacks when API has no configs)
     let panel_count = solarPotential.solarPanelConfigs?.[0]?.panelsCount || 20;
@@ -198,19 +243,20 @@ serve(async (req) => {
       }
       .main { display: flex; height: 100vh; max-height: 100svh; }
       .panel {
-        width: 300px;
+        width: 280px;
         background: #fff;
         box-shadow: 0 4px 20px rgba(0,0,0,.12);
         animation: slideIn .5s cubic-bezier(.16,1,.3,1);
+        overflow-y: auto;
       }
-      .panel .sec { padding: 20px; border-bottom: 1px solid #eceff1; }
-      .row { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; margin:10px 0; background:#e8f0fe; border-left:3px solid #1a73e8; border-radius:8px; }
+      .panel .sec { padding: 14px 16px; border-bottom: 1px solid #eceff1; }
+      .row { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; margin:6px 0; background:#e8f0fe; border-left:3px solid #1a73e8; border-radius:8px; }
       .tot { background:#eaf7ee; border-left-color:#34a853; }
-      .label { font-size: 13px; color:#5f6368; }
+      .label { font-size: 12px; color:#5f6368; }
       .value { font-weight: 600; color:#202124; }
       .slider { display:flex; gap:10px; align-items:center; }
       .slider input { flex:1; -webkit-appearance:none; appearance:none; height:6px; background:#e8eaed; border-radius:3px; outline:none; }
-      .slider input::-webkit-slider-thumb { width:18px; height:18px; border-radius:50%; background:#1a73e8; -webkit-appearance:none; box-shadow:0 2px 4px rgba(0,0,0,.2); }
+      .slider input::-webkit-slider-thumb { width:16px; height:16px; border-radius:50%; background:#1a73e8; -webkit-appearance:none; box-shadow:0 2px 4px rgba(0,0,0,.2); }
       .map { flex:1; min-width:0; position: relative; }
       #map { height: 100%; width: 100%; }
       @keyframes slideIn { from{ transform:translateX(-320px); opacity:0; } to { transform:translateX(0); opacity:1; } }
@@ -224,17 +270,17 @@ serve(async (req) => {
           <div class="row"><span class="label">Segments</span><span class="value">${roof_segments.length}</span></div>
         </div>
         <div class="sec">
-          <div class="label" style="margin:6px 0 10px">Solar Panels</div>
-          <div class="slider">
-            <div id="panelCount" class="value" style="min-width:48px;text-align:center;background:#e8f0fe;padding:6px 10px;border-radius:6px">${panel_count}</div>
-            <input id="panelSlider" type="range" min="1" max="${actualSolarData.maxPanelCount}" value="${panel_count}" />
-          </div>
-        </div>
-        <div class="sec">
           <div class="label" style="margin:6px 0 10px">Month</div>
           <div class="slider">
             <div id="monthLabel" class="value" style="min-width:48px;text-align:center;background:#e8f0fe;padding:6px 10px;border-radius:6px">Jul</div>
             <input id="monthSlider" type="range" min="0" max="11" value="6" />
+          </div>
+        </div>
+        <div class="sec">
+          <div class="label" style="margin:6px 0 10px">Solar Panels</div>
+          <div class="slider">
+            <div id="panelCount" class="value" style="min-width:48px;text-align:center;background:#e8f0fe;padding:6px 10px;border-radius:6px">${panel_count}</div>
+            <input id="panelSlider" type="range" min="1" max="${actualSolarData.maxPanelCount}" value="${panel_count}" />
           </div>
         </div>
         <div class="sec">
@@ -260,22 +306,18 @@ serve(async (req) => {
 
       // Potential-based seasonal color mapping using monthly flux
       (function(){
-        function baseColor(potential){
-          if (potential === 'high') return [255, 220, 0];       // yellow
-          if (potential === 'medium') return [255, 105, 180];   // pink/purple
-          return [80, 160, 255];                                // blue
-        }
-        function winterColor(){ return [128, 0, 180]; }         // deep purple
+        function purple(){ return [128, 0, 180]; }
+        function yellow(){ return [255, 220, 0]; }
         function blend(a, b, t){ return [
           Math.round(a[0] + (b[0]-a[0]) * t),
           Math.round(a[1] + (b[1]-a[1]) * t),
           Math.round(a[2] + (b[2]-a[2]) * t)
         ]; }
         function rgb(arr){ return 'rgb(' + arr[0] + ', ' + arr[1] + ', ' + arr[2] + ')'; }
-        window.colorFor = function(potential, month){
+        window.colorFor = function(_potential, month){
           var flux = (window.monthlyFlux && window.monthlyFlux[month] != null) ? window.monthlyFlux[month] : 0;
           var t = (window.maxFlux && window.maxFlux > 0) ? (flux / window.maxFlux) : 0.5; // 0 winter -> 1 summer
-          var c = blend(winterColor(), baseColor(potential), t);
+          var c = blend(purple(), yellow(), t);
           return rgb(c);
         };
         window.setMonthColor = function(month){
