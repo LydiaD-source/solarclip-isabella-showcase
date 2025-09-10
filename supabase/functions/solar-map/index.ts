@@ -20,9 +20,9 @@ serve(async (req) => {
       throw new Error('Address is required');
     }
 
-    const googleApiKey = Deno.env.get('GOOGLE_SOLAR_API_KEY');
+    const googleApiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
     if (!googleApiKey) {
-      throw new Error('Google Solar API key not configured');
+      throw new Error('Google Maps API key not configured');
     }
 
     console.log(`Fetching solar data for address: ${address}, client: ${client_id}`);
