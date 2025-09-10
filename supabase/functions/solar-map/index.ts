@@ -75,16 +75,23 @@ serve(async (req) => {
 
     console.info(`[solar-map] Segments returned: ${roofSegmentStats.length}`);
 
-    // 3) Extract REAL roof polygons (no bounding boxes)
+    // 3) Extract REAL roof polygons - multiple sources and formats
     const roof_segments = (roofSegmentStats || [])
       .map((seg: any, i: number) => {
         const stats = seg?.stats || {};
+        
+        // Try multiple polygon sources in priority order
         const candidates = [
-          seg?.segments?.[0]?.polygon?.vertices,
           seg?.plane?.boundary?.vertices,
+          seg?.polygons?.[0]?.vertices,
           seg?.boundary?.vertices,
           seg?.polygon?.vertices,
+          seg?.segments?.[0]?.polygon?.vertices,
+          // Also try nested structures
+          seg?.plane?.polygons?.[0]?.vertices,
+          seg?.roofSegmentStats?.plane?.boundary?.vertices,
         ];
+        
         let coords: { lat: number; lng: number }[] = [];
         for (const verts of candidates) {
           const parsed = parseVerts(verts);
@@ -93,14 +100,26 @@ serve(async (req) => {
             break;
           }
         }
-        if (coords.length < 3) return null;
+        
+        // Skip if no valid polygon found
+        if (coords.length < 3) {
+          console.log(`[solar-map] Segment ${i}: No valid polygon found`);
+          return null;
+        }
+        
+        console.log(`[solar-map] Segment ${i}: Found polygon with ${coords.length} points`);
+        
         return {
-          id: `segment_${i}`,
+          id: seg?.roofSegmentId || `segment_${i}`,
           coordinates: coords.map((p) => [p.lng, p.lat]), // store as [lng,lat]
           potential: classifyPotential(stats),
           area: stats.areaMeters2 || 0,
           panelsCount: stats.panelsCount || 0,
           yearlyEnergyDcKwh: Math.round(stats.yearlyEnergyDcKwh || 0),
+          center: seg?.plane?.center ? {
+            lat: seg.plane.center.latitude || seg.plane.center.lat,
+            lng: seg.plane.center.longitude || seg.plane.center.lng
+          } : null,
         };
       })
       .filter(Boolean);
@@ -206,22 +225,22 @@ serve(async (req) => {
         const intensity = 0.5 + 0.5 * Math.sin((month - 2) * Math.PI / 6);
         
         if (potential === 'high') {
-          // Yellow (summer) to Orange-Red (winter)
+          // Bright Yellow (summer) to Dark Red (winter)
           const r = Math.round(255);
-          const g = Math.round(255 * (0.4 + 0.6 * intensity));
-          const b = Math.round(50 * (1 - intensity));
+          const g = Math.round(255 * (0.2 + 0.8 * intensity));
+          const b = Math.round(30 * (1 - intensity));
           return \`rgb(\${r}, \${g}, \${b})\`;
         } else if (potential === 'medium') {
           // Orange (summer) to Purple (winter)  
-          const r = Math.round(255 * (0.6 + 0.4 * intensity));
-          const g = Math.round(165 * intensity);
-          const b = Math.round(150 + 105 * (1 - intensity));
+          const r = Math.round(255 * (0.5 + 0.5 * intensity));
+          const g = Math.round(140 * intensity);
+          const b = Math.round(120 + 135 * (1 - intensity));
           return \`rgb(\${r}, \${g}, \${b})\`;
         } else {
-          // Light Blue (summer) to Dark Purple (winter)
-          const r = Math.round(100 + 55 * (1 - intensity));
-          const g = Math.round(150 * intensity);
-          const b = Math.round(200 + 55 * (1 - intensity));
+          // Light Orange (summer) to Dark Purple (winter)
+          const r = Math.round(150 + 105 * intensity);
+          const g = Math.round(100 * intensity);
+          const b = Math.round(180 + 75 * (1 - intensity));
           return \`rgb(\${r}, \${g}, \${b})\`;
         }
       };
@@ -278,8 +297,15 @@ serve(async (req) => {
         }
 
         // Enhanced roof segment rendering with visibility
+        console.log(`[Map] Rendering ${(window.roofSegments || []).length} roof segments`);
+        
         (window.roofSegments || []).forEach((seg, i) => {
-          if (!seg.coordinates || seg.coordinates.length < 3) return;
+          if (!seg.coordinates || seg.coordinates.length < 3) {
+            console.log(`[Map] Skipping segment ${i}: Invalid coordinates`);
+            return;
+          }
+          
+          console.log(`[Map] Rendering segment ${i} with ${seg.coordinates.length} points, potential: ${seg.potential}`);
           
           setTimeout(() => {
             const path = seg.coordinates.map(([lng, lat]) => ({ lat, lng }));
@@ -288,8 +314,8 @@ serve(async (req) => {
             const polygon = new google.maps.Polygon({
               paths: path,
               strokeColor: initialColor,
-              strokeOpacity: 0.9,
-              strokeWeight: 2,
+              strokeOpacity: 0.95,
+              strokeWeight: 3,
               fillColor: initialColor,
               fillOpacity: 0,
               map: map,
@@ -299,40 +325,44 @@ serve(async (req) => {
             // Store polygon reference for animation
             window.allPolygons.push({
               polygon: polygon,
-              potential: seg.potential
+              potential: seg.potential,
+              segmentId: seg.id
             });
 
-            // Fade in effect
+            // Fade in effect with stronger opacity
             setTimeout(() => {
-              polygon.setOptions({ fillOpacity: 0.7 });
-            }, 200);
+              polygon.setOptions({ fillOpacity: 0.8 });
+            }, 300);
 
-            // Hover effects
+            // Enhanced hover effects
             polygon.addListener('mouseover', () => {
               polygon.setOptions({ 
-                fillOpacity: 0.9, 
-                strokeWeight: 3,
+                fillOpacity: 0.95, 
+                strokeWeight: 4,
                 zIndex: 2000
               });
             });
             
             polygon.addListener('mouseout', () => {
               polygon.setOptions({ 
-                fillOpacity: 0.7, 
-                strokeWeight: 2,
+                fillOpacity: 0.8, 
+                strokeWeight: 3,
                 zIndex: 1000
               });
             });
 
-          }, i * 200); // Stagger segment appearance
+          }, i * 300); // Stagger segment appearance
         });
 
         // Start seasonal animation after all segments are loaded
         setTimeout(() => {
+          console.log(`[Map] Starting seasonal animation for ${window.allPolygons.length} polygons`);
           if (window.allPolygons.length > 0) {
             window.animateSeasons();
+          } else {
+            console.log(`[Map] No polygons found for animation`);
           }
-        }, (window.roofSegments || []).length * 200 + 500);
+        }, (window.roofSegments || []).length * 300 + 1000);
       };
 
       // Panel slider updates
