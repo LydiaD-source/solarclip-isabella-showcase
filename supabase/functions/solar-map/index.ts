@@ -1,78 +1,97 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
+// CORS headers for browser calls
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Utility: Safe parse of vertices from different Google Solar shapes
+function parseVerts(verts: any[]): { lat: number; lng: number }[] {
+  return (verts || [])
+    .map((v: any) => ({
+      lat: v?.latitude ?? v?.lat ?? v?.latLng?.latitude,
+      lng: v?.longitude ?? v?.lng ?? v?.latLng?.longitude,
+    }))
+    .filter((p) => typeof p.lat === "number" && typeof p.lng === "number");
+}
+
+function classifyPotential(stats: any): "high" | "medium" | "low" {
+  if (stats?.sunshineQuantiles?.length) {
+    const avg = stats.sunshineQuantiles.reduce((a: number, b: number) => a + b, 0) / stats.sunshineQuantiles.length;
+    if (avg > 1700) return "high";
+    if (avg < 1400) return "low";
+    return "medium";
+  }
+  const a = stats?.azimuthDegrees;
+  if (typeof a === "number") {
+    if (a >= 135 && a <= 225) return "high"; // roughly south facing
+    if (a >= 90 && a <= 270) return "medium";
+    return "low";
+  }
+  return "medium";
+}
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { address } = await req.json();
-    if (!address) throw new Error('Address is required');
+    const body = await req.json().catch(() => ({}));
+    const address: string | undefined = body?.address;
 
-    const googleApiKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
-    if (!googleApiKey) throw new Error('Google Maps API key not configured');
+    if (!address) {
+      throw new Error("Address is required");
+    }
 
-    // 1) Geocode
+    const googleApiKey = Deno.env.get("GOOGLE_MAPS_API_KEY") || Deno.env.get("GOOGLE_SOLAR_API_KEY");
+    if (!googleApiKey) throw new Error("Google Maps API key not configured");
+
+    console.info("[solar-map] Geocoding address:", address);
+
+    // 1) Geocoding to coordinates
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${googleApiKey}`;
     const geocodeResponse = await fetch(geocodeUrl);
     if (!geocodeResponse.ok) throw new Error(`Geocoding failed: ${geocodeResponse.status}`);
     const geocodeData = await geocodeResponse.json();
-    if (geocodeData.status !== 'OK' || !geocodeData.results?.length) throw new Error('Address not found');
+    if (geocodeData.status !== "OK" || !geocodeData.results?.length) throw new Error("Address not found");
 
     const location = geocodeData.results[0].geometry.location;
     const formattedAddress = geocodeData.results[0].formatted_address;
 
-    // 2) Solar API
+    console.info("[solar-map] Geocoded:", formattedAddress, location);
+
+    // 2) Google Solar API - Building Insights (closest)
     const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&key=${googleApiKey}`;
-    const solarRes = await fetch(solarApiUrl, { headers: { Accept: 'application/json' } });
+    const solarRes = await fetch(solarApiUrl, { headers: { Accept: "application/json" } });
     if (!solarRes.ok) throw new Error(`Solar API error: ${solarRes.status}`);
     const solarData = await solarRes.json();
 
     const solarPotential = solarData.solarPotential || {};
-    const roofSegmentStats = solarData.roofSegmentStats || solarPotential.roofSegmentStats || [];
+    const roofSegmentStats: any[] = solarData.roofSegmentStats || solarPotential.roofSegmentStats || [];
 
-    // 3) Extract real roof polygons (no bounding boxes)
-    const parseVerts = (verts: any[]) =>
-      (verts || [])
-        .map((v: any) => ({ lat: v.latitude ?? v.lat ?? v.latLng?.latitude, lng: v.longitude ?? v.lng ?? v.latLng?.longitude }))
-        .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number');
+    console.info(`[solar-map] Segments returned: ${roofSegmentStats.length}`);
 
-    const classifyPotential = (stats: any) => {
-      if (stats?.sunshineQuantiles?.length) {
-        const avg = stats.sunshineQuantiles.reduce((a: number, b: number) => a + b, 0) / stats.sunshineQuantiles.length;
-        if (avg > 1700) return 'high';
-        if (avg < 1400) return 'low';
-        return 'medium';
-      }
-      const a = stats?.azimuthDegrees;
-      if (typeof a === 'number') {
-        if (a >= 135 && a <= 225) return 'high';
-        if (a >= 90 && a <= 270) return 'medium';
-        return 'low';
-      }
-      return 'medium';
-    };
-
+    // 3) Extract REAL roof polygons (no bounding boxes)
     const roof_segments = (roofSegmentStats || [])
       .map((seg: any, i: number) => {
-        const stats = seg.stats || {};
+        const stats = seg?.stats || {};
         const candidates = [
-          seg.segments?.[0]?.polygon?.vertices,
-          seg.plane?.boundary?.vertices,
-          seg.boundary?.vertices,
-          seg.polygon?.vertices,
+          seg?.segments?.[0]?.polygon?.vertices,
+          seg?.plane?.boundary?.vertices,
+          seg?.boundary?.vertices,
+          seg?.polygon?.vertices,
         ];
-        let coords: any[] = [];
+        let coords: { lat: number; lng: number }[] = [];
         for (const verts of candidates) {
           const parsed = parseVerts(verts);
-          if (parsed.length >= 3) { coords = parsed; break; }
+          if (parsed.length >= 3) {
+            coords = parsed;
+            break;
+          }
         }
         if (coords.length < 3) return null;
         return {
@@ -86,12 +105,13 @@ serve(async (req) => {
       })
       .filter(Boolean);
 
-    // 4) Energy summary
+    // 4) Energy summary (fallbacks when API has no configs)
     let panel_count = solarPotential.solarPanelConfigs?.[0]?.panelsCount || 20;
     let annual_kwh = Math.round(solarPotential.solarPanelConfigs?.[0]?.yearlyEnergyDcKwh || 8000);
+
     const monthly_kwh = Array.from({ length: 12 }, (_, i) => {
       const base = annual_kwh / 12;
-      const season = Math.sin((i - 5) / 12 * 2 * Math.PI) * 0.3;
+      const season = Math.sin(((i - 5) / 12) * 2 * Math.PI) * 0.3; // smooth seasonality
       return Math.round(base * (1 + season));
     });
 
@@ -112,30 +132,41 @@ serve(async (req) => {
       maxPanelCount: summary.max_panels,
     };
 
-    // 5) Google Maps embed with cinematic polygon reveal (pink/purple/blue)
-    const embedUrl = `data:text/html;charset=utf-8,${encodeURIComponent(`
-<!DOCTYPE html>
+    // 5) Build a clean, cinematic Google-only embed (no Mapbox, no extra overlays)
+    const embedHtml = `<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet" />
     <style>
-      *{box-sizing:border-box}
-      body{margin:0;height:100vh;overflow:hidden;font-family:'Google Sans',Roboto,system-ui,Segoe UI,sans-serif;background:#f8f9fa}
-      .main{display:flex;height:100vh}
-      .panel{width:300px;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);animation:slideIn .5s cubic-bezier(.16,1,.3,1)}
-      .panel .sec{padding:20px;border-bottom:1px solid #eceff1}
-      .row{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;margin:10px 0;background:#e8f0fe;border-left:3px solid #1a73e8;border-radius:8px}
-      .tot{background:#eaf7ee;border-left-color:#34a853}
-      .label{font-size:13px;color:#5f6368}
-      .value{font-weight:600;color:#202124}
-      .slider{display:flex;gap:10px;align-items:center}
-      .slider input{flex:1;-webkit-appearance:none;appearance:none;height:6px;background:#e8eaed;border-radius:3px;outline:none}
-      .slider input::-webkit-slider-thumb{width:18px;height:18px;border-radius:50%;background:#1a73e8;-webkit-appearance:none;box-shadow:0 2px 4px rgba(0,0,0,.2)}
-      #map{flex:1}
-      .map{flex:1;min-width:0}
-      @keyframes slideIn{from{transform:translateX(-320px);opacity:0}to{transform:translateX(0);opacity:1}}
+      * { box-sizing: border-box; }
+      html, body { height: 100%; }
+      body {
+        margin: 0;
+        height: 100vh;
+        overflow: hidden;
+        font-family: 'Google Sans', Roboto, system-ui, Segoe UI, sans-serif;
+        background: #f8f9fa;
+      }
+      .main { display: flex; height: 100vh; max-height: 100svh; }
+      .panel {
+        width: 300px;
+        background: #fff;
+        box-shadow: 0 4px 20px rgba(0,0,0,.12);
+        animation: slideIn .5s cubic-bezier(.16,1,.3,1);
+      }
+      .panel .sec { padding: 20px; border-bottom: 1px solid #eceff1; }
+      .row { display:flex; justify-content:space-between; align-items:center; padding:10px 12px; margin:10px 0; background:#e8f0fe; border-left:3px solid #1a73e8; border-radius:8px; }
+      .tot { background:#eaf7ee; border-left-color:#34a853; }
+      .label { font-size: 13px; color:#5f6368; }
+      .value { font-weight: 600; color:#202124; }
+      .slider { display:flex; gap:10px; align-items:center; }
+      .slider input { flex:1; -webkit-appearance:none; appearance:none; height:6px; background:#e8eaed; border-radius:3px; outline:none; }
+      .slider input::-webkit-slider-thumb { width:18px; height:18px; border-radius:50%; background:#1a73e8; -webkit-appearance:none; box-shadow:0 2px 4px rgba(0,0,0,.2); }
+      .map { flex:1; min-width:0; }
+      #map { height: 100%; width: 100%; }
+      @keyframes slideIn { from{ transform:translateX(-320px); opacity:0; } to { transform:translateX(0); opacity:1; } }
     </style>
   </head>
   <body>
@@ -162,7 +193,7 @@ serve(async (req) => {
     </div>
 
     <script>
-      // Expose globals so Google Maps callback can find them
+      // Expose globals for Google callback & UI updates
       window.roofSegments = ${JSON.stringify(roof_segments)};
       window.baseAnnual = ${actualSolarData.baseAnnualKwh};
       window.basePanels = ${actualSolarData.basePanelCount};
@@ -197,14 +228,14 @@ serve(async (req) => {
               fillColor: window.color(seg.potential), fillOpacity: 0,
               map
             });
-            setTimeout(()=> poly.setOptions({ fillOpacity: .65 }), 120);
+            setTimeout(()=> poly.setOptions({ fillOpacity: .65 }), 140);
             poly.addListener('mouseover',()=> poly.setOptions({ fillOpacity:.85, strokeWeight:3 }));
             poly.addListener('mouseout',()=> poly.setOptions({ fillOpacity:.65, strokeWeight:2 }));
           }, i*160);
         });
       };
 
-      // Panel slider UI updates
+      // Panel slider updates
       window.update = function(n){
         const ratio = n / window.basePanels; const a = Math.round(window.baseAnnual*ratio); const m = Math.round(a/12); const c = Math.round(a*0.0004);
         const panelCountEl = document.getElementById('panelCount');
@@ -225,33 +256,37 @@ serve(async (req) => {
         }
       });
     </script>
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&callback=initMap&libraries=geometry"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&callback=initMap&libraries=geometry&loading=async"></script>
   </body>
-</html>
-    `)};
+</html>`;
+
+    const embedUrl = `data:text/html;charset=utf-8,${encodeURIComponent(embedHtml)}`;
 
     const result = {
-      status: 'success',
+      status: "success",
       card: {
-        type: 'google_solar',
-        title: 'Your Roof Solar Potential',
+        type: "google_solar",
+        title: "Your Roof Solar Potential",
         content: { embed_url: embedUrl, summary },
-        animation: 'swoop-left'
-      }
+        animation: "swoop-left",
+      },
     };
 
-    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
-    console.error('solar-map error:', error);
-    return new Response(JSON.stringify({
-      status: 'error',
-      message: (error as Error).message || 'Failed to generate solar map',
-      card: {
-        type: 'error',
-        title: 'Solar Map Error',
-        content: { message: "We couldn't render the solar map for that address. Try another." },
-        animation: 'swoop-left'
-      }
-    }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    console.error("[solar-map] error:", error);
+    return new Response(
+      JSON.stringify({
+        status: "error",
+        message: (error as Error).message || "Failed to generate solar map",
+        card: {
+          type: "error",
+          title: "Solar Map Error",
+          content: { message: "We couldn't render the solar map for that address. Try another." },
+          animation: "swoop-left",
+        },
+      }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });
