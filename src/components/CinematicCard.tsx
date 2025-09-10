@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { X, Play, ExternalLink, Plus, Minus } from 'lucide-react';
@@ -169,28 +170,61 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
   // Determine if this should be fullscreen
   const isFullscreen = card.type === 'google_solar';
 
+  const containerVariants = {
+    hidden: { 
+      opacity: 0,
+      x: isFullscreen ? "100%" : "-100%",
+      scale: 0.7,
+      rotateY: isFullscreen ? 25 : -25,
+      filter: "blur(8px)"
+    },
+    visible: { 
+      opacity: 1,
+      x: 0,
+      scale: 1,
+      rotateY: 0,
+      filter: "blur(0px)"
+    },
+    exit: {
+      opacity: 0,
+      x: isFullscreen ? "100%" : "-100%",
+      scale: 0.8
+    }
+  };
+
   return (
-    <div 
-      className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-all duration-500 ${
-        isVisible && !isClosing ? 'opacity-100' : 'opacity-0'
-      }`}
-      onClick={isFullscreen ? undefined : handleClose}
-    >
-      <div className={isFullscreen ? "w-full h-full" : "flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16 perspective-1200 transform-3d"}>
-        <Card 
-          className={`${
-            isFullscreen 
-              ? `w-full h-full rounded-none shadow-none transform-gpu will-change-transform transition-all duration-[4s] ease-out [transform-origin:50%_50%] ${
-                  isClosing ? 'animate-slide-out-right' : (isVisible ? 'animate-smooth-reveal' : 'translate-x-full opacity-0 scale-75')
-                }`
-              : `w-[65vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-all duration-[4s] ease-out [transform-origin:50%_50%] ${
-                  isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
-                }`
-          }`}
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={handleKeyDown}
-          tabIndex={0}
+    <AnimatePresence>
+      {(isVisible || isClosing) && (
+        <motion.div 
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.5 }}
+          onClick={isFullscreen ? undefined : handleClose}
         >
+          <div className={isFullscreen ? "w-full h-full" : "flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16"}>
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate={isClosing ? "exit" : "visible"}
+              transition={{
+                duration: 4,
+                ease: "easeInOut",
+                staggerChildren: 0.2
+              }}
+              style={{ transformOrigin: "center" }}
+            >
+              <Card 
+                className={`${
+                  isFullscreen 
+                    ? "w-full h-full rounded-none shadow-none"
+                    : "w-[65vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl"
+                } transform-gpu will-change-transform`}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={handleKeyDown}
+                tabIndex={0}
+              >
           {!isFullscreen && (
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
@@ -222,8 +256,11 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
               <X className="h-4 w-4" />
             </Button>
           )}
-        </Card>
-      </div>
-    </div>
+              </Card>
+            </motion.div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };
