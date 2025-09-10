@@ -157,143 +157,61 @@ serve(async (req) => {
     if (roofSegmentStats && roofSegmentStats.length > 0) {
       console.log(`Processing ${roofSegmentStats.length} roof segments from Google Solar API`);
       
-      // Prefer true roof polygons over bounding boxes. Build an array that may include
-      // multiple polygons per roof segment (when 'segments' exist).
-      const collected: any[] = [];
-      roofSegmentStats.forEach((segment: any, index: number) => {
+      roof_segments = roofSegmentStats.map((segment: any, index: number) => {
         const stats = segment.stats || {};
-        const center = segment.center || {};
-
+        
+        // Classify solar potential based on stats
         const classifyPotential = () => {
-          let potential = 'medium';
           if (stats.sunshineQuantiles && stats.sunshineQuantiles.length > 0) {
             const avgSunshine = stats.sunshineQuantiles.reduce((a: number, b: number) => a + b, 0) / stats.sunshineQuantiles.length;
-            if (avgSunshine > 1700) potential = 'high';
-            else if (avgSunshine < 1400) potential = 'low';
+            if (avgSunshine > 1700) return 'high';
+            else if (avgSunshine < 1400) return 'low';
+            else return 'medium';
           } else if (stats.azimuthDegrees !== undefined) {
             const azimuth = stats.azimuthDegrees;
-            if (azimuth >= 135 && azimuth <= 225) potential = 'high';
-            else if (azimuth >= 90 && azimuth <= 270) potential = 'medium';
-            else potential = 'low';
+            if (azimuth >= 135 && azimuth <= 225) return 'high';
+            else if (azimuth >= 90 && azimuth <= 270) return 'medium';
+            else return 'low';
           }
-          return potential;
+          return 'medium';
         };
 
-        const normalizeVerts = (verts: any[]): any[] => {
-          return (verts || [])
-            .map((v: any) => [
-              (v.longitude ?? v.lng ?? v.lon ?? v.latLng?.longitude),
-              (v.latitude ?? v.lat ?? v.latLng?.latitude)
-            ])
-            .filter(([lng, lat]) => typeof lat === 'number' && typeof lng === 'number');
+        // Extract polygon coordinates from various possible paths
+        let coordinates = [];
+        
+        // Try multiple polygon extraction paths
+        const polygonSources = [
+          segment.plane?.boundary?.vertices,
+          segment.boundary?.vertices,
+          segment.polygon?.vertices,
+          segment.segments?.[0]?.polygon?.vertices
+        ];
+        
+        for (const vertices of polygonSources) {
+          if (vertices && Array.isArray(vertices) && vertices.length >= 3) {
+            coordinates = vertices.map((v: any) => [
+              v.longitude || v.lng || v.lon,
+              v.latitude || v.lat
+            ]).filter(([lng, lat]) => typeof lat === 'number' && typeof lng === 'number');
+            
+            if (coordinates.length >= 3) break;
+          }
+        }
+        
+        return {
+          id: `segment_${index}`,
+          coordinates,
+          potential: classifyPotential(),
+          area: stats.areaMeters2 || 50,
+          panelsCount: stats.panelsCount || 0,
+          yearlyEnergyDcKwh: stats.yearlyEnergyDcKwh || 0,
+          azimuthDegrees: stats.azimuthDegrees || 180,
+          tiltDegrees: stats.tiltDegrees || 30
         };
-
-        const pushPoly = (verts: any[], keySuffix = '') => {
-          const coords = normalizeVerts(verts);
-          if (coords.length >= 3) {
-            collected.push({
-              id: `segment_${index}${keySuffix}`,
-              coordinates: coords,
-              potential: classifyPotential(),
-              area: stats.areaMeters2 || 50,
-              panelsCount: stats.panelsCount || 0,
-              yearlyEnergyDcKwh: stats.yearlyEnergyDcKwh || 0,
-              azimuthDegrees: stats.azimuthDegrees || 180,
-              tiltDegrees: stats.tiltDegrees || 30
-            });
-          }
-        };
-
-        try {
-          // 1) Prefer nested segments polygons
-          if (Array.isArray(segment.segments) && segment.segments.length) {
-            segment.segments.forEach((sg: any, sIdx: number) => {
-              const verts = sg.polygon?.vertices || sg.polygon?.latLngs || sg.boundary?.vertices || sg.boundary?.latLngs;
-              if (verts) pushPoly(verts, `_${sIdx}`);
-            });
-          }
-          // 2) plane.boundary polygon forms
-          const planeBoundary = segment.plane?.boundary?.vertices || segment.plane?.boundary?.latLngs || segment.boundary?.vertices || segment.boundary?.latLngs;
-          if (planeBoundary && (!Array.isArray(segment.segments) || collected.length === 0)) {
-            pushPoly(planeBoundary);
-          }
-          // 3) direct polygon variants
-          const directVerts = segment.polygon?.vertices || segment.polygons?.[0]?.vertices;
-          if (directVerts && collected.length === 0) {
-            pushPoly(directVerts);
-          }
-        } catch (_) { /* noop */ }
-
-        // Extra logging for the first segment
-        if (index === 0) {
-          try {
-            console.log('roofSegmentStats[0] keys:', Object.keys(segment));
-            if (segment.plane) console.log('segment.plane keys:', Object.keys(segment.plane));
-            if (segment.polygon) console.log('segment.polygon keys:', Object.keys(segment.polygon));
-            if (segment.segments) console.log('segment.segments length:', segment.segments.length);
-          } catch (_) { /* ignore */ }
-        }
-
-        // DO NOT create boxes here; we'll try other sources first.
-      });
-
-      roof_segments = collected;
+      }).filter(segment => segment.coordinates.length >= 3);
     }
 
-    // If we still have no polygons, try solarPotential.buildingStats.roofSegments
-    if ((!roof_segments || roof_segments.length === 0) && buildingStats) {
-      try {
-        const bsRoofSegs = (buildingStats as any).roofSegments || (buildingStats as any).segments || [];
-        if (Array.isArray(bsRoofSegs) && bsRoofSegs.length) {
-          roof_segments = bsRoofSegs.map((rs: any, i: number) => {
-            const verts = rs.polygon?.vertices || rs.boundary?.vertices || rs.polygon?.latLngs || rs.boundary?.latLngs || rs.vertices;
-            const coords = (verts || []).map((v: any) => [
-              (v.longitude ?? v.lng ?? v.lon ?? v.latLng?.longitude),
-              (v.latitude ?? v.lat ?? v.latLng?.latitude)
-            ]).filter(([lng, lat]: any[]) => typeof lat === 'number' && typeof lng === 'number');
-            return {
-              id: `bs_segment_${i}`,
-              coordinates: coords.length >= 3 ? coords : null,
-              potential: 'medium',
-              area: rs.areaMeters2 || 50,
-              panelsCount: rs.panelsCount || 0,
-              yearlyEnergyDcKwh: rs.yearlyEnergyDcKwh || 0,
-              azimuthDegrees: rs.azimuthDegrees || 180,
-              tiltDegrees: rs.tiltDegrees || 30
-            };
-          }).filter((s: any) => s.coordinates);
-        }
-      } catch (_) { /* ignore */ }
-    }
-
-    // Final fallback: derive simple boxes only if absolutely necessary
-    if (!roof_segments || roof_segments.length === 0) {
-      const bounds = solarData.boundingBox;
-      if (bounds) {
-        const centerLat = (bounds.ne.latitude + bounds.sw.latitude) / 2;
-        const centerLng = (bounds.ne.longitude + bounds.sw.longitude) / 2;
-        const width = (bounds.ne.longitude - bounds.sw.longitude) * 0.7;
-        const height = (bounds.ne.latitude - bounds.sw.latitude) * 0.7;
-        const segmentCount = 2;
-        for (let i = 0; i < segmentCount; i++) {
-          const segmentWidth = width / segmentCount;
-          const offsetX = (i - segmentCount/2 + 0.5) * segmentWidth;
-          const segmentCoords = [
-            [centerLng + offsetX - segmentWidth/2, centerLat - height/2],
-            [centerLng + offsetX + segmentWidth/2, centerLat - height/2],
-            [centerLng + offsetX + segmentWidth/2, centerLat + height/2],
-            [centerLng + offsetX - segmentWidth/2, centerLat + height/2]
-          ];
-          roof_segments.push({
-            id: `bbox_fallback_${i}`,
-            coordinates: segmentCoords,
-            potential: i === 0 ? 'high' : 'medium'
-          });
-        }
-      }
-    }
-
-    // Calculate energy data with improved extraction
+    // Calculate energy data
     let monthly_kwh = [];
     let annual_kwh = 0;
     let panel_count = 20;
@@ -339,7 +257,7 @@ serve(async (req) => {
       roof_area,
       max_panels: solarPotential.wholeRoofStats?.panelsCount || panel_count * 2,
       address: formattedAddress,
-      roof_segments // Include roof segments in summary
+      roof_segments
     };
 
     // Get actual API data for calculations
@@ -353,14 +271,12 @@ serve(async (req) => {
       basePanelCount: panel_count
     };
 
-    // Create exact Google Solar API demo layout with premium design and smooth animations
+    // Create Google Solar API demo layout with pure Google Maps JavaScript API
     const embedUrl = `data:text/html;charset=utf-8,${encodeURIComponent(`
       <!DOCTYPE html>
       <html>
         <head>
           <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
-          <!-- Mapbox GL CSS for fallback rendering -->
-          <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
           <style>
             * { 
               margin: 0; 
@@ -386,14 +302,9 @@ serve(async (req) => {
               to { transform: translateX(0); opacity: 1; }
             }
             
-            @keyframes slideInRight {
-              from { transform: translateX(320px); opacity: 0; }
-              to { transform: translateX(0); opacity: 1; }
-            }
-            
-            @keyframes scaleIn {
-              from { transform: scale(0.95); opacity: 0; }
-              to { transform: scale(1); opacity: 1; }
+            @keyframes polygonFadeIn {
+              from { opacity: 0; transform: scale(0.8); }
+              to { opacity: 0.8; transform: scale(1); }
             }
             
             .main-container {
@@ -402,7 +313,7 @@ serve(async (req) => {
               position: relative;
             }
             
-            /* Left Panel - Building Insights with premium animations */
+            /* Left Panel - Building Insights */
             .left-panel {
               width: 300px;
               background: white;
@@ -438,481 +349,204 @@ serve(async (req) => {
             
             .insight-item {
               display: flex;
+              justify-content: space-between;
               align-items: center;
-              gap: 14px;
-              margin-bottom: 18px;
-              padding: 8px 0;
-              border-radius: 8px;
-              transition: all 0.2s ease;
-            }
-            
-            .insight-item:hover {
+              margin-bottom: 16px;
+              padding: 12px;
               background: rgba(26,115,232,0.04);
-              transform: translateX(4px);
-            }
-            
-            .insight-icon {
-              width: 28px;
-              height: 28px;
-              color: #1a73e8;
-              flex-shrink: 0;
-              font-size: 24px;
-            }
-            
-            .insight-content {
-              flex: 1;
+              border-radius: 8px;
+              border-left: 3px solid #1a73e8;
             }
             
             .insight-label {
-              font-size: 13px;
+              font-size: 14px;
               color: #5f6368;
-              margin-bottom: 3px;
               font-weight: 500;
-              letter-spacing: 0.2px;
             }
             
             .insight-value {
-              font-size: 20px;
+              font-size: 16px;
               font-weight: 600;
               color: #202124;
-              letter-spacing: -0.3px;
             }
             
-            /* Panel Controls - Premium interactive design */
-            .panel-controls {
+            .energy-totals {
               padding: 24px;
               background: white;
-              border-bottom: 1px solid rgba(232,234,237,0.6);
             }
             
-            .control-header {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 24px;
-              margin-bottom: 20px;
-              font-size: 13px;
-              font-weight: 600;
-              color: #5f6368;
-              text-align: center;
-              text-transform: uppercase;
-              letter-spacing: 0.8px;
-            }
-            
-            .panel-row {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
-              gap: 24px;
-              margin-bottom: 16px;
-            }
-            
-            .panel-display {
-              text-align: center;
-              padding: 16px;
-              border-radius: 12px;
-              background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
-              border: 1px solid rgba(26,115,232,0.1);
-              transition: all 0.3s ease;
-            }
-            
-            .panel-display:hover {
-              transform: translateY(-2px);
-              box-shadow: 0 8px 25px rgba(26,115,232,0.15);
-            }
-            
-            .panel-count {
-              font-size: 28px;
-              font-weight: 700;
+            .totals-header {
               color: #1a73e8;
-              letter-spacing: -0.5px;
-              margin-bottom: 4px;
-            }
-            
-            .max-count {
-              font-size: 11px;
-              color: #5f6368;
-              font-weight: 500;
-              letter-spacing: 0.3px;
-            }
-            
-            .yearly-energy {
-              font-size: 22px;
-              font-weight: 700;
-              color: #34a853;
-              text-align: center;
-              letter-spacing: -0.3px;
-            }
-            
-            /* Map Container with smooth transitions */
-            .map-container {
-              flex: 1;
-              position: relative;
-              background: linear-gradient(135deg, #e8f0fe 0%, #f3e5f5 100%);
-              animation: scaleIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
-            }
-            
-            #map {
-              position: absolute;
-              inset: 0;
-              width: 100%;
-              height: 100%;
-              border-radius: 0;
-              transition: all 0.3s ease;
-            }
-            
-            /* Roof segmentation styles with premium animations */
-            .roof-segment {
-              fill: rgba(124, 58, 237, 0.65);
-              stroke: rgba(124, 58, 237, 0.9);
-              stroke-width: 2;
-              opacity: 0;
-              filter: drop-shadow(0 4px 8px rgba(124, 58, 237, 0.3));
-              transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-              animation: segmentReveal 1.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            }
-            
-            .roof-segment.high-potential {
-              fill: rgba(255, 77, 184, 0.75);
-              stroke: rgba(255, 77, 184, 1);
-              filter: drop-shadow(0 4px 12px rgba(255, 77, 184, 0.4));
-              animation-delay: 0.2s;
-            }
-            
-            .roof-segment.medium-potential {
-              fill: rgba(156, 39, 176, 0.7);
-              stroke: rgba(156, 39, 176, 0.95);
-              filter: drop-shadow(0 4px 10px rgba(156, 39, 176, 0.35));
-              animation-delay: 0.5s;
-            }
-            
-            .roof-segment.low-potential {
-              fill: rgba(33, 150, 243, 0.65);
-              stroke: rgba(33, 150, 243, 0.9);
-              filter: drop-shadow(0 4px 8px rgba(33, 150, 243, 0.3));
-              animation-delay: 0.8s;
-            }
-            
-            .roof-segment:hover {
-              transform: scale(1.02);
-              filter: brightness(1.1) drop-shadow(0 6px 16px rgba(0, 0, 0, 0.2));
-              stroke-width: 3;
-            }
-            
-            @keyframes segmentReveal {
-              0% { 
-                opacity: 0; 
-                transform: scale(0.7) translateY(20px); 
-                filter: blur(4px);
-              }
-              60% { 
-                opacity: 0.8; 
-                transform: scale(1.05) translateY(-2px); 
-                filter: blur(1px);
-              }
-              100% { 
-                opacity: 1; 
-                transform: scale(1) translateY(0); 
-                filter: blur(0);
-              }
-            }
-            
-            /* Add elegant pulsing glow for active segments */
-            @keyframes segmentGlow {
-              0%, 100% { filter: drop-shadow(0 4px 8px rgba(255, 77, 184, 0.4)); }
-              50% { filter: drop-shadow(0 6px 20px rgba(255, 77, 184, 0.6)); }
-            }
-            
-            .roof-segment.high-potential.active {
-              animation: segmentGlow 2s ease-in-out infinite;
-            }
-            
-            /* Right Panel with premium design */
-            .right-panel {
-              width: 320px;
-              background: white;
-              box-shadow: -4px 0 20px rgba(0,0,0,0.12), 0 0 40px rgba(124,58,237,0.08);
-              overflow-y: auto;
-              z-index: 1000;
-              position: relative;
-              animation: slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
-            }
-            
-            .search-section {
-              padding: 24px;
-              border-bottom: 1px solid rgba(232,234,237,0.6);
-              background: linear-gradient(135deg, #fff 0%, #f8f9ff 100%);
-            }
-            
-            .search-label {
-              font-size: 13px;
-              color: #5f6368;
-              margin-bottom: 10px;
+              font-size: 16px;
               font-weight: 600;
-              letter-spacing: 0.3px;
-              text-transform: uppercase;
-            }
-            
-            .search-input {
-              width: 100%;
-              padding: 14px 16px;
-              border: 2px solid #e8eaed;
-              border-radius: 12px;
-              font-size: 14px;
-              font-weight: 500;
-              background: white;
-              transition: all 0.2s ease;
-              outline: none;
-            }
-            
-            .search-input:focus {
-              border-color: #1a73e8;
-              box-shadow: 0 0 0 4px rgba(26,115,232,0.1);
-              transform: translateY(-1px);
-            }
-            
-            /* Premium control sections */
-            .solar-potential-section {
-              padding: 24px;
-            }
-            
-            .solar-controls {
-              margin-top: 24px;
-              padding: 24px;
-              background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
-              border-radius: 16px;
-              border: 2px solid rgba(124,58,237,0.1);
-              box-shadow: 0 4px 20px rgba(124,58,237,0.08);
-            }
-            
-            /* Premium panel controls */
-            .panels-section {
               margin-bottom: 20px;
-            }
-            
-            .panels-label {
               display: flex;
               align-items: center;
-              margin-bottom: 18px;
+              gap: 8px;
             }
             
-            .panels-icon {
-              width: 20px;
-              height: 20px;
-              margin-right: 10px;
-              color: #7c3aed;
-            }
-            
-            .panels-text {
-              font-size: 15px;
-              font-weight: 600;
-              color: #202124;
-              letter-spacing: -0.2px;
-            }
-            
-            .panels-count {
-              font-weight: 700;
-              color: #1a73e8;
-              margin-left: 6px;
+            .totals-header::before {
+              content: '⚡';
               font-size: 16px;
             }
             
-            .panel-slider {
-              width: 100%;
-              height: 6px;
-              border-radius: 3px;
-              background: linear-gradient(90deg, #e8eaed 0%, #f3f4f6 100%);
-              outline: none;
-              -webkit-appearance: none;
-              margin: 20px 0;
-              cursor: pointer;
-              transition: all 0.2s ease;
+            .panel-control {
+              margin-bottom: 24px;
             }
             
-            .panel-slider:hover {
-              transform: scaleY(1.2);
+            .panel-label {
+              font-size: 14px;
+              color: #5f6368;
+              margin-bottom: 12px;
+              font-weight: 500;
+            }
+            
+            .panel-slider-container {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            
+            .panel-count-display {
+              font-size: 18px;
+              font-weight: 600;
+              color: #1a73e8;
+              min-width: 60px;
+              text-align: center;
+              padding: 8px 12px;
+              background: #e8f0fe;
+              border-radius: 6px;
+            }
+            
+            .panel-slider {
+              flex: 1;
+              height: 6px;
+              background: #e8eaed;
+              border-radius: 3px;
+              outline: none;
+              appearance: none;
+              cursor: pointer;
             }
             
             .panel-slider::-webkit-slider-thumb {
-              -webkit-appearance: none;
               appearance: none;
               width: 20px;
               height: 20px;
               border-radius: 50%;
-              background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+              background: #1a73e8;
               cursor: pointer;
-              box-shadow: 0 4px 12px rgba(124,58,237,0.4);
-              transition: all 0.2s ease;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             }
             
-            .panel-slider::-webkit-slider-thumb:hover {
-              transform: scale(1.2);
-              box-shadow: 0 6px 20px rgba(124,58,237,0.6);
-            }
-            
-            .watts-section {
-              margin-top: 24px;
-              position: relative;
-            }
-            
-            .watts-label {
-              font-size: 12px;
-              color: #5f6368;
-              margin-bottom: 10px;
-              text-transform: uppercase;
-              letter-spacing: 1px;
-              font-weight: 600;
-            }
-            
-            .watts-input {
-              width: 100%;
-              padding: 14px 20px;
-              padding-right: 60px;
-              border: 2px solid #e8eaed;
-              border-radius: 12px;
-              font-size: 15px;
-              font-weight: 600;
-              background: white;
-              outline: none;
-              transition: all 0.2s ease;
-            }
-            
-            .watts-input:focus {
-              border-color: #1a73e8;
-              box-shadow: 0 0 0 4px rgba(26,115,232,0.1);
-              transform: translateY(-1px);
-            }
-            
-            .watts-suffix {
-              position: absolute;
-              right: 20px;
-              top: 46px;
-              color: #5f6368;
-              font-size: 14px;
-              font-weight: 600;
-              pointer-events: none;
-            }
-            
-            /* Premium solar legend overlay */
-            .solar-legend {
-              position: absolute;
-              bottom: 20px;
-              left: 20px;
-              background: rgba(255,255,255,0.95);
-              padding: 12px 16px;
-              border-radius: 8px;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-              z-index: 500;
-              display: flex;
-              gap: 16px;
-              align-items: center;
-            }
-            
-            .legend-item {
-              display: flex;
-              align-items: center;
-              gap: 6px;
-              font-size: 12px;
-            }
-            
-            .legend-color {
-              width: 16px;
-              height: 16px;
-              border-radius: 2px;
-            }
-            
-            .high-potential { background: #ff69b4; }
-            .medium-potential { background: #8a2be2; }
-            .low-potential { background: #1e90ff; }
-            
-            /* Map controls */
-            .map-controls {
-              position: absolute;
-              bottom: 20px;
-              right: 20px;
-              z-index: 500;
-            }
-            
-            .zoom-controls {
-              background: white;
-              border-radius: 8px;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-              overflow: hidden;
-            }
-            
-            .zoom-btn {
-              display: block;
-              width: 40px;
-              height: 40px;
+            .panel-slider::-moz-range-thumb {
+              width: 20px;
+              height: 20px;
+              border-radius: 50%;
+              background: #1a73e8;
+              cursor: pointer;
               border: none;
-              background: white;
-              cursor: pointer;
-              font-size: 18px;
-              font-weight: bold;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            }
+            
+            .total-item {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 16px;
+              padding: 12px;
+              background: rgba(52,168,83,0.04);
+              border-radius: 8px;
+              border-left: 3px solid #34a853;
+            }
+            
+            .total-label {
+              font-size: 14px;
               color: #5f6368;
+              font-weight: 500;
             }
             
-            .zoom-btn:hover {
-              background: #f8f9fa;
+            .total-value {
+              font-size: 16px;
+              font-weight: 600;
+              color: #202124;
             }
             
-            .zoom-btn:not(:last-child) {
-              border-bottom: 1px solid #e8eaed;
+            /* Map Container */
+            .map-container {
+              flex: 1;
+              position: relative;
+              background: #e5e7eb;
+            }
+            
+            #map {
+              width: 100%;
+              height: 100%;
+            }
+            
+            /* Responsive */
+            @media (max-width: 768px) {
+              .main-container {
+                flex-direction: column;
+              }
+              
+              .left-panel {
+                width: 100%;
+                height: auto;
+                max-height: 50vh;
+                overflow-y: auto;
+              }
             }
           </style>
         </head>
         <body>
           <div class="main-container">
-            <!-- Left Panel: Building Insights -->
+            <!-- Left Panel with Building Insights -->
             <div class="left-panel">
               <div class="building-insights">
-                <div class="insights-header">
-                  🏠 Building Insights endpoint
-                </div>
-                
+                <div class="insights-header">Building Insights</div>
                 <div class="insight-item">
-                  <div class="insight-icon">☀️</div>
-                  <div class="insight-content">
-                    <div class="insight-label">Annual sunshine</div>
-                    <div class="insight-value" id="annual-sunshine">${Math.round(solarPotential.yearlyEnergyDcKwh / panel_count * 6) || 1800} hr</div>
-                  </div>
+                  <span class="insight-label">Address</span>
+                  <span class="insight-value">${formattedAddress || 'Unknown'}</span>
                 </div>
-                
                 <div class="insight-item">
-                  <div class="insight-icon">🏠</div>
-                  <div class="insight-content">
-                    <div class="insight-label">Roof area</div>
-                    <div class="insight-value" id="roof-area">${roof_area.toLocaleString()} m²</div>
-                  </div>
+                  <span class="insight-label">Roof Area</span>
+                  <span class="insight-value">${roof_area} m²</span>
                 </div>
-                
                 <div class="insight-item">
-                  <div class="insight-icon">🔋</div>
-                  <div class="insight-content">
-                    <div class="insight-label">Max panel count</div>
-                    <div class="insight-value" id="max-panels">${actualSolarData.maxPanelCount} panels</div>
-                  </div>
-                </div>
-                
-                <div class="insight-item">
-                  <div class="insight-icon">🌿</div>
-                  <div class="insight-content">
-                    <div class="insight-label">CO₂ savings</div>
-                    <div class="insight-value" id="co2-savings">${Math.round(annual_kwh * 0.0004)} kg/MWh</div>
-                  </div>
+                  <span class="insight-label">Segments</span>
+                  <span class="insight-value">${roof_segments.length}</span>
                 </div>
               </div>
               
-              <div class="panel-controls">
-                <div class="control-header">
-                  <div>Panels count</div>
-                  <div>Yearly energy</div>
+              <div class="energy-totals">
+                <div class="totals-header">Energy Totals</div>
+                
+                <div class="panel-control">
+                  <div class="panel-label">Solar Panels</div>
+                  <div class="panel-slider-container">
+                    <div class="panel-count-display" id="panelCount">${panel_count}</div>
+                    <input 
+                      type="range" 
+                      class="panel-slider" 
+                      id="panelSlider"
+                      min="1" 
+                      max="${actualSolarData.maxPanelCount}" 
+                      value="${panel_count}"
+                    />
+                  </div>
                 </div>
                 
-                <div class="panel-row">
-                  <div class="panel-display">
-                    <div class="panel-count" id="current-panels">${panel_count}</div>
-                    <div class="max-count">/ ${actualSolarData.maxPanelCount}</div>
-                  </div>
-                  <div class="yearly-energy" id="yearly-energy">${annual_kwh.toLocaleString()} kWh</div>
+                <div class="total-item">
+                  <span class="total-label">Annual kWh</span>
+                  <span class="total-value" id="annualKwh">${annual_kwh.toLocaleString()}</span>
+                </div>
+                <div class="total-item">
+                  <span class="total-label">Monthly kWh</span>
+                  <span class="total-value" id="monthlyKwh">${Math.round(annual_kwh / 12).toLocaleString()}</span>
+                </div>
+                <div class="total-item">
+                  <span class="total-label">CO₂ Saved</span>
+                  <span class="total-value" id="co2Saved">${Math.round(annual_kwh * 0.0004).toLocaleString()} tons</span>
                 </div>
               </div>
             </div>
@@ -920,525 +554,181 @@ serve(async (req) => {
             <!-- Map Container -->
             <div class="map-container">
               <div id="map"></div>
-              
-              <!-- Solar potential legend overlay -->
-              <div class="solar-legend">
-                <div class="legend-item">
-                  <div class="legend-color high-potential"></div>
-                  <span>High solar potential</span>
-                </div>
-                <div class="legend-item">
-                  <div class="legend-color medium-potential"></div>
-                  <span>Medium potential</span>
-                </div>
-                <div class="legend-item">
-                  <div class="legend-color low-potential"></div>
-                  <span>Low potential</span>
-                </div>
-              </div>
-              
-              <!-- Map zoom controls -->
-              <div class="map-controls">
-                <div class="zoom-controls">
-                  <button class="zoom-btn" onclick="zoomIn()">+</button>
-                  <button class="zoom-btn" onclick="zoomOut()">−</button>
-                </div>
-              </div>
-            </div>
-            
-            <!-- Right Panel: API Controls -->
-            <div class="right-panel">
-              <div class="search-section">
-                <div class="search-label">Search an address</div>
-                <input type="text" class="search-input" value="${formattedAddress}" readonly>
-              </div>
-              
-              <div class="solar-potential-section">
-                <div class="solar-controls">
-                  <div class="panels-section">
-                    <div class="panels-label">
-                      <svg class="panels-icon" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                      </svg>
-                      <span class="panels-text">Panels count</span>
-                      <span class="panels-count" id="slider-count">${panel_count} panels</span>
-                    </div>
-                    <input type="range" class="panel-slider" id="panel-count-slider" 
-                           min="1" max="${actualSolarData.maxPanelCount}" value="${panel_count}"
-                           oninput="updatePanelCount(this.value)">
-                  </div>
-                  
-                  <div class="watts-section">
-                    <div class="watts-label">Panel capacity</div>
-                    <input type="number" class="watts-input" value="250" min="100" max="500" step="10">
-                    <div class="watts-suffix">Watts</div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
+
+          <script async defer src="https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&callback=initMap&libraries=geometry"></script>
           
           <script>
-            // Store the actual solar data for calculations
-            const solarData = ${JSON.stringify(actualSolarData)};
-            let currentPanelCount = ${panel_count};
-            const mapboxToken = '${Deno.env.get('MAPBOX_PUBLIC_TOKEN') || ''}';
+            let map;
+            let roofPolygons = [];
+            const roofSegments = ${JSON.stringify(roof_segments)};
+            const actualSolarData = ${JSON.stringify(actualSolarData)};
             
-            // Calculate energy based on panel count (real API calculations)
-            function calculateEnergyFromPanels(panelCount) {
-              const baseKwhPerPanel = solarData.baseAnnualKwh / solarData.basePanelCount;
-              return Math.round(panelCount * baseKwhPerPanel);
+            // Panel slider functionality
+            const panelSlider = document.getElementById('panelSlider');
+            const panelCountDisplay = document.getElementById('panelCount');
+            const annualKwhDisplay = document.getElementById('annualKwh');
+            const monthlyKwhDisplay = document.getElementById('monthlyKwh');
+            const co2SavedDisplay = document.getElementById('co2Saved');
+            
+            function updateEnergyCalculations(newPanelCount) {
+              const ratio = newPanelCount / actualSolarData.basePanelCount;
+              const newAnnualKwh = Math.round(actualSolarData.baseAnnualKwh * ratio);
+              const newMonthlyKwh = Math.round(newAnnualKwh / 12);
+              const newCo2Saved = Math.round(newAnnualKwh * 0.0004);
+              
+              panelCountDisplay.textContent = newPanelCount;
+              annualKwhDisplay.textContent = newAnnualKwh.toLocaleString();
+              monthlyKwhDisplay.textContent = newMonthlyKwh.toLocaleString();
+              co2SavedDisplay.textContent = newCo2Saved.toLocaleString() + ' tons';
             }
             
-            // Update panel count and all related calculations
-            function updatePanelCount(newCount) {
-              currentPanelCount = parseInt(newCount);
-              const yearlyEnergy = calculateEnergyFromPanels(currentPanelCount);
-              const co2Savings = Math.round(yearlyEnergy * 0.0004);
-              
-              // Update all displays
-              const cp = document.getElementById('current-panels'); if (cp) cp.textContent = currentPanelCount;
-              const sc = document.getElementById('slider-count'); if (sc) sc.textContent = currentPanelCount + ' panels';
-              const ye = document.getElementById('yearly-energy'); if (ye) ye.textContent = yearlyEnergy.toLocaleString() + ' kWh';
-              const co2 = document.getElementById('co2-savings'); if (co2) co2.textContent = co2Savings + ' kg/MWh';
-              
-              console.info('Unknown action: adjust_panels', {
-                panel_count: currentPanelCount,
-                annual_kwh: yearlyEnergy
-              });
-            }
-
+            panelSlider.addEventListener('input', function() {
+              updateEnergyCalculations(parseInt(this.value));
+            });
             
-            // Initialize Google Maps with precise roof segmentation
+            // Color mapping for solar potential
+            function getPotentialColor(potential) {
+              const colors = {
+                'high': '#FF69B4',    // Pink for high potential
+                'medium': '#9F7AEA',  // Purple for medium potential  
+                'low': '#4299E1'      // Blue for low potential
+              };
+              return colors[potential] || colors['medium'];
+            }
+            
             function initMap() {
-              const location = { lat: ${location.lat}, lng: ${location.lng} };
-              
-              const map = new google.maps.Map(document.getElementById('map'), {
-                zoom: 20,
-                center: location,
-                mapTypeId: 'satellite',
-                tilt: 0,
-                gestureHandling: 'greedy',
-                zoomControl: false,
-                mapTypeControl: false,
-                streetViewControl: false,
-                fullscreenControl: false
-              });
-              
-              // Prepare actual roof segments and viewport
-              window.__roofSegments = ${JSON.stringify(roof_segments)};
-
-              // Fit bounds to actual roof segments immediately for visibility
-              (function fitInitialBounds() {
-                try {
-                  const bounds = new google.maps.LatLngBounds();
-                  const segs = window.__roofSegments || [];
-                  if (segs.length) {
-                    segs.forEach(seg => {
-                      (seg.coordinates || []).forEach(c => bounds.extend(new google.maps.LatLng(c[1], c[0])));
-                    });
-                    map.fitBounds(bounds);
-                    map.setZoom(Math.min(map.getZoom(), 21));
-                  } else {
-                    map.setCenter({ lat: ${location.lat}, lng: ${location.lng} });
-                    map.setZoom(20);
-                  }
-                } catch (e) { console.warn('Initial bounds fit failed', e); }
-              })();
-
-              // Canvas overlay to render a smooth yellow→purple gradient inside each roof polygon
-              function CanvasRoofOverlay(map, segments) {
-                this.map = map;
-                this.segments = segments;
-                this.canvas = null;
-                this.setMap(map);
-              }
-              CanvasRoofOverlay.prototype = new google.maps.OverlayView();
-              CanvasRoofOverlay.prototype.onAdd = function() {
-                this.canvas = document.createElement('canvas');
-                this.canvas.style.position = 'absolute';
-                this.getPanes().overlayLayer.appendChild(this.canvas);
-              };
-              CanvasRoofOverlay.prototype.draw = function() {
-                const projection = this.getProjection();
-                if (!projection) return;
-                const pane = this.getPanes().overlayLayer;
-                const w = pane.offsetWidth || this.map.getDiv().offsetWidth;
-                const h = pane.offsetHeight || this.map.getDiv().offsetHeight;
-                this.canvas.width = w;
-                this.canvas.height = h;
-                const ctx = this.canvas.getContext('2d');
-                if (!ctx) return;
-                ctx.clearRect(0, 0, w, h);
-
-                const toPx = (lat, lng) => {
-                  const p = projection.fromLatLngToDivPixel(new google.maps.LatLng(lat, lng));
-                  return { x: p.x, y: p.y };
-                };
-
-                (this.segments || []).forEach(seg => {
-                  const coords = (seg.coordinates || []).map(c => toPx(c[1], c[0]));
-                  if (coords.length < 3) return;
-
-                  // Build polygon path and clip
-                  ctx.save();
-                  ctx.beginPath();
-                  coords.forEach((pt, i) => {
-                    if (i === 0) ctx.moveTo(pt.x, pt.y); else ctx.lineTo(pt.x, pt.y);
-                  });
-                  ctx.closePath();
-                  ctx.clip();
-
-                  // Compute gradient line using segment azimuth
-                  const xs = coords.map(p => p.x); const ys = coords.map(p => p.y);
-                  const minX = Math.min(...xs), maxX = Math.max(...xs);
-                  const minY = Math.min(...ys), maxY = Math.max(...ys);
-                  const cx = (minX + maxX) / 2; const cy = (minY + maxY) / 2;
-                  const len = Math.max(maxX - minX, maxY - minY) * 0.9;
-                  const angle = ((seg.azimuthDegrees ?? 180) * Math.PI) / 180;
-                  const x1 = cx - Math.cos(angle) * len, y1 = cy - Math.sin(angle) * len;
-                  const x2 = cx + Math.cos(angle) * len, y2 = cy + Math.sin(angle) * len;
-
-                  const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-                  // Yellow → pink/purple → deep purple
-                  grad.addColorStop(0, 'rgba(255, 235, 59, 0.85)');
-                  grad.addColorStop(0.5, seg.potential === 'high' ? 'rgba(255, 105, 180, 0.75)' : 'rgba(138, 43, 226, 0.65)');
-                  grad.addColorStop(1, 'rgba(128, 0, 128, 0.6)');
-
-                  ctx.fillStyle = grad;
-                  ctx.fillRect(minX - 2, minY - 2, (maxX - minX) + 4, (maxY - minY) + 4);
-                  ctx.restore();
-                });
-              };
-              CanvasRoofOverlay.prototype.onRemove = function() {
-                if (this.canvas && this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
-                this.canvas = null;
-              };
-
-              const roofOverlay = new CanvasRoofOverlay(map, window.__roofSegments || []);
-              google.maps.event.addListener(map, 'idle', () => roofOverlay.draw());
-              google.maps.event.addListener(map, 'zoom_changed', () => roofOverlay.draw());
-              google.maps.event.addListener(map, 'dragend', () => roofOverlay.draw());
-
-              
-              // Add actual roof segments with smooth staggered animations  
-               const actualRoofSegments = window.__roofSegments || [];
-               console.log('Rendering roof segments:', actualRoofSegments.length);
-              
-              if (actualRoofSegments && actualRoofSegments.length > 0) {
-                actualRoofSegments.forEach((segment, index) => {
-                  // Use actual coordinates from Google Solar API
-                  const coords = segment.coordinates.map(coord => ({ lat: coord[1], lng: coord[0] }));
-                  
-                  // Create polygon with enhanced styling
-                  const polygon = new google.maps.Polygon({
-                    paths: coords,
-                    fillColor: segment.potential === 'high' ? '#ff69b4' : 
-                             segment.potential === 'medium' ? '#8a2be2' : '#1e90ff',
-                    fillOpacity: 0,
-                    strokeColor: segment.potential === 'high' ? '#ff69b4' : 
-                               segment.potential === 'medium' ? '#8a2be2' : '#1e90ff',
-                    strokeOpacity: 0,
-                    strokeWeight: 2,
-                    zIndex: 1000 + index
-                  });
-                  
-                  // Staggered animation with smooth easing
-                  setTimeout(() => {
-                    polygon.setMap(map);
-                    
-                    // Smooth fade-in animation
-                    let opacity = 0;
-                    let strokeOpacity = 0;
-                    const targetFillOpacity = segment.potential === 'high' ? 0.8 : 
-                                            segment.potential === 'medium' ? 0.75 : 0.7;
-                    
-                    const fadeInterval = setInterval(() => {
-                      opacity += 0.03;
-                      strokeOpacity += 0.04;
-                      
-                      polygon.setOptions({ 
-                        fillOpacity: Math.min(opacity, targetFillOpacity),
-                        strokeOpacity: Math.min(strokeOpacity, 0.95)
-                      });
-                      
-                      if (opacity >= targetFillOpacity && strokeOpacity >= 0.95) {
-                        clearInterval(fadeInterval);
-                      }
-                    }, 40);
-                    
-                  }, index * 180); // 180ms stagger between segments
-                  
-                  // Add hover effects
-                  polygon.addListener('mouseover', () => {
-                    polygon.setOptions({
-                      fillOpacity: Math.min((segment.potential === 'high' ? 0.8 : 
-                                           segment.potential === 'medium' ? 0.75 : 0.7) + 0.1, 0.9),
-                      strokeWeight: 3
-                    });
-                  });
-                  
-                  polygon.addListener('mouseout', () => {
-                    polygon.setOptions({
-                      fillOpacity: segment.potential === 'high' ? 0.8 : 
-                                 segment.potential === 'medium' ? 0.75 : 0.7,
-                      strokeWeight: 2
-                    });
-                  });
-
-                  // Click to inspect segment
-                  polygon.addListener('click', (e) => {
-                    const content = '<div style="font-family: \'Google Sans\', \'Roboto\', sans-serif; font-size:12px;">'
-                      + '<div style="font-weight:600; margin-bottom:4px;">Segment ' + segment.id + '</div>'
-                      + '<div>Potential: ' + segment.potential + '</div>'
-                      + '<div>Area: ' + (segment.area ?? 'n/a') + ' m²</div>'
-                      + '<div>Est. yearly: ' + (segment.yearlyEnergyDcKwh ?? 'n/a') + ' kWh</div>'
-                      + '</div>';
-                    new google.maps.InfoWindow({ content }).open({ map, position: e.latLng });
-                  });
-                });
-              }
-              
-              // Ensure proper sizing after cinematic reveal
-              setTimeout(() => {
-                try {
-                  const bounds = new google.maps.LatLngBounds();
-                  if (actualRoofSegments && actualRoofSegments.length) {
-                    actualRoofSegments.forEach(seg => {
-                      (seg.coordinates || []).forEach(coord => {
+              try {
+                // Calculate map bounds from roof segments
+                let bounds = new google.maps.LatLngBounds();
+                let hasValidSegments = false;
+                
+                roofSegments.forEach(segment => {
+                  if (segment.coordinates && segment.coordinates.length > 0) {
+                    segment.coordinates.forEach(coord => {
+                      if (coord.length >= 2 && typeof coord[1] === 'number' && typeof coord[0] === 'number') {
                         bounds.extend(new google.maps.LatLng(coord[1], coord[0]));
-                      });
+                        hasValidSegments = true;
+                      }
                     });
                   }
-                  google.maps.event.trigger(map, 'resize');
-                  if (!bounds.isEmpty()) {
-                    map.fitBounds(bounds);
-                    map.setZoom(Math.min(map.getZoom(), 21));
+                });
+                
+                // Default center if no valid segments
+                const defaultCenter = hasValidSegments ? bounds.getCenter() : 
+                  new google.maps.LatLng(${location.lat}, ${location.lng});
+                
+                // Initialize map
+                map = new google.maps.Map(document.getElementById('map'), {
+                  center: defaultCenter,
+                  zoom: hasValidSegments ? 20 : 18,
+                  mapTypeId: 'satellite',
+                  tilt: 0,
+                  heading: 0,
+                  disableDefaultUI: false,
+                  zoomControl: true,
+                  mapTypeControl: false,
+                  streetViewControl: false,
+                  fullscreenControl: true,
+                  gestureHandling: 'greedy',
+                  styles: [
+                    {
+                      featureType: "all",
+                      elementType: "labels",
+                      stylers: [{ visibility: "off" }]
+                    }
+                  ]
+                });
+                
+                // Fit to bounds if we have valid segments
+                if (hasValidSegments) {
+                  map.fitBounds(bounds);
+                  map.setZoom(Math.min(map.getZoom(), 20));
+                }
+                
+                // Add roof polygons with staggered animation
+                roofSegments.forEach((segment, index) => {
+                  if (segment.coordinates && segment.coordinates.length >= 3) {
+                    setTimeout(() => {
+                      const polygonPath = segment.coordinates.map(coord => ({
+                        lat: coord[1],
+                        lng: coord[0]
+                      }));
+                      
+                      const polygon = new google.maps.Polygon({
+                        paths: polygonPath,
+                        strokeColor: getPotentialColor(segment.potential),
+                        strokeOpacity: 0.8,
+                        strokeWeight: 2,
+                        fillColor: getPotentialColor(segment.potential),
+                        fillOpacity: 0,
+                        map: map
+                      });
+                      
+                      // Animate fill opacity
+                      setTimeout(() => {
+                        polygon.setOptions({ fillOpacity: 0.6 });
+                      }, 100);
+                      
+                      roofPolygons.push(polygon);
+                      
+                      // Add click handler for segment info
+                      polygon.addListener('click', () => {
+                        const infoWindow = new google.maps.InfoWindow({
+                          content: \`
+                            <div style="padding: 8px; font-family: 'Google Sans', sans-serif;">
+                              <div style="font-weight: 600; margin-bottom: 8px; color: #1a73e8;">Roof Segment</div>
+                              <div style="margin-bottom: 4px;"><strong>Potential:</strong> \${segment.potential}</div>
+                              <div style="margin-bottom: 4px;"><strong>Area:</strong> \${segment.area} m²</div>
+                              <div style="margin-bottom: 4px;"><strong>Panels:</strong> \${segment.panelsCount || 0}</div>
+                              <div><strong>Annual Energy:</strong> \${Math.round(segment.yearlyEnergyDcKwh || 0)} kWh</div>
+                            </div>
+                          \`,
+                          position: polygon.getPath().getAt(0)
+                        });
+                        infoWindow.open(map);
+                      });
+                      
+                      // Add hover effects
+                      polygon.addListener('mouseover', () => {
+                        polygon.setOptions({ fillOpacity: 0.8, strokeWeight: 3 });
+                      });
+                      
+                      polygon.addListener('mouseout', () => {
+                        polygon.setOptions({ fillOpacity: 0.6, strokeWeight: 2 });
+                      });
+                      
+                    }, index * 200); // Staggered animation delay
                   }
-                } catch (e) { console.warn('Post-animation resize failed', e); }
-              }, 3800);
-              
-              // Add enhanced legend with smooth slide-up animation
-              setTimeout(() => {
-                const legend = document.createElement('div');
-                legend.innerHTML = \`
-                  <div style="
-                    background: rgba(255, 255, 255, 0.95);
-                    backdrop-filter: blur(10px);
-                    padding: 16px;
-                    border-radius: 12px;
-                    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-                    font-family: 'Google Sans', 'Roboto', sans-serif;
-                    font-size: 13px;
-                    margin: 16px;
-                    border: 1px solid rgba(0,0,0,0.1);
-                    opacity: 0;
-                    transform: translateY(30px) scale(0.9);
-                    transition: all 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-                  ">
-                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                      <div style="width: 18px; height: 14px; background: #ff4db8; margin-right: 10px; border-radius: 3px; box-shadow: 0 2px 4px rgba(255,77,184,0.3);"></div>
-                      <span style="font-weight: 500; color: #202124;">High solar potential</span>
-                    </div>
-                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                      <div style="width: 18px; height: 14px; background: #9c27b0; margin-right: 10px; border-radius: 3px; box-shadow: 0 2px 4px rgba(156,39,176,0.3);"></div>
-                      <span style="font-weight: 500; color: #202124;">Medium potential</span>
-                    </div>
-                    <div style="display: flex; align-items: center;">
-                      <div style="width: 18px; height: 14px; background: #2196f3; margin-right: 10px; border-radius: 3px; box-shadow: 0 2px 4px rgba(33,150,243,0.3);"></div>
-                      <span style="font-weight: 500; color: #202124;">Low potential</span>
+                });
+                
+                console.log(\`Map initialized with \${roofSegments.length} roof segments\`);
+                
+              } catch (error) {
+                console.error('Error initializing Google Maps:', error);
+                document.getElementById('map').innerHTML = \`
+                  <div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f1f3f4; color: #5f6368; font-family: 'Google Sans', sans-serif;">
+                    <div style="text-align: center;">
+                      <div style="font-size: 18px; margin-bottom: 8px;">🗺️</div>
+                      <div>Map loading...</div>
                     </div>
                   </div>
                 \`;
-                
-                map.controls[google.maps.ControlPosition.BOTTOM_LEFT].push(legend);
-                
-                // Smooth legend reveal animation
-                setTimeout(() => {
-                  legend.firstElementChild.style.opacity = '1';
-                  legend.firstElementChild.style.transform = 'translateY(0) scale(1)';
-                }, 100);
-                
-              }, 2000); // Show legend after roof segments have appeared
-              
-              window.mapInstance = map;
-            }
-            
-            // Mapbox GL fallback when Google Maps fails (e.g., key restrictions)
-            function initMapbox() {
-              try {
-                if (!mapboxgl || !mapboxToken) return;
-                mapboxgl.accessToken = mapboxToken;
-                const map = new mapboxgl.Map({
-                  container: 'map',
-                  style: 'mapbox://styles/mapbox/satellite-v9',
-                  center: [${location.lng}, ${location.lat}],
-                  zoom: 19,
-                  pitch: 0,
-                });
-                window.mapInstance = map;
-
-                map.addControl(new mapboxgl.NavigationControl({ visualizePitch: false }), 'bottom-right');
-
-                const segs = (window.__roofSegments || []).filter(s => (s.coordinates || []).length >= 3);
-                const features = segs.map((s, i) => ({
-                  type: 'Feature',
-                  id: i,
-                  properties: { potential: s.potential || 'medium', id: s.id || i },
-                  geometry: { type: 'Polygon', coordinates: [s.coordinates] }
-                }));
-                const fc = { type: 'FeatureCollection', features };
-
-                map.on('load', () => {
-                  map.addSource('roof-polys', { type: 'geojson', data: fc });
-
-                  // Base fill layer with discrete color mapping
-                  map.addLayer({
-                    id: 'roof-fill',
-                    type: 'fill',
-                    source: 'roof-polys',
-                    paint: {
-                      'fill-color': [
-                        'match', ['get', 'potential'],
-                        'high', '#ff69b4',
-                        'medium', '#8a2be2',
-                        /* other */ '#1e90ff'
-                      ],
-                      'fill-opacity': 0
-                    }
-                  });
-
-                  map.addLayer({
-                    id: 'roof-outline',
-                    type: 'line',
-                    source: 'roof-polys',
-                    paint: {
-                      'line-color': [
-                        'match', ['get', 'potential'],
-                        'high', '#ff69b4',
-                        'medium', '#8a2be2',
-                        /* other */ '#1e90ff'
-                      ],
-                      'line-width': 2,
-                      'line-opacity': 0
-                    }
-                  });
-
-                  // Fit bounds
-                  const b = new mapboxgl.LngLatBounds();
-                  features.forEach(f => f.geometry.coordinates[0].forEach(c => b.extend(c)));
-                  if (!b.isEmpty()) map.fitBounds(b, { padding: 60, maxZoom: 20 });
-
-                  // Staggered fade-in
-                  features.forEach((f, i) => {
-                    setTimeout(() => {
-                      const step = 10; let cur = 0;
-                      const iv = setInterval(() => {
-                        cur += 1;
-                        const op = Math.min(cur / step, 0.85);
-                        map.setPaintProperty('roof-fill', 'fill-opacity', op);
-                        map.setPaintProperty('roof-outline', 'line-opacity', Math.min(op + 0.1, 0.95));
-                        if (cur >= step) clearInterval(iv);
-                      }, 40);
-                    }, i * 180);
-                  });
-
-                  // Hover + click popups
-                  const popup = new mapboxgl.Popup({ closeButton: true, closeOnClick: true });
-                  map.on('mouseenter', 'roof-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
-                  map.on('mouseleave', 'roof-fill', () => { map.getCanvas().style.cursor = ''; });
-                  map.on('click', 'roof-fill', (e) => {
-                    const f = e.features && e.features[0];
-                    if (!f) return;
-                    const p = f.properties || {};
-                    const html = '<div style="font-family: \'Google Sans\', \'Roboto\', sans-serif; font-size:12px;">'
-                      + '<div style="font-weight:600; margin-bottom:4px;">Segment ' + (p.id || '') + '</div>'
-                      + '<div>Potential: ' + (p.potential || 'n/a') + '</div>'
-                      + '</div>';
-                    popup.setLngLat(e.lngLat).setHTML(html).addTo(map);
-                  });
-                });
-              } catch (e) { console.warn('Mapbox init failed', e); }
-            }
-            
-            // Zoom controls
-            function zoomIn() {
-              if (window.mapInstance && window.mapInstance.setZoom) {
-                const z = window.mapInstance.getZoom ? window.mapInstance.getZoom() : 19;
-                window.mapInstance.setZoom(z + 1);
               }
             }
             
-            function zoomOut() {
-              if (window.mapInstance && window.mapInstance.setZoom) {
-                const z = window.mapInstance.getZoom ? window.mapInstance.getZoom() : 19;
-                window.mapInstance.setZoom(z - 1);
-              }
-            }
+            // Global error handler
+            window.onerror = function(msg, url, line, col, error) {
+              console.error('Global error:', msg, error);
+              return false;
+            };
             
-            // Initialize the demo
-            document.addEventListener('DOMContentLoaded', function() {
-              // Ensure slider updates work in all browsers
-              const slider = document.getElementById('panel-count-slider');
-              if (slider) slider.addEventListener('input', (e) => updatePanelCount((e.target || slider).value));
-              
-              // If Google Maps hasn't loaded shortly after, fall back to Mapbox
-              setTimeout(() => {
-                if (!(window.google && window.google.maps)) {
-                  if (mapboxToken) {
-                    // Load Mapbox script dynamically then init
-                    const s = document.createElement('script');
-                    s.src = 'https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js';
-                    s.onload = () => initMapbox();
-                    document.head.appendChild(s);
-                  }
-                }
-              }, 3000);
-              console.log('Solar analysis tool loaded successfully');
-            });
-          </script>
-          
-          <!-- Google Maps API -->
-          <script async defer 
-            src="https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&callback=initMap">
+            // Initialize on load if Google Maps is already loaded
+            if (typeof google !== 'undefined' && google.maps) {
+              initMap();
+            }
           </script>
         </body>
       </html>
-    `)}`
-
-    console.log('Solar data processed successfully:', summary);
-
-    return new Response(JSON.stringify({
-      status: 'success',
-      data: summary,
-      card: {
-        type: "google_solar",
-        title: "Interactive Solar Map",
-        content: {
-          embed_url: embedUrl,
-          summary: summary,
-          interactive: true
-        },
-        animation: "swoop-right"
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
-  } catch (error) {
-    console.error('Error in solar-map function:', error);
-    return new Response(JSON.stringify({
-      status: 'error',
-      message: 'Failed to fetch solar data',
-      card: {
-        type: "error",
-        title: "Error",
-        content: { message: 'Failed to fetch solar data. Please try again.' },
-        animation: "swoop-left"
-      }
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-  }
-});
+    `)}`;
