@@ -210,18 +210,45 @@ serve(async (req) => {
       basePanelCount: panel_count
     };
 
-    // Create exact Google Solar API demo layout with real interactive calculations
+    // Create exact Google Solar API demo layout with premium design and smooth animations
     const embedUrl = `data:text/html;charset=utf-8,${encodeURIComponent(`
       <!DOCTYPE html>
       <html>
         <head>
+          <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
           <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
+            * { 
+              margin: 0; 
+              padding: 0; 
+              box-sizing: border-box; 
+            }
+            
             body { 
-              font-family: 'Google Sans', 'Roboto', Arial, sans-serif; 
+              font-family: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
               background: #f8f9fa;
               height: 100vh;
               overflow: hidden;
+              animation: fadeIn 0.8s ease-out;
+            }
+            
+            @keyframes fadeIn {
+              from { opacity: 0; transform: translateY(20px); }
+              to { opacity: 1; transform: translateY(0); }
+            }
+            
+            @keyframes slideInLeft {
+              from { transform: translateX(-320px); opacity: 0; }
+              to { transform: translateX(0); opacity: 1; }
+            }
+            
+            @keyframes slideInRight {
+              from { transform: translateX(320px); opacity: 0; }
+              to { transform: translateX(0); opacity: 1; }
+            }
+            
+            @keyframes scaleIn {
+              from { transform: scale(0.95); opacity: 0; }
+              to { transform: scale(1); opacity: 1; }
             }
             
             .main-container {
@@ -230,44 +257,61 @@ serve(async (req) => {
               position: relative;
             }
             
-            /* Left Panel - Building Insights */
+            /* Left Panel - Building Insights with premium animations */
             .left-panel {
               width: 300px;
               background: white;
               display: flex;
               flex-direction: column;
-              box-shadow: 2px 0 12px rgba(0,0,0,0.15);
+              box-shadow: 0 4px 20px rgba(0,0,0,0.12), 0 0 40px rgba(93,107,179,0.08);
               z-index: 1000;
               position: relative;
+              animation: slideInLeft 0.6s cubic-bezier(0.16, 1, 0.3, 1);
             }
             
             .building-insights {
-              padding: 20px;
-              border-bottom: 1px solid #e8eaed;
+              padding: 24px;
+              border-bottom: 1px solid rgba(232,234,237,0.6);
+              background: linear-gradient(135deg, #fff 0%, #f8f9ff 100%);
             }
             
             .insights-header {
               display: flex;
               align-items: center;
-              gap: 8px;
-              margin-bottom: 20px;
-              color: #5d6bb3;
+              gap: 10px;
+              margin-bottom: 24px;
+              color: #1a73e8;
               font-size: 16px;
-              font-weight: 500;
+              font-weight: 600;
+              letter-spacing: -0.2px;
+            }
+            
+            .insights-header::before {
+              content: '🏠';
+              font-size: 18px;
             }
             
             .insight-item {
               display: flex;
               align-items: center;
-              gap: 12px;
-              margin-bottom: 16px;
+              gap: 14px;
+              margin-bottom: 18px;
+              padding: 8px 0;
+              border-radius: 8px;
+              transition: all 0.2s ease;
+            }
+            
+            .insight-item:hover {
+              background: rgba(26,115,232,0.04);
+              transform: translateX(4px);
             }
             
             .insight-icon {
-              width: 24px;
-              height: 24px;
-              color: #5d6bb3;
+              width: 28px;
+              height: 28px;
+              color: #1a73e8;
               flex-shrink: 0;
+              font-size: 24px;
             }
             
             .insight-content {
@@ -275,227 +319,266 @@ serve(async (req) => {
             }
             
             .insight-label {
-              font-size: 14px;
+              font-size: 13px;
               color: #5f6368;
-              margin-bottom: 2px;
+              margin-bottom: 3px;
+              font-weight: 500;
+              letter-spacing: 0.2px;
             }
             
             .insight-value {
-              font-size: 18px;
-              font-weight: 500;
+              font-size: 20px;
+              font-weight: 600;
               color: #202124;
+              letter-spacing: -0.3px;
             }
             
-            /* Panel Controls - Interactive like Google demo */
+            /* Panel Controls - Premium interactive design */
             .panel-controls {
-              padding: 20px;
+              padding: 24px;
               background: white;
-              border-bottom: 1px solid #e8eaed;
+              border-bottom: 1px solid rgba(232,234,237,0.6);
             }
             
             .control-header {
               display: grid;
               grid-template-columns: 1fr 1fr;
               gap: 24px;
-              margin-bottom: 16px;
-              font-size: 14px;
-              font-weight: 500;
+              margin-bottom: 20px;
+              font-size: 13px;
+              font-weight: 600;
               color: #5f6368;
               text-align: center;
+              text-transform: uppercase;
+              letter-spacing: 0.8px;
             }
             
             .panel-row {
               display: grid;
               grid-template-columns: 1fr 1fr;
               gap: 24px;
-              margin-bottom: 12px;
+              margin-bottom: 16px;
             }
             
             .panel-display {
               text-align: center;
+              padding: 16px;
+              border-radius: 12px;
+              background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+              border: 1px solid rgba(26,115,232,0.1);
+              transition: all 0.3s ease;
+            }
+            
+            .panel-display:hover {
+              transform: translateY(-2px);
+              box-shadow: 0 8px 25px rgba(26,115,232,0.15);
             }
             
             .panel-count {
-              font-size: 24px;
-              font-weight: 500;
-              color: #5d6bb3;
+              font-size: 28px;
+              font-weight: 700;
+              color: #1a73e8;
+              letter-spacing: -0.5px;
+              margin-bottom: 4px;
             }
             
             .max-count {
-              font-size: 12px;
+              font-size: 11px;
               color: #5f6368;
+              font-weight: 500;
+              letter-spacing: 0.3px;
             }
             
             .yearly-energy {
-              font-size: 20px;
-              font-weight: 500;
-              color: #202124;
+              font-size: 22px;
+              font-weight: 700;
+              color: #34a853;
               text-align: center;
+              letter-spacing: -0.3px;
             }
             
-            /* Map Container - Full screen behind panels */
+            /* Map Container with smooth transitions */
             .map-container {
               flex: 1;
               position: relative;
-              background: #e5e5e5;
+              background: linear-gradient(135deg, #e8f0fe 0%, #f3e5f5 100%);
+              animation: scaleIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both;
             }
             
             #map {
               width: 100%;
               height: 100%;
+              border-radius: 0;
+              transition: all 0.3s ease;
             }
             
-            /* Right Panel - Controls overlay */
+            /* Right Panel with premium design */
             .right-panel {
               width: 320px;
               background: white;
-              box-shadow: -2px 0 12px rgba(0,0,0,0.15);
+              box-shadow: -4px 0 20px rgba(0,0,0,0.12), 0 0 40px rgba(124,58,237,0.08);
               overflow-y: auto;
               z-index: 1000;
               position: relative;
+              animation: slideInRight 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both;
             }
             
             .search-section {
-              padding: 20px;
-              border-bottom: 1px solid #e8eaed;
+              padding: 24px;
+              border-bottom: 1px solid rgba(232,234,237,0.6);
+              background: linear-gradient(135deg, #fff 0%, #f8f9ff 100%);
             }
             
             .search-label {
-              font-size: 14px;
+              font-size: 13px;
               color: #5f6368;
-              margin-bottom: 8px;
+              margin-bottom: 10px;
+              font-weight: 600;
+              letter-spacing: 0.3px;
+              text-transform: uppercase;
             }
             
             .search-input {
               width: 100%;
-              padding: 12px;
-              border: 1px solid #dadce0;
-              border-radius: 4px;
+              padding: 14px 16px;
+              border: 2px solid #e8eaed;
+              border-radius: 12px;
               font-size: 14px;
+              font-weight: 500;
+              background: white;
+              transition: all 0.2s ease;
+              outline: none;
             }
             
-            .api-info {
-              padding: 20px;
-              border-bottom: 1px solid #e8eaed;
+            .search-input:focus {
+              border-color: #1a73e8;
+              box-shadow: 0 0 0 4px rgba(26,115,232,0.1);
+              transform: translateY(-1px);
             }
             
-            .api-title {
-              color: #1a73e8;
-              font-size: 14px;
-              margin-bottom: 8px;
-              text-decoration: underline;
-            }
-            
-            .api-description {
-              font-size: 13px;
-              color: #5f6368;
-              line-height: 1.5;
-            }
-            
+            /* Premium control sections */
             .solar-potential-section {
-              padding: 20px;
+              padding: 24px;
             }
             
             .solar-controls {
-              margin-top: 20px;
-              padding: 20px;
-              background: #f8f9ff;
-              border-radius: 8px;
-              border: 1px solid #e8eaed;
+              margin-top: 24px;
+              padding: 24px;
+              background: linear-gradient(135deg, #f8f9ff 0%, #fff 100%);
+              border-radius: 16px;
+              border: 2px solid rgba(124,58,237,0.1);
+              box-shadow: 0 4px 20px rgba(124,58,237,0.08);
             }
             
-            /* Minimal Google-style panel controls */
+            /* Premium panel controls */
             .panels-section {
-              margin-bottom: 16px;
+              margin-bottom: 20px;
             }
             
             .panels-label {
               display: flex;
               align-items: center;
-              margin-bottom: 16px;
+              margin-bottom: 18px;
             }
             
             .panels-icon {
-              width: 16px;
-              height: 16px;
-              margin-right: 8px;
+              width: 20px;
+              height: 20px;
+              margin-right: 10px;
               color: #7c3aed;
             }
             
             .panels-text {
-              font-size: 14px;
-              font-weight: 500;
+              font-size: 15px;
+              font-weight: 600;
               color: #202124;
+              letter-spacing: -0.2px;
             }
             
             .panels-count {
-              font-weight: 600;
+              font-weight: 700;
               color: #1a73e8;
-              margin-left: 4px;
+              margin-left: 6px;
+              font-size: 16px;
             }
             
             .panel-slider {
               width: 100%;
-              height: 4px;
-              border-radius: 2px;
-              background: #e8eaed;
+              height: 6px;
+              border-radius: 3px;
+              background: linear-gradient(90deg, #e8eaed 0%, #f3f4f6 100%);
               outline: none;
               -webkit-appearance: none;
-              margin: 16px 0;
+              margin: 20px 0;
               cursor: pointer;
+              transition: all 0.2s ease;
+            }
+            
+            .panel-slider:hover {
+              transform: scaleY(1.2);
             }
             
             .panel-slider::-webkit-slider-thumb {
               -webkit-appearance: none;
               appearance: none;
-              width: 16px;
-              height: 16px;
+              width: 20px;
+              height: 20px;
               border-radius: 50%;
-              background: #7c3aed;
+              background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
               cursor: pointer;
-              box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+              box-shadow: 0 4px 12px rgba(124,58,237,0.4);
+              transition: all 0.2s ease;
+            }
+            
+            .panel-slider::-webkit-slider-thumb:hover {
+              transform: scale(1.2);
+              box-shadow: 0 6px 20px rgba(124,58,237,0.6);
             }
             
             .watts-section {
-              margin-top: 20px;
+              margin-top: 24px;
               position: relative;
             }
             
             .watts-label {
               font-size: 12px;
               color: #5f6368;
-              margin-bottom: 8px;
+              margin-bottom: 10px;
               text-transform: uppercase;
-              letter-spacing: 0.8px;
+              letter-spacing: 1px;
+              font-weight: 600;
             }
             
             .watts-input {
               width: 100%;
-              padding: 12px 16px;
-              padding-right: 50px;
-              border: 1px solid #dadce0;
-              border-radius: 8px;
-              font-size: 14px;
-              background: #f8f9fa;
+              padding: 14px 20px;
+              padding-right: 60px;
+              border: 2px solid #e8eaed;
+              border-radius: 12px;
+              font-size: 15px;
+              font-weight: 600;
+              background: white;
               outline: none;
-              transition: border-color 0.2s;
+              transition: all 0.2s ease;
             }
             
             .watts-input:focus {
               border-color: #1a73e8;
-              background: white;
+              box-shadow: 0 0 0 4px rgba(26,115,232,0.1);
+              transform: translateY(-1px);
             }
             
             .watts-suffix {
               position: absolute;
-              right: 16px;
-              top: 38px;
+              right: 20px;
+              top: 46px;
               color: #5f6368;
               font-size: 14px;
+              font-weight: 600;
               pointer-events: none;
             }
             
-            /* Solar potential legend - overlay on map */
+            /* Premium solar legend overlay */
             .solar-legend {
               position: absolute;
               bottom: 20px;
@@ -771,28 +854,33 @@ serve(async (req) => {
                   }
                 });
               } else {
-                // Fallback: Create smaller, more realistic roof segments around the building
+                // Enhanced fallback: Create realistic building roof segments that match typical architecture
+                const buildingBounds = ${JSON.stringify(solarData.boundingBox || {
+                  sw: { latitude: location.lat - 0.00003, longitude: location.lng - 0.00006 },
+                  ne: { latitude: location.lat + 0.00003, longitude: location.lng + 0.00006 }
+                })};
+                
                 const roofSections = [
-                  // Main roof section (north-facing)
+                  // Main south-facing roof (highest solar potential)
                   [
-                    { lat: ${location.lat} + 0.00004, lng: ${location.lng} - 0.00008 },
-                    { lat: ${location.lat} + 0.00004, lng: ${location.lng} + 0.00008 },
-                    { lat: ${location.lat} + 0.00001, lng: ${location.lng} + 0.00008 },
-                    { lat: ${location.lat} + 0.00001, lng: ${location.lng} - 0.00008 }
+                    { lat: buildingBounds.sw.latitude + 0.000005, lng: buildingBounds.sw.longitude + 0.00001 },
+                    { lat: buildingBounds.sw.latitude + 0.000005, lng: buildingBounds.ne.longitude - 0.00001 },
+                    { lat: buildingBounds.ne.latitude - 0.000005, lng: buildingBounds.ne.longitude - 0.00001 },
+                    { lat: buildingBounds.ne.latitude - 0.000005, lng: buildingBounds.sw.longitude + 0.00001 }
                   ],
-                  // South-facing roof section (highest potential)
+                  // East wing roof section (medium potential)
                   [
-                    { lat: ${location.lat} - 0.00001, lng: ${location.lng} - 0.00008 },
-                    { lat: ${location.lat} - 0.00001, lng: ${location.lng} + 0.00008 },
-                    { lat: ${location.lat} - 0.00004, lng: ${location.lng} + 0.00008 },
-                    { lat: ${location.lat} - 0.00004, lng: ${location.lng} - 0.00008 }
+                    { lat: buildingBounds.sw.latitude + 0.000008, lng: buildingBounds.ne.longitude - 0.000005 },
+                    { lat: buildingBounds.sw.latitude + 0.000008, lng: buildingBounds.ne.longitude + 0.000005 },
+                    { lat: buildingBounds.ne.latitude - 0.000008, lng: buildingBounds.ne.longitude + 0.000005 },
+                    { lat: buildingBounds.ne.latitude - 0.000008, lng: buildingBounds.ne.longitude - 0.000005 }
                   ],
-                  // Side extension
+                  // West wing roof section (medium potential)
                   [
-                    { lat: ${location.lat} + 0.00002, lng: ${location.lng} + 0.00009 },
-                    { lat: ${location.lat} + 0.00002, lng: ${location.lng} + 0.00013 },
-                    { lat: ${location.lat} - 0.00002, lng: ${location.lng} + 0.00013 },
-                    { lat: ${location.lat} - 0.00002, lng: ${location.lng} + 0.00009 }
+                    { lat: buildingBounds.sw.latitude + 0.000008, lng: buildingBounds.sw.longitude - 0.000005 },
+                    { lat: buildingBounds.sw.latitude + 0.000008, lng: buildingBounds.sw.longitude + 0.000005 },
+                    { lat: buildingBounds.ne.latitude - 0.000008, lng: buildingBounds.sw.longitude + 0.000005 },
+                    { lat: buildingBounds.ne.latitude - 0.000008, lng: buildingBounds.sw.longitude - 0.000005 }
                   ]
                 ];
                 
