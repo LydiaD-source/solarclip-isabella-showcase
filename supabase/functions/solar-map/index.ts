@@ -149,7 +149,7 @@ serve(async (req) => {
     
     // Extract solar potential data with robust fallbacks
     const solarPotential = solarData.solarPotential || {};
-    const roofSegmentStats = solarData.roofSegmentStats || [];
+    const roofSegmentStats = solarData.roofSegmentStats || solarPotential.roofSegmentStats || [];
     const buildingStats = solarData.buildingStats || {};
     
     // Process roof segments for polygon rendering using actual Google Solar API data
@@ -791,8 +791,8 @@ serve(async (req) => {
               border-radius: 2px;
             }
             
-            .high-potential { background: #ff1493; }
-            .medium-potential { background: #9932cc; }
+            .high-potential { background: #ff69b4; }
+            .medium-potential { background: #8a2be2; }
             .low-potential { background: #1e90ff; }
             
             /* Map controls */
@@ -1068,11 +1068,11 @@ serve(async (req) => {
                   // Create polygon with enhanced styling
                   const polygon = new google.maps.Polygon({
                     paths: coords,
-                    fillColor: segment.potential === 'high' ? '#ff4db8' : 
-                             segment.potential === 'medium' ? '#9c27b0' : '#2196f3',
+                    fillColor: segment.potential === 'high' ? '#ff69b4' : 
+                             segment.potential === 'medium' ? '#8a2be2' : '#1e90ff',
                     fillOpacity: 0,
-                    strokeColor: segment.potential === 'high' ? '#ff1493' : 
-                               segment.potential === 'medium' ? '#7b1fa2' : '#1976d2',
+                    strokeColor: segment.potential === 'high' ? '#ff69b4' : 
+                               segment.potential === 'medium' ? '#8a2be2' : '#1e90ff',
                     strokeOpacity: 0,
                     strokeWeight: 2,
                     zIndex: 1000 + index

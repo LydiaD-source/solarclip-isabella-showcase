@@ -98,111 +98,14 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         if ((card as any)?.content?.embed_url || (card as any)?.content?.url) {
           const embed = (card as any).content.embed_url || (card as any).content.url;
           return (
-            <div className="w-full h-full relative bg-gray-50">
-              {/* Main map container */}
-              <div className="w-full h-full relative">
-                <iframe
-                  src={embed}
-                  className="w-full h-full border-0"
-                  title="Interactive Solar Map"
-                  loading="lazy"
-                  allow="geolocation"
-                />
-              </div>
-
-              {/* Left sidebar with stats */}
-              <motion.div 
-                className="absolute top-6 left-6 bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-lg min-w-[180px]"
-                initial={{ x: -100, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 1.5, duration: 0.6, ease: "easeOut" }}
-              >
-                <div className="space-y-4">
-                  <div>
-                    <h3 className="font-semibold text-sm text-gray-800 mb-2">Solar Potential</h3>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#ff69b4' }}></div>
-                        <span className="text-xs text-gray-700">High</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#8a2be2' }}></div>
-                        <span className="text-xs text-gray-700">Medium</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#1e90ff' }}></div>
-                        <span className="text-xs text-gray-700">Low</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="border-t pt-3">
-                    <div className="text-xs text-gray-600 mb-1">Roof area</div>
-                    <div className="font-semibold text-lg">{(card as any)?.content?.roof_area || 0} m²</div>
-                  </div>
-                  
-                  <div>
-                    <div className="text-xs text-gray-600 mb-1">Panel count</div>
-                    <div className="font-semibold text-lg">{(card as any)?.content?.panel_count || 0} panels</div>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Top seasonal controls */}
-              <motion.div 
-                className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-sm rounded-xl p-3 shadow-lg"
-                initial={{ y: -50, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 2, duration: 0.6, ease: "easeOut" }}
-              >
-                <div className="flex gap-3">
-                  {['Spring', 'Summer', 'Fall'].map((season) => (
-                    <button
-                      key={season}
-                      className="px-4 py-2 text-sm rounded-lg bg-gray-100 hover:bg-gray-200 transition-colors font-medium"
-                    >
-                      {season}
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-
-              {/* Right sidebar with sun angle and panel info */}
-              <motion.div 
-                className="absolute top-6 right-6 space-y-4"
-                initial={{ x: 100, opacity: 0 }}
-                animate={{ x: 0, opacity: 1 }}
-                transition={{ delay: 2.5, duration: 0.6, ease: "easeOut" }}
-              >
-                {/* Sun Angle Control */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-lg min-w-[220px]">
-                  <h3 className="font-semibold text-sm mb-3 text-gray-800">Sun Angle</h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-xs text-gray-600">
-                      <span>Morning</span>
-                      <span>Evening</span>
-                    </div>
-                    <input 
-                      type="range" 
-                      min="0" 
-                      max="100" 
-                      defaultValue="50"
-                      className="w-full accent-orange-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Panel Capacity */}
-                <div className="bg-white/95 backdrop-blur-sm rounded-xl p-4 shadow-lg">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-4 h-4 rounded bg-purple-500"></div>
-                    <span className="font-semibold text-sm">Panels count</span>
-                    <span className="text-blue-500 font-bold">{(card as any)?.content?.panel_count || 4} panels</span>
-                  </div>
-                  <div className="text-xs text-gray-600 mb-1">PANEL CAPACITY</div>
-                  <div className="font-bold text-xl">250 <span className="text-sm font-normal">W</span></div>
-                </div>
-              </motion.div>
+            <div className="w-full h-full relative">
+              <iframe
+                src={embed}
+                className="w-full h-full border-0"
+                title="Interactive Solar Map"
+                loading="eager"
+                allow="geolocation"
+              />
             </div>
           );
         }
