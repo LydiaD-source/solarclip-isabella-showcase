@@ -441,95 +441,100 @@ serve(async (req) => {
             }
             
             .endpoint-controls {
-              margin-top: 16px;
-              padding-top: 16px;
+              margin-top: 20px;
+              padding-top: 20px;
               border-top: 1px solid #e8eaed;
             }
             
-            .panel-slider-container {
-              margin: 12px 0;
+            /* Minimal Google-style panel controls */
+            .panels-section {
+              margin-bottom: 16px;
             }
             
-            .slider-label {
-              font-size: 13px;
-              color: #5f6368;
-              margin-bottom: 8px;
+            .panels-label {
               display: flex;
-              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 16px;
+            }
+            
+            .panels-icon {
+              width: 16px;
+              height: 16px;
+              margin-right: 8px;
+              color: #7c3aed;
+            }
+            
+            .panels-text {
+              font-size: 14px;
+              font-weight: 500;
+              color: #202124;
+            }
+            
+            .panels-count {
+              font-weight: 600;
+              color: #1a73e8;
+              margin-left: 4px;
             }
             
             .panel-slider {
               width: 100%;
-              height: 6px;
-              border-radius: 3px;
+              height: 4px;
+              border-radius: 2px;
               background: #e8eaed;
               outline: none;
               -webkit-appearance: none;
+              margin: 16px 0;
               cursor: pointer;
             }
             
             .panel-slider::-webkit-slider-thumb {
               -webkit-appearance: none;
               appearance: none;
-              width: 20px;
-              height: 20px;
+              width: 16px;
+              height: 16px;
               border-radius: 50%;
-              background: #5d6bb3;
+              background: #7c3aed;
               cursor: pointer;
               box-shadow: 0 2px 4px rgba(0,0,0,0.2);
             }
             
-            .panel-capacity-input {
-              width: 100%;
-              padding: 8px 12px;
-              border: 1px solid #dadce0;
-              border-radius: 4px;
-              font-size: 13px;
-              margin: 12px 0;
-            }
-            
-            .toggle-container {
-              display: flex;
-              align-items: center;
-              gap: 12px;
-              margin: 12px 0;
-            }
-            
-            .toggle-switch {
-              width: 40px;
-              height: 20px;
-              background: #5d6bb3;
-              border-radius: 10px;
+            .watts-section {
+              margin-top: 20px;
               position: relative;
-              cursor: pointer;
             }
             
-            .toggle-switch::after {
-              content: '';
-              position: absolute;
-              width: 16px;
-              height: 16px;
-              border-radius: 50%;
+            .watts-label {
+              font-size: 12px;
+              color: #5f6368;
+              margin-bottom: 8px;
+              text-transform: uppercase;
+              letter-spacing: 0.8px;
+            }
+            
+            .watts-input {
+              width: 100%;
+              padding: 12px 16px;
+              padding-right: 50px;
+              border: 1px solid #dadce0;
+              border-radius: 8px;
+              font-size: 14px;
+              background: #f8f9fa;
+              outline: none;
+              transition: border-color 0.2s;
+            }
+            
+            .watts-input:focus {
+              border-color: #1a73e8;
               background: white;
-              top: 2px;
-              right: 2px;
-              transition: all 0.2s;
             }
             
-            .toggle-label {
-              font-size: 13px;
-              color: #202124;
-            }
-            
-            .api-response-btn {
-              background: #e8eaff;
-              color: #5d6bb3;
-              border: none;
-              padding: 8px 16px;
-              border-radius: 4px;
-              font-size: 13px;
-              cursor: pointer;
-              margin-top: 12px;
+            .watts-suffix {
+              position: absolute;
+              right: 16px;
+              top: 38px;
+              color: #5f6368;
+              font-size: 14px;
+              pointer-events: none;
             }
             
             /* Solar potential legend - overlay on map */
@@ -695,13 +700,9 @@ serve(async (req) => {
               </div>
               
               <div class="api-info">
-                <div class="api-title">Two distinct endpoints of the Solar API ↗</div>
+                <div class="api-title">Building Insights endpoint</div>
                 <div class="api-description">
-                  offer many benefits to solar marketplace websites, solar installers, and solar SaaS designers.
-                </div>
-                <br>
-                <div class="api-description">
-                  <strong>Click on an area below</strong> to see what type of information the Solar API can provide.
+                  Provides data on the location, dimensions & solar potential of a building.
                 </div>
               </div>
               
@@ -718,24 +719,24 @@ serve(async (req) => {
                   </div>
                   
                   <div class="endpoint-controls">
-                    <div class="panel-slider-container">
-                      <div class="slider-label">
-                        <span>Panels count</span>
-                        <span id="slider-count">${panel_count} panels</span>
+                    <div class="panels-section">
+                      <div class="panels-label">
+                        <svg class="panels-icon" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                        <span class="panels-text">Panels count</span>
+                        <span class="panels-count" id="slider-count">${panel_count} panels</span>
                       </div>
                       <input type="range" class="panel-slider" id="panel-count-slider" 
                              min="1" max="${actualSolarData.maxPanelCount}" value="${panel_count}"
                              oninput="updatePanelCount(this.value)">
                     </div>
                     
-                    <input type="text" class="panel-capacity-input" placeholder="Panel capacity" value="250 Watts">
-                    
-                    <div class="toggle-container">
-                      <div class="toggle-switch"></div>
-                      <div class="toggle-label">Solar panels</div>
+                    <div class="watts-section">
+                      <div class="watts-label">Panel capacity</div>
+                      <input type="number" class="watts-input" value="250" min="100" max="500" step="10">
+                      <div class="watts-suffix">Watts</div>
                     </div>
-                    
-                    <button class="api-response-btn">API response</button>
                   </div>
                 </div>
                 
@@ -807,18 +808,38 @@ serve(async (req) => {
                 fullscreenControl: false
               });
               
-              // Add solar potential overlay simulation
-              const solarOverlay = new google.maps.Rectangle({
-                bounds: {
-                  north: ${location.lat} + 0.0002,
-                  south: ${location.lat} - 0.0002,
-                  east: ${location.lng} + 0.0003,
-                  west: ${location.lng} - 0.0003
-                },
-                fillColor: '#ff1493',
-                fillOpacity: 0.6,
-                strokeWeight: 0,
-                map: map
+              // Add realistic building roof segmentation overlay
+              const buildingPaths = [
+                // Main building roof section
+                [
+                  { lat: ${location.lat} + 0.00008, lng: ${location.lng} - 0.00012 },
+                  { lat: ${location.lat} + 0.00008, lng: ${location.lng} + 0.00012 },
+                  { lat: ${location.lat} - 0.00008, lng: ${location.lng} + 0.00012 },
+                  { lat: ${location.lat} - 0.00008, lng: ${location.lng} - 0.00012 }
+                ],
+                // Secondary roof section
+                [
+                  { lat: ${location.lat} + 0.00006, lng: ${location.lng} + 0.00015 },
+                  { lat: ${location.lat} + 0.00006, lng: ${location.lng} + 0.00025 },
+                  { lat: ${location.lat} - 0.00006, lng: ${location.lng} + 0.00025 },
+                  { lat: ${location.lat} - 0.00006, lng: ${location.lng} + 0.00015 }
+                ]
+              ];
+              
+              // Create segmented roof overlays with different solar potentials
+              buildingPaths.forEach((path, index) => {
+                const colors = ['#ff1493', '#9932cc']; // High and medium potential
+                const opacities = [0.7, 0.6];
+                
+                new google.maps.Polygon({
+                  paths: path,
+                  fillColor: colors[index] || '#1e90ff',
+                  fillOpacity: opacities[index] || 0.5,
+                  strokeColor: '#ffffff',
+                  strokeOpacity: 0.8,
+                  strokeWeight: 1,
+                  map: map
+                });
               });
               
               window.mapInstance = map;
