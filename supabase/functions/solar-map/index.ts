@@ -29,13 +29,31 @@ serve(async (req) => {
 
     // First, geocode the address to get lat/lng coordinates
     const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${googleApiKey}`;
-    console.log(`Geocoding URL: ${geocodeUrl}`);
+    console.log(`Geocoding for address: ${address}`);
     
     const geocodeResponse = await fetch(geocodeUrl);
     
     if (!geocodeResponse.ok) {
       const errorText = await geocodeResponse.text();
-      console.error('Geocoding API error:', errorText);
+      console.error('Geocoding API error status:', geocodeResponse.status);
+      
+      // Check for specific API permission errors
+      if (geocodeResponse.status === 403 || errorText.includes('REQUEST_DENIED')) {
+        return new Response(JSON.stringify({
+          status: 'error',
+          message: "Sorry, I couldn't locate that address. Please try another.",
+          card: {
+            type: "error",
+            title: "Solar Analysis Unavailable",
+            content: { message: "Sorry, I couldn't locate that address. Please try another." },
+            animation: "swoop-left"
+          }
+        }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       return new Response(JSON.stringify({
         status: 'error',
         message: "Sorry, I couldn't locate that address. Please try again.",
@@ -52,11 +70,29 @@ serve(async (req) => {
     }
     
     const geocodeData = await geocodeResponse.json();
-    console.log('Geocoding response:', geocodeData.status, geocodeData.results?.length);
+    console.log('Geocoding response status:', geocodeData.status, 'Results:', geocodeData.results?.length || 0);
     
     // Handle common geocoding failure modes gracefully
     if (geocodeData.status !== 'OK' || !geocodeData.results || geocodeData.results.length === 0) {
-      console.error('Geocoding failed:', geocodeData.status, geocodeData.error_message);
+      console.error('Geocoding failed:', geocodeData.status);
+      
+      // Handle REQUEST_DENIED specifically
+      if (geocodeData.status === 'REQUEST_DENIED') {
+        return new Response(JSON.stringify({
+          status: 'error',
+          message: "Sorry, I couldn't locate that address. Please try another.",
+          card: {
+            type: "error",
+            title: "Solar Analysis Unavailable",
+            content: { message: "Sorry, I couldn't locate that address. Please try another." },
+            animation: "swoop-left"
+          }
+        }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
       return new Response(JSON.stringify({
         status: 'error',
         message: "Sorry, I couldn't locate that address. Please try again.",
@@ -78,7 +114,7 @@ serve(async (req) => {
     
     // Call Google Solar API with lat/lng coordinates
     const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&key=${googleApiKey}`;
-    console.log(`Calling Solar API: ${solarApiUrl}`);
+    console.log(`Calling Solar API for coordinates: ${location.lat}, ${location.lng}`);
     
     const response = await fetch(solarApiUrl, {
       method: 'GET',

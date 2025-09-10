@@ -112,8 +112,13 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                   className="w-full h-full object-cover"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
-                    target.src = `https://via.placeholder.com/64x64/4CAF50/ffffff?text=${video.title.charAt(0)}`;
-                    target.onerror = null; // Prevent infinite loop
+                    // Create a simple colored div fallback instead of external placeholder
+                    target.style.display = 'none';
+                    target.parentElement!.innerHTML = `
+                      <div class="w-full h-full bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+                        ${video.title.charAt(0)}
+                      </div>
+                    `;
                   }}
                 />
               </div>
