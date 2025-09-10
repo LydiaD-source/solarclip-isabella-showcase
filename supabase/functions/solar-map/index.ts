@@ -79,22 +79,40 @@ serve(async (req) => {
     const roof_segments = (roofSegmentStats || [])
       .map((seg: any, i: number) => {
         const stats = seg?.stats || {};
-        
-        // Try multiple polygon sources in priority order
-        const candidates = [
+
+        // Try multiple polygon sources in priority order (handle nested arrays)
+        const candidates: any[] = [
           seg?.plane?.boundary?.vertices,
           seg?.polygons?.[0]?.vertices,
           seg?.boundary?.vertices,
           seg?.polygon?.vertices,
           seg?.segments?.[0]?.polygon?.vertices,
-          // Also try nested structures
           seg?.plane?.polygons?.[0]?.vertices,
           seg?.roofSegmentStats?.plane?.boundary?.vertices,
-        ];
+          // Additional guesses based on API variations
+          seg?.segmentPolygon?.vertices,
+          seg?.plane?.contours?.[0]?.vertices,
+          seg?.plane?.outerBoundary?.vertices,
+          seg?.plane?.exterior?.vertices,
+          Array.isArray(seg?.polygons) ? seg.polygons.map((p: any) => p?.vertices) : null,
+        ].filter(Boolean);
+
+        const tryParse = (v: any): { lat: number; lng: number }[] => {
+          if (!v) return [];
+          if (Array.isArray(v) && v.length && Array.isArray(v[0])) {
+            // It's a list of vertex lists; return the first valid
+            for (const inner of v) {
+              const p = parseVerts(inner);
+              if (p.length >= 3) return p;
+            }
+            return [];
+          }
+          return parseVerts(v);
+        };
         
         let coords: { lat: number; lng: number }[] = [];
         for (const verts of candidates) {
-          const parsed = parseVerts(verts);
+          const parsed = tryParse(verts);
           if (parsed.length >= 3) {
             coords = parsed;
             break;
@@ -110,10 +128,13 @@ serve(async (req) => {
         console.log(`[solar-map] Segment ${i}: Found polygon with ${coords.length} points`);
         
         return {
-          id: seg?.roofSegmentId || `segment_${i}`,
-          coordinates: coords.map((p) => [p.lng, p.lat]), // store as [lng,lat]
+          id: seg?.roofSegmentId || seg?.segmentId || `segment_${i}`,
+          // Store as [lng, lat]
+          polygon: coords.map((p) => [p.lng, p.lat]),
+          // Keep legacy key for backward compatibility
+          coordinates: coords.map((p) => [p.lng, p.lat]),
           potential: classifyPotential(stats),
-          area: stats.areaMeters2 || 0,
+          area: stats.areaMeters2 || stats.areaMeters || 0,
           panelsCount: stats.panelsCount || 0,
           yearlyEnergyDcKwh: Math.round(stats.yearlyEnergyDcKwh || 0),
           center: seg?.plane?.center ? {
@@ -122,7 +143,7 @@ serve(async (req) => {
           } : null,
         };
       })
-      .filter(Boolean);
+      .filter(Boolean as any);
 
     // 4) Energy summary (fallbacks when API has no configs)
     let panel_count = solarPotential.solarPanelConfigs?.[0]?.panelsCount || 20;
@@ -134,9 +155,15 @@ serve(async (req) => {
       return Math.round(base * (1 + season));
     });
 
+    // Prefer real flux from API; fallback to kWh seasonality
+    const monthly_flux: number[] = (solarPotential.monthlyFlux && Array.isArray(solarPotential.monthlyFlux) && solarPotential.monthlyFlux.length === 12)
+      ? solarPotential.monthlyFlux
+      : monthly_kwh;
+
     const summary = {
       annual_kwh,
       monthly_kwh,
+      monthly_flux,
       co2_saved: Math.round(annual_kwh * 0.0004),
       panel_count,
       roof_area: solarPotential.wholeRoofStats?.areaMeters2 || 0,
@@ -149,6 +176,7 @@ serve(async (req) => {
       baseAnnualKwh: annual_kwh,
       basePanelCount: panel_count,
       maxPanelCount: summary.max_panels,
+      maxFlux: Math.max(...monthly_flux),
     };
 
     // 5) Build enhanced Google-only embed with roof visualization and seasonal animation
@@ -203,6 +231,13 @@ serve(async (req) => {
           </div>
         </div>
         <div class="sec">
+          <div class="label" style="margin:6px 0 10px">Month</div>
+          <div class="slider">
+            <div id="monthLabel" class="value" style="min-width:48px;text-align:center;background:#e8f0fe;padding:6px 10px;border-radius:6px">Jul</div>
+            <input id="monthSlider" type="range" min="0" max="11" value="6" />
+          </div>
+        </div>
+        <div class="sec">
           <div class="row tot"><span class="label">Annual kWh</span><span id="annualKwh" class="value">${annual_kwh.toLocaleString()}</span></div>
           <div class="row tot"><span class="label">Monthly kWh</span><span id="monthlyKwh" class="value">${Math.round(annual_kwh/12).toLocaleString()}</span></div>
           <div class="row tot"><span class="label">CO₂ Saved</span><span id="co2Saved" class="value">${Math.round(annual_kwh*0.0004).toLocaleString()} tons</span></div>
@@ -218,50 +253,61 @@ serve(async (req) => {
       window.basePanels = ${actualSolarData.basePanelCount};
       window.allPolygons = [];
       window.animationId = null;
+      window.monthlyFlux = ${JSON.stringify(monthly_flux)};
+      window.maxFlux = ${Math.max(...monthly_flux)};
+      window.currentMonth = 6;
+      window.monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
-      // Enhanced seasonal color mapping (bright yellow to dark purple)
-      window.getSeasonalColor = function(month, potential) {
-        // Seasonal intensity: 0 = winter (dark), 1 = summer (bright)
-        const intensity = 0.5 + 0.5 * Math.sin((month - 2) * Math.PI / 6);
-        
-        if (potential === 'high') {
-          // Bright Yellow (summer) to Dark Red (winter)
-          const r = Math.round(255);
-          const g = Math.round(255 * (0.2 + 0.8 * intensity));
-          const b = Math.round(30 * (1 - intensity));
-          return 'rgb(' + r + ', ' + g + ', ' + b + ')';
-        } else if (potential === 'medium') {
-          // Orange (summer) to Purple (winter)  
-          const r = Math.round(255 * (0.5 + 0.5 * intensity));
-          const g = Math.round(140 * intensity);
-          const b = Math.round(120 + 135 * (1 - intensity));
-          return 'rgb(' + r + ', ' + g + ', ' + b + ')';
-        } else {
-          // Light Orange (summer) to Dark Purple (winter)
-          const r = Math.round(150 + 105 * intensity);
-          const g = Math.round(100 * intensity);
-          const b = Math.round(180 + 75 * (1 - intensity));
-          return 'rgb(' + r + ', ' + g + ', ' + b + ')';
+      // Potential-based seasonal color mapping using monthly flux
+      (function(){
+        function baseColor(potential){
+          if (potential === 'high') return [255, 220, 0];       // yellow
+          if (potential === 'medium') return [255, 105, 180];   // pink/purple
+          return [80, 160, 255];                                // blue
         }
-      };
-
-      // Animate seasonal colors cycling through 12 months
-      window.animateSeasons = function() {
-        let month = 0;
-        const animate = () => {
-          window.allPolygons.forEach(polyData => {
-            const color = window.getSeasonalColor(month, polyData.potential);
-            polyData.polygon.setOptions({
-              fillColor: color,
-              strokeColor: color
-            });
-          });
-          month = (month + 1) % 12;
-          window.animationId = setTimeout(animate, 1200); // Change every 1.2 seconds
+        function winterColor(){ return [128, 0, 180]; }         // deep purple
+        function blend(a, b, t){ return [
+          Math.round(a[0] + (b[0]-a[0]) * t),
+          Math.round(a[1] + (b[1]-a[1]) * t),
+          Math.round(a[2] + (b[2]-a[2]) * t)
+        ]; }
+        function rgb(arr){ return 'rgb(' + arr[0] + ', ' + arr[1] + ', ' + arr[2] + ')'; }
+        window.colorFor = function(potential, month){
+          var flux = (window.monthlyFlux && window.monthlyFlux[month] != null) ? window.monthlyFlux[month] : 0;
+          var t = (window.maxFlux && window.maxFlux > 0) ? (flux / window.maxFlux) : 0.5; // 0 winter -> 1 summer
+          var c = blend(winterColor(), baseColor(potential), t);
+          return rgb(c);
         };
-        animate();
-      };
-
+        window.setMonthColor = function(month){
+          window.currentMonth = month;
+          (window.allPolygons || []).forEach(function(polyData){
+            var color = window.colorFor(polyData.potential, month);
+            polyData.polygon.setOptions({ fillColor: color, strokeColor: color });
+          });
+          var label = document.getElementById('monthLabel');
+          if (label) label.textContent = window.monthNames[month];
+        };
+        window.transitionMonth = function(nextMonth){
+          var steps = 10, duration = 500, interval = duration / steps, step = 0;
+          var startMonth = window.currentMonth || 6;
+          var startColors = (window.allPolygons || []).map(function(pd){ return { pd: pd, color: window.colorFor(pd.potential, startMonth) }; });
+          var endColors = (window.allPolygons || []).map(function(pd){ return { pd: pd, color: window.colorFor(pd.potential, nextMonth) }; });
+          function parseRgb(s){ var m = (s || '').match(/\d+/g) || [0,0,0]; return [parseInt(m[0],10)||0, parseInt(m[1],10)||0, parseInt(m[2],10)||0]; }
+          function lerp(a,b,t){ return Math.round(a + (b-a)*t); }
+          var timer = setInterval(function(){
+            step++;
+            var t = step / steps;
+            for (var i=0;i<startColors.length;i++){
+              var s = parseRgb(startColors[i].color);
+              var e = parseRgb(endColors[i].color);
+              var r = lerp(s[0], e[0], t), g = lerp(s[1], e[1], t), b = lerp(s[2], e[2], t);
+              startColors[i].pd.polygon.setOptions({ fillColor: 'rgb(' + r + ', ' + g + ', ' + b + ')', strokeColor: 'rgb(' + r + ', ' + g + ', ' + b + ')' });
+            }
+            if (step >= steps){ clearInterval(timer); window.setMonthColor(nextMonth); }
+          }, interval);
+        };
+      })();
+      
       window.initMap = function(){
         const bounds = new google.maps.LatLngBounds();
         let hasSeg = false;
@@ -308,8 +354,8 @@ serve(async (req) => {
           console.log('[Map] Rendering segment ' + i + ' with ' + seg.coordinates.length + ' points, potential: ' + seg.potential);
           
           setTimeout(() => {
-            const path = seg.coordinates.map(([lng, lat]) => ({ lat, lng }));
-            const initialColor = window.getSeasonalColor(6, seg.potential); // Start with summer
+            const path = (seg.polygon || seg.coordinates).map(([lng, lat]) => ({ lat, lng }));
+            const initialColor = window.colorFor(seg.potential, window.currentMonth);
             
             const polygon = new google.maps.Polygon({
               paths: path,
@@ -354,15 +400,13 @@ serve(async (req) => {
           }, i * 300); // Stagger segment appearance
         });
 
-        // Start seasonal animation after all segments are loaded
+        // Apply initial month colors after segments are loaded
         setTimeout(() => {
-          console.log('[Map] Starting seasonal animation for ' + window.allPolygons.length + ' polygons');
+          console.log('[Map] Applying month color to ' + window.allPolygons.length + ' polygons');
           if (window.allPolygons.length > 0) {
-            window.animateSeasons();
-          } else {
-            console.log('[Map] No polygons found for animation');
+            window.setMonthColor(window.currentMonth);
           }
-        }, (window.roofSegments || []).length * 300 + 1000);
+        }, (window.roofSegments || []).length * 300 + 500);
       };
 
       // Panel slider updates
@@ -386,11 +430,22 @@ serve(async (req) => {
       window.updatePanelCount = window.update;
 
       window.addEventListener('load', function(){
-        const slider = document.getElementById('panelSlider');
-        if (slider) {
-          slider.addEventListener('input', function(e) {
-            window.update(parseInt(e.target.value, 10));
+        const panel = document.getElementById('panelSlider');
+        if (panel) {
+          panel.addEventListener('input', function(e) {
+            const v = parseInt((e.target && e.target.value) || '0', 10);
+            window.update(v);
           });
+        }
+        const month = document.getElementById('monthSlider');
+        if (month) {
+          month.addEventListener('input', function(e) {
+            const v = parseInt((e.target && e.target.value) || '6', 10);
+            window.transitionMonth(v);
+          });
+        }
+        if (typeof window.setMonthColor === 'function') {
+          window.setMonthColor(window.currentMonth || 6);
         }
       });
 
@@ -412,7 +467,7 @@ serve(async (req) => {
       card: {
         type: "google_solar",
         title: "Your Roof Solar Potential",
-        content: { embed_url: embedUrl, summary },
+        content: { embed_url: embedUrl, summary, roof_segments },
         animation: "swoop-left",
       },
     };
