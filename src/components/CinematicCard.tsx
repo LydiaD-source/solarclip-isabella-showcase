@@ -152,40 +152,62 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
     }
   };
 
+  // Determine if this should be fullscreen
+  const isFullscreen = card.type === 'google_solar';
+
   return (
     <div 
       className={`fixed inset-0 z-50 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${
         isVisible && !isClosing ? 'opacity-100' : 'opacity-0'
       }`}
-      onClick={handleClose}
+      onClick={isFullscreen ? undefined : handleClose}
     >
-      <div className="flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16 perspective-1200 transform-3d">
+      <div className={isFullscreen ? "w-full h-full" : "flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16 perspective-1200 transform-3d"}>
         <Card 
-          className={`w-[65vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
-            isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
+          className={`${
+            isFullscreen 
+              ? `w-full h-full rounded-none shadow-none transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
+                  isClosing ? 'animate-slide-out-right' : (isVisible ? 'animate-slide-in-right' : 'translate-x-full')
+                }`
+              : `w-[65vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
+                  isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
+                }`
           }`}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={handleKeyDown}
           tabIndex={0}
         >
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">{card.title}</CardTitle>
-              <Button 
-                variant="ghost" 
-                size="sm"
-                onClick={handleClose}
-                aria-label="Close card"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="p-4 flex-1">
-            <div className="w-full h-full overflow-hidden bg-background rounded-b-xl">
+          {!isFullscreen && (
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">{card.title}</CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={handleClose}
+                  aria-label="Close card"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+          )}
+          <CardContent className={isFullscreen ? "p-0 h-full" : "p-4 flex-1"}>
+            <div className={isFullscreen ? "w-full h-full" : "w-full h-full overflow-hidden bg-background rounded-b-xl"}>
               {renderContent()}
             </div>
           </CardContent>
+          {isFullscreen && (
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={handleClose}
+              aria-label="Close solar analysis"
+              className="absolute top-4 right-4 z-50 bg-background/80 backdrop-blur-sm hover:bg-background/90"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </Card>
       </div>
     </div>
