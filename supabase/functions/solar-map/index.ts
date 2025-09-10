@@ -162,36 +162,47 @@ serve(async (req) => {
         const center = segment.center || {};
         const plane = segment.planeHeightAtCenterMeters || {};
         
-        // Extract actual polygon coordinates from the plane property
-        let coordinates = [];
-        if (segment.boundingBox) {
+        // Extract actual polygon coordinates from multiple possible properties (Google Solar API variants)
+        let coordinates: any[] = [];
+        try {
+          const verts = segment.polygon?.vertices 
+            || segment.polygons?.[0]?.vertices 
+            || segment.plane?.polygon?.vertices 
+            || segment.plane?.vertices 
+            || segment.boundary?.vertices;
+          if (Array.isArray(verts) && verts.length) {
+            coordinates = verts
+              .map((v: any) => [
+                (v.longitude ?? v.lng ?? v.latLng?.longitude),
+                (v.latitude ?? v.lat ?? v.latLng?.latitude)
+              ])
+              .filter(([lng, lat]) => typeof lat === 'number' && typeof lng === 'number');
+          }
+        } catch (_) { /* noop */ }
+        
+        // If no vertices found, fall back to a refined shape from the bounding box
+        if (!coordinates.length && segment.boundingBox) {
           const bbox = segment.boundingBox;
           const ne = bbox.ne || { latitude: center.latitude + 0.0001, longitude: center.longitude + 0.0001 };
           const sw = bbox.sw || { latitude: center.latitude - 0.0001, longitude: center.longitude - 0.0001 };
-          
-          // If we have actual segment polygons, use them; otherwise create realistic roof shapes
-          if (segment.polygons && segment.polygons.length > 0) {
-            // Use actual Google polygon data
-            const polygon = segment.polygons[0]; // Use first polygon
-            coordinates = polygon.vertices?.map((vertex: any) => [
-              vertex.longitude || vertex.lng,
-              vertex.latitude || vertex.lat
-            ]) || [];
-          } else {
-            // Create realistic roof polygon from bounding box with proper roof geometry
-            const width = ne.longitude - sw.longitude;
-            const height = ne.latitude - sw.latitude;
-            
-            // Create more accurate roof shape based on typical residential architecture
-            const roofVariation = 0.1 + Math.random() * 0.1; // 10-20% variation
-            coordinates = [
-              [sw.longitude + width * 0.05, sw.latitude + height * 0.1], // Front-left corner
-              [ne.longitude - width * 0.05, sw.latitude + height * 0.1], // Front-right corner  
-              [ne.longitude - width * 0.15, ne.latitude - height * 0.05], // Back-right corner
-              [sw.longitude + width * 0.15, ne.latitude - height * 0.05], // Back-left corner
-              [sw.longitude + width * 0.05, sw.latitude + height * 0.1]  // Close polygon
-            ];
-          }
+          const width = ne.longitude - sw.longitude;
+          const height = ne.latitude - sw.latitude;
+          coordinates = [
+            [sw.longitude + width * 0.05, sw.latitude + height * 0.1],
+            [ne.longitude - width * 0.05, sw.latitude + height * 0.1],
+            [ne.longitude - width * 0.15, ne.latitude - height * 0.05],
+            [sw.longitude + width * 0.15, ne.latitude - height * 0.05],
+            [sw.longitude + width * 0.05, sw.latitude + height * 0.1]
+          ];
+        }
+        
+        // Extra logging to verify structure in logs
+        if (index === 0) {
+          try {
+            console.log('roofSegmentStats[0] keys:', Object.keys(segment));
+            if (segment.plane) console.log('segment.plane keys:', Object.keys(segment.plane));
+            if (segment.polygon) console.log('segment.polygon keys:', Object.keys(segment.polygon));
+          } catch (_) { /* ignore */ }
         }
         
         // Determine solar potential based on actual Google Solar API metrics
