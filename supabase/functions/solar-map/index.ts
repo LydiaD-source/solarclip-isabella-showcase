@@ -161,20 +161,20 @@ serve(async (req) => {
       <div class="map"><div id="map"></div></div>
     </div>
 
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&callback=initMap&libraries=geometry"></script>
     <script>
-      const roofSegments = ${JSON.stringify(roof_segments)};
-      const baseAnnual = ${actualSolarData.baseAnnualKwh};
-      const basePanels = ${actualSolarData.basePanelCount};
+      // Expose globals so Google Maps callback can find them
+      window.roofSegments = ${JSON.stringify(roof_segments)};
+      window.baseAnnual = ${actualSolarData.baseAnnualKwh};
+      window.basePanels = ${actualSolarData.basePanelCount};
 
-      function color(p){
+      window.color = function(p){
         return p==='high' ? '#FF69B4' : p==='low' ? '#4299E1' : '#9F7AEA';
-      }
+      };
 
-      function initMap(){
+      window.initMap = function(){
         const bounds = new google.maps.LatLngBounds();
         let hasSeg = false;
-        roofSegments.forEach(s=>{
+        (window.roofSegments || []).forEach(s=>{
           (s.coordinates||[]).forEach(([lng,lat])=>{ if(typeof lat==='number'&&typeof lng==='number'){ bounds.extend(new google.maps.LatLng(lat,lng)); hasSeg=true; } });
         });
         const map = new google.maps.Map(document.getElementById('map'),{
@@ -186,36 +186,46 @@ serve(async (req) => {
         });
         if(hasSeg){ map.fitBounds(bounds); map.setZoom(Math.min(map.getZoom(),20)); }
 
-        // Staggered reveal
-        roofSegments.forEach((seg, i)=>{
+        // Staggered reveal with fade-in
+        (window.roofSegments || []).forEach((seg, i)=>{
           if(!seg.coordinates || seg.coordinates.length<3) return;
           setTimeout(()=>{
             const path = seg.coordinates.map(([lng,lat])=>({lat,lng}));
             const poly = new google.maps.Polygon({
               paths: path,
-              strokeColor: color(seg.potential), strokeOpacity:.9, strokeWeight:2,
-              fillColor: color(seg.potential), fillOpacity: 0,
+              strokeColor: window.color(seg.potential), strokeOpacity:.9, strokeWeight:2,
+              fillColor: window.color(seg.potential), fillOpacity: 0,
               map
             });
-            setTimeout(()=> poly.setOptions({ fillOpacity: .65 }), 100);
+            setTimeout(()=> poly.setOptions({ fillOpacity: .65 }), 120);
             poly.addListener('mouseover',()=> poly.setOptions({ fillOpacity:.85, strokeWeight:3 }));
             poly.addListener('mouseout',()=> poly.setOptions({ fillOpacity:.65, strokeWeight:2 }));
-          }, i*180);
+          }, i*160);
         });
-      }
+      };
 
-      // Panel slider
-      const slider = document.getElementById('panelSlider');
-      const panelCountEl = document.getElementById('panelCount');
-      const aEl = document.getElementById('annualKwh');
-      const mEl = document.getElementById('monthlyKwh');
-      const cEl = document.getElementById('co2Saved');
-      function update(n){
-        const ratio = n / basePanels; const a = Math.round(baseAnnual*ratio); const m = Math.round(a/12); const c = Math.round(a*0.0004);
-        panelCountEl.textContent = n; aEl.textContent = a.toLocaleString(); mEl.textContent = m.toLocaleString(); cEl.textContent = c.toLocaleString()+ ' tons';
-      }
-      slider.addEventListener('input', e=> update(parseInt(e.target.value,10)));
+      // Panel slider UI updates
+      window.update = function(n){
+        const ratio = n / window.basePanels; const a = Math.round(window.baseAnnual*ratio); const m = Math.round(a/12); const c = Math.round(a*0.0004);
+        const panelCountEl = document.getElementById('panelCount');
+        const aEl = document.getElementById('annualKwh');
+        const mEl = document.getElementById('monthlyKwh');
+        const cEl = document.getElementById('co2Saved');
+        if(panelCountEl) panelCountEl.textContent = String(n);
+        if(aEl) aEl.textContent = a.toLocaleString();
+        if(mEl) mEl.textContent = m.toLocaleString();
+        if(cEl) cEl.textContent = c.toLocaleString()+ ' tons';
+      };
+      window.updatePanelCount = window.update;
+
+      window.addEventListener('load', function(){
+        const slider = document.getElementById('panelSlider');
+        if(slider){
+          slider.addEventListener('input', function(e){ window.update(parseInt(e.target.value,10)); });
+        }
+      });
     </script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=${googleApiKey}&callback=initMap&libraries=geometry"></script>
   </body>
 </html>
     `)};
