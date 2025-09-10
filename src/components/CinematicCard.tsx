@@ -181,7 +181,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
           className={`${
             isFullscreen 
               ? `w-full h-full rounded-none shadow-none transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
-                  isClosing ? 'animate-slide-out-right' : (isVisible ? 'animate-slide-in-right' : 'translate-x-full')
+                  isClosing ? 'animate-slide-out-right' : (isVisible ? 'animate-swoop-in-right' : 'translate-x-full opacity-0')
                 }`
               : `w-[65vw] max-w-2xl aspect-video mx-auto shadow-2xl rounded-xl transform-gpu will-change-transform transition-transform [transform-origin:50%_50%] ${
                   isClosing ? 'animate-card-float-out' : (isVisible ? 'animate-card-float-in' : 'opacity-0 -translate-x-full rotate-12')
