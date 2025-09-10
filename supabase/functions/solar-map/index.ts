@@ -387,7 +387,7 @@ serve(async (req) => {
 
     const response_data = {
       status: 'success',
-      embed_url: embedUrl,
+      embed_url: customMapUrl,
       annual_kwh: summary.annual_kwh,
       monthly_kwh: summary.monthly_kwh,
       panel_count: summary.panel_count,
@@ -399,8 +399,9 @@ serve(async (req) => {
         title: `Solar Analysis: ${summary.address}`,
         content: {
           summary: summary,
-          embed_url: embedUrl,
-          interactive: true
+          embed_url: customMapUrl,
+          interactive: true,
+          sunroof_url: embedUrl
         },
         animation: "swoop-left"
       }
