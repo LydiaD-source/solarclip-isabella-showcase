@@ -220,7 +220,6 @@ serve(async (req) => {
           tiltDegrees: stats.tiltDegrees || 30
         };
       }).filter(segment => segment.coordinates !== null); // Only include segments with valid coordinates
-    }
     } else {
       // Fallback: create realistic roof segments from building bounds
       const bounds = solarData.boundingBox;
