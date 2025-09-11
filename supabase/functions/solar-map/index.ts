@@ -240,7 +240,42 @@ serve(async (req) => {
       maxFlux: Math.max(...monthly_flux),
     };
 
-    // 5) Build enhanced Google-only embed with roof visualization and seasonal animation
+    // 4b) Fetch Google Solar Data Layers (for pixel-accurate segmentation & monthly flux)
+    let data_layers: any = null;
+    try {
+      // Estimate radius from viewport if available, otherwise use 120m
+      let radiusMeters = 120;
+      if (viewport && viewport.northeast && viewport.southwest) {
+        const latDelta = Math.abs(viewport.northeast.lat - viewport.southwest.lat);
+        const lngDelta = Math.abs(viewport.northeast.lng - viewport.southwest.lng);
+        const latMeters = latDelta * 111320; // ~ meters per degree latitude
+        const lngMeters = lngDelta * 111320 * Math.cos((location.lat * Math.PI) / 180);
+        const diag = Math.sqrt(latMeters * latMeters + lngMeters * lngMeters);
+        radiusMeters = Math.max(60, Math.min(300, Math.round(diag / 2)));
+      }
+
+      const dlUrl = `https://solar.googleapis.com/v1/dataLayers:retrieve?location.latitude=${location.lat}&location.longitude=${location.lng}&radiusMeters=${radiusMeters}&view=FULL&key=${googleApiKey}`;
+      const dlRes = await fetch(dlUrl, { headers: { Accept: "application/json" } });
+      if (!dlRes.ok) {
+        console.warn(`[solar-map] Data Layers request failed: ${dlRes.status}`);
+      } else {
+        const dlJson = await dlRes.json();
+        data_layers = {
+          monthlyFluxUrl: dlJson?.monthlyFluxUrl || null,
+          annualFluxUrl: dlJson?.annualFluxUrl || null,
+          maskUrl: dlJson?.maskUrl || null,
+          dsmUrl: dlJson?.dsmUrl || null,
+          rgbUrl: dlJson?.rgbUrl || null,
+          center: { lat: location.lat, lng: location.lng },
+          radiusMeters,
+        };
+        console.info('[solar-map] Data Layers available:', Object.keys(dlJson || {}));
+      }
+    } catch (e) {
+      console.error('[solar-map] Failed to fetch Data Layers:', e);
+    }
+
+    // 5) Build enhanced Google-only embed with roof visualization, Data Layers overlay, and seasonal animation
     const embedHtml = `<!DOCTYPE html>
 <html>
   <head>
@@ -308,6 +343,7 @@ serve(async (req) => {
       <div class="map"><div id="map"></div></div>
     </div>
 
+    <script src="https://unpkg.com/geotiff@2.0.7/dist-browser/geotiff.min.js"></script>
     <script>
       // Expose globals for Google callback & UI updates
       window.roofSegments = ${JSON.stringify(roof_segments)};
@@ -319,6 +355,9 @@ serve(async (req) => {
       window.maxFlux = ${Math.max(...monthly_flux)};
       window.currentMonth = 6;
       window.monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      window.dataLayers = ${JSON.stringify(data_layers)};
+      window.center = { lat: ${location.lat}, lng: ${location.lng} };
+    
 
       // Potential-based seasonal color mapping using monthly flux
       (function(){
@@ -371,6 +410,91 @@ serve(async (req) => {
         };
       })();
       
+      // Google Solar Data Layers overlay (GeoTIFF -> canvas -> GroundOverlay)
+      async function initDataLayers(map){
+        try {
+          if (!window.dataLayers || !window.dataLayers.monthlyFluxUrl) {
+            console.log('[DataLayers] Not available');
+            return;
+          }
+          const GeoTIFFLib = (window as any).GeoTIFF || (window as any).geotiff || (window as any).GeoTiff;
+          if (!GeoTIFFLib || !GeoTIFFLib.fromUrl) {
+            console.warn('[DataLayers] GeoTIFF library not loaded');
+            return;
+          }
+          const tiff = await GeoTIFFLib.fromUrl(window.dataLayers.monthlyFluxUrl);
+          const image = await tiff.getImage();
+          const bbox = (image.getBoundingBox && image.getBoundingBox()) || null; // [minX, minY, maxX, maxY]
+          const width = image.getWidth();
+          const height = image.getHeight();
+          const rasters = await image.readRasters({ interleave: false });
+          window.__flux = { image, rasters, width, height, bbox, overlay: null };
+
+          function colorScale(v, vmin, vmax){
+            const t = Math.max(0, Math.min(1, (v - vmin) / ((vmax - vmin) || 1)));
+            // blue -> yellow gradient
+            const r = Math.round(66 + (255 - 66) * t);
+            const g = Math.round(133 + (215 - 133) * t);
+            const b = Math.round(244 + (0 - 244) * t);
+            return [r, g, Math.max(0, b)];
+          }
+
+          function boundsFromBboxOrRadius(){
+            if (bbox && bbox.length === 4){
+              const sw = new google.maps.LatLng(bbox[1], bbox[0]);
+              const ne = new google.maps.LatLng(bbox[3], bbox[2]);
+              return new google.maps.LatLngBounds(sw, ne);
+            }
+            // Fallback: square bounds from center + radius
+            const c = window.center || { lat: ${location.lat}, lng: ${location.lng} };
+            const r = (window.dataLayers && window.dataLayers.radiusMeters) || 120;
+            const latDelta = r / 111320;
+            const lngDelta = r / (111320 * Math.cos((c.lat * Math.PI)/180));
+            const sw = new google.maps.LatLng(c.lat - latDelta, c.lng - lngDelta);
+            const ne = new google.maps.LatLng(c.lat + latDelta, c.lng + lngDelta);
+            return new google.maps.LatLngBounds(sw, ne);
+          }
+
+          function renderMonth(month){
+            const data = Array.isArray(rasters) && rasters.length > month ? rasters[month] : (Array.isArray(rasters) ? rasters[0] : null);
+            if (!data) return;
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            const img = ctx.createImageData(width, height);
+
+            // Determine dynamic max for better contrast
+            let vmax = 0;
+            for (let i = 0; i < data.length; i++) { if (data[i] > vmax) vmax = data[i]; }
+            const vmin = 0;
+
+            for (let i = 0; i < data.length; i++) {
+              const v = data[i];
+              const [cr, cg, cb] = colorScale(v, vmin, vmax || 1);
+              const idx = i * 4;
+              img.data[idx] = cr;
+              img.data[idx+1] = cg;
+              img.data[idx+2] = cb;
+              img.data[idx+3] = 180; // alpha
+            }
+            ctx.putImageData(img, 0, 0);
+
+            const bounds = boundsFromBboxOrRadius();
+            const url = canvas.toDataURL('image/png');
+            if (window.__flux.overlay) { window.__flux.overlay.setMap(null); }
+            window.__flux.overlay = new google.maps.GroundOverlay(url, bounds, { opacity: 0.7 });
+            window.__flux.overlay.setMap(map);
+          }
+
+          // Initial render & expose updater
+          renderMonth(window.currentMonth || 6);
+          window.updateFluxMonth = renderMonth;
+        } catch (err) {
+          console.warn('[DataLayers] Failed to render overlay', err);
+        }
+      }
+      
       window.initMap = function(){
         const bounds = new google.maps.LatLngBounds();
         let hasSeg = false;
@@ -397,6 +521,9 @@ serve(async (req) => {
             { featureType: 'all', elementType: 'labels', stylers: [{ visibility: 'off' }] }
           ]
         });
+
+        // Initialize Google Solar Data Layers overlay
+        try { initDataLayers(map); } catch (e) { console.warn('[Map] initDataLayers failed', e); }
 
         if (hasSeg) {
           map.fitBounds(bounds);
