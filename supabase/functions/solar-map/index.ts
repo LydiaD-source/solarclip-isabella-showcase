@@ -72,15 +72,16 @@ serve(async (req) => {
     const solarData = await solarRes.json();
 
     const solarPotential = solarData.solarPotential || {};
-    const roofSegmentStats: any[] = solarData.roofSegmentStats || solarPotential.roofSegmentStats || [];
+    const roofSegmentStats: any[] = solarPotential.roofSegmentStats || [];
 
     console.info(`[solar-map] Segments returned: ${roofSegmentStats.length}`);
     if (roofSegmentStats.length) {
-      const sample = roofSegmentStats[0] || {};
       try {
+        const sample = roofSegmentStats[0] || {};
         console.info('[solar-map] Sample segment keys:', Object.keys(sample));
-        console.info('[solar-map] Sample plane.boundary points:', sample?.plane?.boundary?.vertices?.length || 0);
-        console.info('[solar-map] Sample polygons count:', Array.isArray(sample?.polygons) ? sample.polygons.length : 0);
+        console.info('[solar-map] Sample boundingBox:', JSON.stringify(sample?.boundingBox || null));
+        console.info('[solar-map] Sample center:', JSON.stringify(sample?.center || null));
+        console.info('[solar-map] Note: Building Insights roofSegmentStats do not include polygon geometry; only stats, center, and boundingBox are returned.');
       } catch (_) {}
     }
 
@@ -134,10 +135,18 @@ serve(async (req) => {
         };
         
         let coords: { lat: number; lng: number }[] = [];
+        let usedBBox = false;
+        const bboxParsed = bboxVerts ? parseVerts(bboxVerts) : [];
         for (const verts of candidates) {
           const parsed = tryParse(verts);
           if (parsed.length >= 3) {
             coords = parsed;
+            // Heuristic: if this matches the bbox polygon, mark it
+            if (bboxParsed.length >= 3 && parsed.length === bboxParsed.length) {
+              const a = JSON.stringify(parsed.slice(0, 2));
+              const b = JSON.stringify(bboxParsed.slice(0, 2));
+              usedBBox = a === b;
+            }
             break;
           }
         }
@@ -148,7 +157,7 @@ serve(async (req) => {
           return null;
         }
         
-        console.info(`[solar-map] Segment ${i}: Using polygon with ${coords.length} points`);
+        console.info(`[solar-map] Segment ${i}: Using polygon with ${coords.length} points${usedBBox ? ' (from boundingBox fallback)' : ''}`);
         
         return {
           id: seg?.roofSegmentId || seg?.segmentId || `segment_${i}`,
@@ -160,9 +169,9 @@ serve(async (req) => {
           area: stats.areaMeters2 || stats.areaMeters || 0,
           panelsCount: stats.panelsCount || 0,
           yearlyEnergyDcKwh: Math.round(stats.yearlyEnergyDcKwh || 0),
-          center: seg?.plane?.center ? {
-            lat: seg.plane.center.latitude || seg.plane.center.lat,
-            lng: seg.plane.center.longitude || seg.plane.center.lng
+          center: seg?.center ? {
+            lat: seg.center.latitude || seg.center.lat,
+            lng: seg.center.longitude || seg.center.lng
           } : null,
         };
       })
