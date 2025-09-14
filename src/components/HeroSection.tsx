@@ -180,7 +180,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
 
             {/* Powered by Ovela badge - placed under Isabella image */}
             <a
-              href="https://ovela.ai"
+              href="https://ovelainteractive.com"
               target="_blank"
               rel="noopener noreferrer"
               className="absolute -bottom-8 right-0 z-40 text-[10px] sm:text-xs font-medium badge-powered pointer-events-auto"

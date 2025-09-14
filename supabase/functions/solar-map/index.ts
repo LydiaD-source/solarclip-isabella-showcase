@@ -260,16 +260,42 @@ serve(async (req) => {
         radiusMeters = Math.max(60, Math.min(300, Math.round(diag / 2)));
       }
 
-      const dlUrl = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${location.lat}&location.longitude=${location.lng}&radiusMeters=${radiusMeters}&view=FULL&requiredQuality=HIGH&key=${googleApiKey}`;
-      const dlRes = await fetch(dlUrl, { headers: { Accept: "application/json" } });
-      if (!dlRes.ok) {
-        console.warn(`[solar-map] Data Layers request failed: ${dlRes.status}`);
-      } else {
-        const dlJson = await dlRes.json();
-        // Google requires appending the API key to the returned GeoTIFF URLs when using API key auth
+      async function fetchDataLayers(rad: number) {
+        const computeUrl = `https://solar.googleapis.com/v1/dataLayers:compute?key=${googleApiKey}`;
+        const payload = {
+          location: { latitude: location.lat, longitude: location.lng },
+          radiusMeters: rad,
+          requiredQuality: "HIGH",
+          view: "DATA_LAYERS",
+        };
+        const res = await fetch(computeUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const raw = await res.text();
+        console.info('[solar-map] dataLayers:compute status:', res.status);
+        console.info('[solar-map] dataLayers:compute raw:', raw.slice(0, 2000));
+        if (!res.ok) return { ok: false as boolean, json: null as any };
+        let json: any = null;
+        try { json = JSON.parse(raw); } catch (e) { console.error('[solar-map] Failed to parse dataLayers JSON:', e); }
+        return { ok: true as boolean, json };
+      }
+
+      let attempt = await fetchDataLayers(radiusMeters);
+      if (!attempt.ok || !attempt.json || (!attempt.json.monthlyFluxUrl && !attempt.json.annualFluxUrl)) {
+        const newRadius = Math.min(300, Math.max(radiusMeters * 2, radiusMeters + 40));
+        console.warn('[solar-map] Retrying dataLayers:compute with radiusMeters =', newRadius);
+        attempt = await fetchDataLayers(newRadius);
+        radiusMeters = newRadius;
+      }
+
+      if (attempt.ok && attempt.json) {
+        const dlJson = attempt.json;
+        // Google requires appending the API key to the returned GeoTIFF/PNG URLs when using API key auth
         const appendKey = (url?: string | null) => {
           if (!url) return null;
-          if (url.includes('key=')) return url; // already signed
+          if (url.includes('key=')) return url; // already contains key/signature
           if (url.startsWith('https://solar.googleapis.com')) return `${url}&key=${googleApiKey}`;
           return url;
         };
@@ -282,13 +308,16 @@ serve(async (req) => {
           center: { lat: location.lat, lng: location.lng },
           radiusMeters,
         };
-        console.info('[solar-map] Data Layers available:', Object.keys(dlJson || {}));
+        console.info('[solar-map] Data Layers available keys:', Object.keys(dlJson || {}));
+      } else {
+        console.warn('[solar-map] Data Layers unavailable after retries');
       }
     } catch (e) {
       console.error('[solar-map] Failed to fetch Data Layers:', e);
     }
 
     // 5) Build enhanced Google-only embed with roof visualization, Data Layers overlay, and seasonal animation
+    const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") || "*";
     const embedHtml = `<!DOCTYPE html>
 <html>
   <head>
@@ -371,8 +400,9 @@ serve(async (req) => {
       window.monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       window.dataLayers = ${JSON.stringify(data_layers)};
       window.center = { lat: ${location.lat}, lng: ${location.lng} };
+      window.allowedOrigin = "${allowedOrigin}";
+      window.hasDataLayers = !!(window.dataLayers && (window.dataLayers.monthlyFluxUrl || window.dataLayers.annualFluxUrl));
     
-
       // Potential-based seasonal color mapping using monthly flux
       (function(){
         function blend(a, b, t){ return [
@@ -651,8 +681,8 @@ serve(async (req) => {
         if (typeof window.setMonthColor === 'function') {
           window.setMonthColor(window.currentMonth || 6);
         }
-        // Notify parent that the embed is ready; use '*' during testing to avoid origin mismatches
-        try { if (window.parent) window.parent.postMessage({ type: 'solar_embed_ready' }, '*'); } catch (e) { /* no-op */ }
+        // Notify parent that the embed is ready; use configured origin (defaults to '*')
+        try { if (window.parent) window.parent.postMessage({ type: 'solar_embed_ready', hasDataLayers: (window.hasDataLayers === true) }, window.allowedOrigin || '*'); } catch (e) { /* no-op */ }
       });
 
       // Cleanup animation on page unload
