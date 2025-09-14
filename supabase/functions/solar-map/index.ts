@@ -661,8 +661,13 @@ serve(async (req) => {
       return new Response(embedHtml, { headers: { ...corsHeaders, "Content-Type": "text/html" } });
     }
 
-    // Otherwise, return JSON with a direct embed URL to this function (same function host)
-    let embedUrl = `${url.origin}${url.pathname}?embed=1&address=${encodeURIComponent(address)}`;
+    // Otherwise, return JSON with a direct embed URL to this function using the public host
+    const fwdHost = req.headers.get('x-forwarded-host');
+    const fwdProto = req.headers.get('x-forwarded-proto') || 'https';
+    const publicOrigin = fwdHost
+      ? `${fwdProto}://${fwdHost}`
+      : (Deno.env.get('SUPABASE_URL') || `${url.protocol}//${url.host}`);
+    let embedUrl = `${publicOrigin}${url.pathname}?embed=1&address=${encodeURIComponent(address)}`;
     // Enforce HTTPS to avoid mixed-content issues in iframes
     embedUrl = embedUrl.replace(/^http:\/\//, 'https://');
 
