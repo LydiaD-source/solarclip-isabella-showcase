@@ -95,8 +95,8 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
 
       case 'google_solar':
         // Render fullscreen solar map interface directly
-        if ((card as any)?.content?.embed_url || (card as any)?.content?.url) {
-          const embed = (card as any).content.embed_url || (card as any).content.url;
+        if ((card as any)?.content?.embed_url || (card as any)?.content?.embedUrl || (card as any)?.content?.url) {
+          const embed = (card as any).content.embed_url || (card as any).content.embedUrl || (card as any).content.url;
           return (
             <div className="w-full h-full relative">
               <iframe
@@ -105,6 +105,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
                 title="Interactive Solar Map"
                 loading="eager"
                 allow="geolocation"
+                referrerPolicy="no-referrer"
               />
             </div>
           );
@@ -198,18 +199,21 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
   const containerVariants = {
     hidden: { 
       opacity: 0,
-      scale: 0.95,
-      filter: "blur(8px)"
+      scale: 0.96,
+      filter: "blur(8px)",
+      x: 120
     },
     visible: { 
       opacity: 1,
       scale: 1,
-      filter: "blur(0px)"
+      filter: "blur(0px)",
+      x: 0
     },
     exit: {
       opacity: 0,
-      scale: 0.95,
-      filter: "blur(8px)"
+      scale: 0.96,
+      filter: "blur(8px)",
+      x: -80
     }
   };
 
@@ -227,7 +231,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
           {isDirectFullscreen ? (
             // Direct fullscreen solar map
             <motion.div
-              className="w-full h-full animate-smooth-reveal"
+              className="w-full h-full animate-card-float-in perspective-1200"
               variants={containerVariants}
               initial="hidden"
               animate={isClosing ? "exit" : "visible"}

@@ -661,8 +661,8 @@ serve(async (req) => {
       return new Response(embedHtml, { headers: { ...corsHeaders, "Content-Type": "text/html" } });
     }
 
-    // Otherwise, return JSON with a direct embed URL to this function
-    const embedUrl = `${origin}/functions/v1/solar-map?embed=1&address=${encodeURIComponent(address)}`;
+    // Otherwise, return JSON with a direct embed URL to this function (same function host)
+    const embedUrl = `${url.origin}${url.pathname}?embed=1&address=${encodeURIComponent(address)}`;
 
     const result = {
       status: "success",

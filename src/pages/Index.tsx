@@ -12,9 +12,9 @@ const Index = () => {
         onChatToggle={() => setIsIsabellaExpanded(!isIsabellaExpanded)} 
       />
 
-      {/* Powered by Ovela™ badge */}
-      <div className="fixed bottom-3 right-3 z-50 text-xs sm:text-sm font-medium bg-gradient-to-r from-primary-glow to-accent-light bg-clip-text text-transparent select-none">
-        Powered by Ovela™
+      {/* Powered by Ovela badge */}
+      <div className="fixed bottom-2 right-2 md:bottom-4 md:right-4 z-40 text-[10px] sm:text-xs font-medium badge-powered select-none pointer-events-none">
+        Powered by Ovela (TM) AI
       </div>
     </div>
   );
