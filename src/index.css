@@ -14,14 +14,14 @@ Cinematic gradients with solar energy themes
 @layer base {
   :root {
     /* Cinematic Background - Navy to space-like depth */
-    --background: 209 80% 16%; /* Slightly brighter navy for better contrast */
+    --background: 209 80% 18%; /* Slightly brighter navy for better contrast */
     --foreground: 220 20% 99%; /* Pure white text */
     
     /* Navy Blue Primary - Trust & Engineering */
-    --primary: 209 100% 14%; /* #002147 */
+    --primary: 209 100% 16%; /* #002147 (lightened) */
     --primary-foreground: 220 20% 99%;
-    --primary-light: 209 100% 25%;
-    --primary-glow: 209 100% 35%;
+    --primary-light: 209 100% 27%;
+    --primary-glow: 209 100% 37%;
     
     /* Fresh Green Accent - Sustainability */
     --accent: 122 48% 56%; /* #4CAF50 */
@@ -36,12 +36,12 @@ Cinematic gradients with solar energy themes
     --muted-foreground: 220 14% 70%;
     
     /* Cinematic Gradients with Sun Rays */
-    --gradient-cinematic: linear-gradient(135deg, hsl(209 100% 8%) 0%, hsl(209 100% 12%) 25%, hsl(45 100% 35%) 50%, hsl(209 100% 8%) 75%, hsl(209 100% 5%) 100%);
-    --gradient-solar: radial-gradient(ellipse at top right, hsl(45 100% 50% / 0.3) 0%, hsl(45 100% 40% / 0.2) 30%, transparent 70%);
-    --gradient-accent: linear-gradient(135deg, hsl(122 48% 56%), hsl(122 48% 66%));
+    --gradient-cinematic: linear-gradient(135deg, hsl(209 100% 10%) 0%, hsl(209 100% 16%) 25%, hsl(45 100% 38%) 50%, hsl(209 100% 10%) 75%, hsl(209 100% 7%) 100%);
+    --gradient-solar: radial-gradient(ellipse at top right, hsl(45 100% 55% / 0.35) 0%, hsl(45 100% 45% / 0.25) 30%, transparent 70%);
+    --gradient-accent: linear-gradient(135deg, hsl(122 48% 58%), hsl(122 48% 68%));
     --gradient-premium: linear-gradient(135deg, hsl(var(--accent-glow)), hsl(var(--accent-light))); 
-    --gradient-isabella: linear-gradient(135deg, hsl(280 70% 95%), hsl(190 80% 95%));
-    --gradient-overlay: linear-gradient(90deg, hsla(209, 100%, 8%, 0.8) 0%, transparent 50%, hsla(209, 100%, 8%, 0.9) 100%);
+    --gradient-isabella: linear-gradient(135deg, hsl(280 70% 96%), hsl(190 80% 96%));
+    --gradient-overlay: linear-gradient(90deg, hsla(209, 100%, 10%, 0.75) 0%, transparent 50%, hsla(209, 100%, 10%, 0.85) 100%);
     --gradient-badge: linear-gradient(135deg, hsl(209 100% 65%), hsl(209 100% 75%));
     
     /* Enhanced Shadows & Effects */
@@ -272,6 +272,14 @@ Cinematic gradients with solar energy themes
     background-clip: text;
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+  }
+  /* Stronger Gradient Text for key phrases */
+  .text-gradient-strong {
+    background: linear-gradient(135deg, hsl(122 48% 70%), hsl(122 48% 58%));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 6px hsl(122 48% 30% / 0.35));
   }
   
   /* Hero Text Glow */

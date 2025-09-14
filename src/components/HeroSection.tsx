@@ -85,9 +85,9 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         {/* Left Column - Hero Content */}
         <div className="flex flex-col justify-center space-y-8 lg:mt-12" style={{ transform: 'translateY(-20px)' }}>
           {/* Main Headline */}
-          <h1 className="font-heading font-extrabold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-[1.1] tracking-tight hero-text-glow">
+          <h1 className="font-heading font-extrabold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-[1.15] md:leading-[1.1] tracking-tight hero-text-glow pb-1">
             The Future of
-            <span className="block text-gradient"> Lightweight Solar</span>
+            <span className="block text-gradient-strong"> Lightweight Solar</span>
             is Here.
           </h1>
 
@@ -148,7 +148,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 {/* Desktop positioning - Final alignment adjustment */}
                 <div className="hidden lg:block absolute bottom-[-22px] -left-36 xl:-left-44 text-center">
                   <Button 
-                    className="meet-isabella-btn-animated text-xs sm:text-sm px-4 py-2"
+                    className="meet-isabella-btn-animated text-[11px] sm:text-xs px-3 py-1.5"
                     onClick={handleMeetIsabella}
                   >
                     <Play className="mr-2 w-4 h-4" />
@@ -160,7 +160,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 {/* Mobile positioning - Adjusted for better spacing */}
                 <div className="lg:hidden absolute -bottom-32 left-1/2 transform -translate-x-1/2 text-center">
                   <Button 
-                    className="meet-isabella-btn-animated text-xs sm:text-sm px-4 py-2"
+                    className="meet-isabella-btn-animated text-[11px] sm:text-xs px-3 py-1.5"
                     onClick={handleMeetIsabella}
                   >
                     <Play className="mr-2 w-4 h-4" />

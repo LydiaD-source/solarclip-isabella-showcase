@@ -13,9 +13,15 @@ const Index = () => {
       />
 
       {/* Powered by Ovela badge */}
-      <div className="fixed bottom-2 right-2 md:bottom-4 md:right-4 z-40 text-[10px] sm:text-xs font-medium badge-powered select-none pointer-events-none">
-        Powered by Ovela (TM) AI
-      </div>
+      <a
+        href="https://ovela.ai"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-2 right-2 md:bottom-4 md:right-4 lg:right-[22rem] z-40 text-[10px] sm:text-xs font-medium badge-powered select-none pointer-events-auto"
+        aria-label="Powered by Ovela AI"
+      >
+        Powered by Ovela<sup className="ml-0.5 text-[8px] align-super">™</sup> AI
+      </a>
     </div>
   );
 };

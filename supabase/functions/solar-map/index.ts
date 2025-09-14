@@ -662,7 +662,9 @@ serve(async (req) => {
     }
 
     // Otherwise, return JSON with a direct embed URL to this function (same function host)
-    const embedUrl = `${url.origin}${url.pathname}?embed=1&address=${encodeURIComponent(address)}`;
+    let embedUrl = `${url.origin}${url.pathname}?embed=1&address=${encodeURIComponent(address)}`;
+    // Enforce HTTPS to avoid mixed-content issues in iframes
+    embedUrl = embedUrl.replace(/^http:\/\//, 'https://');
 
     const result = {
       status: "success",
@@ -673,7 +675,6 @@ serve(async (req) => {
         animation: "swoop-left",
       },
     };
-
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("[solar-map] error:", error);
