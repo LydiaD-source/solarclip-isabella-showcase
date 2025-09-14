@@ -26,6 +26,7 @@ interface SolarMapContentProps {
 export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
   const [adjustedPanels, setAdjustedPanels] = useState(card.content.summary.panel_count);
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
   const originalPanels = card.content.summary.panel_count;
   const maxPanels = card.content.summary.max_panels || originalPanels * 2;
   
@@ -160,8 +161,18 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                 loading="lazy"
                 allow="geolocation"
                 style={{ minHeight: '250px' }}
+                onLoad={() => setIframeError(false)}
+                onError={() => setIframeError(true)}
               />
-              
+
+              {iframeError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm p-3 text-center">
+                  <div className="text-xs text-foreground">
+                    Roof segmentation unavailable for this location. Try a different address.
+                  </div>
+                </div>
+              )}
+
               {/* Overlay with current stats */}
               <div className="absolute top-2 left-2 bg-white/95 dark:bg-black/95 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm">
                 <div className="text-xs font-medium">{adjustedPanels} panels</div>

@@ -260,18 +260,25 @@ serve(async (req) => {
         radiusMeters = Math.max(60, Math.min(300, Math.round(diag / 2)));
       }
 
-      const dlUrl = `https://solar.googleapis.com/v1/dataLayers:retrieve?location.latitude=${location.lat}&location.longitude=${location.lng}&radiusMeters=${radiusMeters}&view=FULL&key=${googleApiKey}`;
+      const dlUrl = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${location.lat}&location.longitude=${location.lng}&radiusMeters=${radiusMeters}&view=FULL&requiredQuality=HIGH&key=${googleApiKey}`;
       const dlRes = await fetch(dlUrl, { headers: { Accept: "application/json" } });
       if (!dlRes.ok) {
         console.warn(`[solar-map] Data Layers request failed: ${dlRes.status}`);
       } else {
         const dlJson = await dlRes.json();
+        // Google requires appending the API key to the returned GeoTIFF URLs when using API key auth
+        const appendKey = (url?: string | null) => {
+          if (!url) return null;
+          if (url.includes('key=')) return url; // already signed
+          if (url.startsWith('https://solar.googleapis.com')) return `${url}&key=${googleApiKey}`;
+          return url;
+        };
         data_layers = {
-          monthlyFluxUrl: dlJson?.monthlyFluxUrl || null,
-          annualFluxUrl: dlJson?.annualFluxUrl || null,
-          maskUrl: dlJson?.maskUrl || null,
-          dsmUrl: dlJson?.dsmUrl || null,
-          rgbUrl: dlJson?.rgbUrl || null,
+          monthlyFluxUrl: appendKey(dlJson?.monthlyFluxUrl),
+          annualFluxUrl: appendKey(dlJson?.annualFluxUrl),
+          maskUrl: appendKey(dlJson?.maskUrl),
+          dsmUrl: appendKey(dlJson?.dsmUrl),
+          rgbUrl: appendKey(dlJson?.rgbUrl),
           center: { lat: location.lat, lng: location.lng },
           radiusMeters,
         };
@@ -332,6 +339,7 @@ serve(async (req) => {
         <div class="sec">
           <div class="row"><span class="label">Address</span><span class="value">${formattedAddress}</span></div>
           <div class="row"><span class="label">Segments</span><span class="value">${roof_segments.length}</span></div>
+          <div class="row"><span class="label">Data Layers</span><span class="value">${data_layers && data_layers.monthlyFluxUrl ? 'Available' : 'Unavailable'}</span></div>
         </div>
         <div class="sec">
           <div class="label" style="margin:6px 0 10px">Solar Panels</div>
@@ -643,6 +651,8 @@ serve(async (req) => {
         if (typeof window.setMonthColor === 'function') {
           window.setMonthColor(window.currentMonth || 6);
         }
+        // Notify parent that the embed is ready; use '*' during testing to avoid origin mismatches
+        try { if (window.parent) window.parent.postMessage({ type: 'solar_embed_ready' }, '*'); } catch (e) { /* no-op */ }
       });
 
       // Cleanup animation on page unload
