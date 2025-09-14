@@ -246,19 +246,11 @@ serve(async (req) => {
       maxFlux: Math.max(...monthly_flux),
     };
 
-    // 4b) Fetch Google Solar Data Layers (for pixel-accurate segmentation & monthly flux)
+    // 4b) Fetch Google Solar Data Layers (FULL_LAYERS raster tiles + bounding box)
     let data_layers: any = null;
     try {
-      // Estimate radius from viewport if available, otherwise use 120m
-      let radiusMeters = 120;
-      if (viewport && viewport.northeast && viewport.southwest) {
-        const latDelta = Math.abs(viewport.northeast.lat - viewport.southwest.lat);
-        const lngDelta = Math.abs(viewport.northeast.lng - viewport.southwest.lng);
-        const latMeters = latDelta * 111320; // ~ meters per degree latitude
-        const lngMeters = lngDelta * 111320 * Math.cos((location.lat * Math.PI) / 180);
-        const diag = Math.sqrt(latMeters * latMeters + lngMeters * lngMeters);
-        radiusMeters = Math.max(60, Math.min(300, Math.round(diag / 2)));
-      }
+      // Per requirements: start at 300m, retry at 500m
+      let radiusMeters = 300;
 
       async function fetchDataLayers(rad: number) {
         const computeUrl = `https://solar.googleapis.com/v1/dataLayers:compute?key=${googleApiKey}`;
@@ -266,8 +258,8 @@ serve(async (req) => {
           location: { latitude: location.lat, longitude: location.lng },
           radiusMeters: rad,
           requiredQuality: "HIGH",
-          view: "DATA_LAYERS",
-        };
+          view: "FULL_LAYERS",
+        } as const;
         const res = await fetch(computeUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -283,32 +275,56 @@ serve(async (req) => {
       }
 
       let attempt = await fetchDataLayers(radiusMeters);
-      if (!attempt.ok || !attempt.json || (!attempt.json.monthlyFluxUrl && !attempt.json.annualFluxUrl)) {
-        const newRadius = Math.min(300, Math.max(radiusMeters * 2, radiusMeters + 40));
+      if (!attempt.ok || !attempt.json || !attempt.json.imagery || !attempt.json.imagery.rasterUrlTemplate) {
+        const newRadius = 500;
         console.warn('[solar-map] Retrying dataLayers:compute with radiusMeters =', newRadius);
         attempt = await fetchDataLayers(newRadius);
         radiusMeters = newRadius;
       }
 
       if (attempt.ok && attempt.json) {
-        const dlJson = attempt.json;
-        // Google requires appending the API key to the returned GeoTIFF/PNG URLs when using API key auth
+        const dlJson = attempt.json || {};
+        const imagery = dlJson.imagery || {};
+
+        // Append API key to raster template/urls as required when using API key auth
         const appendKey = (url?: string | null) => {
           if (!url) return null;
           if (url.includes('key=')) return url; // already contains key/signature
-          if (url.startsWith('https://solar.googleapis.com')) return `${url}&key=${googleApiKey}`;
-          return url;
+          if (url.indexOf('?') > -1) return `${url}&key=${googleApiKey}`;
+          return `${url}?key=${googleApiKey}`;
         };
+
+        function normalizeBBox(b: any): { sw: { lat: number; lng: number }; ne: { lat: number; lng: number } } | null {
+          if (!b) return null;
+          // Common shape: { sw: {latitude, longitude}, ne: {latitude, longitude} }
+          const sw = b.sw || b.southWest || b.southwest;
+          const ne = b.ne || b.northEast || b.northeast;
+          if (sw && ne && typeof sw.latitude === 'number' && typeof sw.longitude === 'number' && typeof ne.latitude === 'number' && typeof ne.longitude === 'number') {
+            return { sw: { lat: sw.latitude, lng: sw.longitude }, ne: { lat: ne.latitude, lng: ne.longitude } };
+          }
+          // Array form: [minLng, minLat, maxLng, maxLat]
+          if (Array.isArray(b) && b.length === 4) {
+            return { sw: { lat: b[1], lng: b[0] }, ne: { lat: b[3], lng: b[2] } };
+          }
+          // Object with min/max
+          if (typeof b.minLat === 'number' && typeof b.minLng === 'number' && typeof b.maxLat === 'number' && typeof b.maxLng === 'number') {
+            return { sw: { lat: b.minLat, lng: b.minLng }, ne: { lat: b.maxLat, lng: b.maxLng } };
+          }
+          return null;
+        }
+
+        const rasterUrlTemplate = appendKey(imagery?.rasterUrlTemplate);
+        const bbox = normalizeBBox(imagery?.boundingBox);
+
         data_layers = {
-          monthlyFluxUrl: appendKey(dlJson?.monthlyFluxUrl),
-          annualFluxUrl: appendKey(dlJson?.annualFluxUrl),
-          maskUrl: appendKey(dlJson?.maskUrl),
-          dsmUrl: appendKey(dlJson?.dsmUrl),
-          rgbUrl: appendKey(dlJson?.rgbUrl),
+          imagery: {
+            rasterUrlTemplate: rasterUrlTemplate,
+            boundingBox: bbox,
+          },
           center: { lat: location.lat, lng: location.lng },
           radiusMeters,
         };
-        console.info('[solar-map] Data Layers available keys:', Object.keys(dlJson || {}));
+        console.info('[solar-map] Data Layers imagery keys:', Object.keys(imagery || {}));
       } else {
         console.warn('[solar-map] Data Layers unavailable after retries');
       }
@@ -368,7 +384,7 @@ serve(async (req) => {
         <div class="sec">
           <div class="row"><span class="label">Address</span><span class="value">${formattedAddress}</span></div>
           <div class="row"><span class="label">Segments</span><span class="value">${roof_segments.length}</span></div>
-          <div class="row"><span class="label">Data Layers</span><span class="value">${data_layers && data_layers.monthlyFluxUrl ? 'Available' : 'Unavailable'}</span></div>
+          <div class="row"><span class="label">Data Layers</span><span class="value">${data_layers && data_layers.imagery && data_layers.imagery.rasterUrlTemplate ? 'Available' : 'Unavailable'}</span></div>
         </div>
         <div class="sec">
           <div class="label" style="margin:6px 0 10px">Solar Panels</div>
@@ -401,7 +417,7 @@ serve(async (req) => {
       window.dataLayers = ${JSON.stringify(data_layers)};
       window.center = { lat: ${location.lat}, lng: ${location.lng} };
       window.allowedOrigin = "${allowedOrigin}";
-      window.hasDataLayers = !!(window.dataLayers && (window.dataLayers.monthlyFluxUrl || window.dataLayers.annualFluxUrl));
+      window.hasDataLayers = !!(window.dataLayers && window.dataLayers.imagery && window.dataLayers.imagery.rasterUrlTemplate);
     
       // Potential-based seasonal color mapping using monthly flux
       (function(){
@@ -454,88 +470,41 @@ serve(async (req) => {
         };
       })();
       
-      // Google Solar Data Layers overlay (GeoTIFF -> canvas -> GroundOverlay)
-      async function initDataLayers(map){
+      // Google Solar Imagery overlay (raster tiles via rasterUrlTemplate)
+      function addImageryOverlay(map){
         try {
-          if (!window.dataLayers || !window.dataLayers.monthlyFluxUrl) {
-            console.log('[DataLayers] Not available');
+          const imagery = window.dataLayers && window.dataLayers.imagery;
+          if (!imagery || !imagery.rasterUrlTemplate) {
+            console.log('[Imagery] Not available');
             return;
           }
-          const GeoTIFFLib = (window as any).GeoTIFF || (window as any).geotiff || (window as any).GeoTiff;
-          if (!GeoTIFFLib || !GeoTIFFLib.fromUrl) {
-            console.warn('[DataLayers] GeoTIFF library not loaded');
-            return;
-          }
-          const tiff = await GeoTIFFLib.fromUrl(window.dataLayers.monthlyFluxUrl);
-          const image = await tiff.getImage();
-          const bbox = (image.getBoundingBox && image.getBoundingBox()) || null; // [minX, minY, maxX, maxY]
-          const width = image.getWidth();
-          const height = image.getHeight();
-          const rasters = await image.readRasters({ interleave: false });
-          window.__flux = { image, rasters, width, height, bbox, overlay: null };
-
-          function colorScale(v, vmin, vmax){
-            const t = Math.max(0, Math.min(1, (v - vmin) / ((vmax - vmin) || 1)));
-            // blue -> yellow gradient
-            const r = Math.round(66 + (255 - 66) * t);
-            const g = Math.round(133 + (215 - 133) * t);
-            const b = Math.round(244 + (0 - 244) * t);
-            return [r, g, Math.max(0, b)];
-          }
-
-          function boundsFromBboxOrRadius(){
-            if (bbox && bbox.length === 4){
-              const sw = new google.maps.LatLng(bbox[1], bbox[0]);
-              const ne = new google.maps.LatLng(bbox[3], bbox[2]);
-              return new google.maps.LatLngBounds(sw, ne);
+          const template = imagery.rasterUrlTemplate;
+          const overlay = new google.maps.ImageMapType({
+            name: 'Solar Imagery',
+            tileSize: new google.maps.Size(256, 256),
+            opacity: 0.7,
+            getTileUrl: function(coord, zoom){
+              return template
+                .replace('{x}', coord.x)
+                .replace('{y}', coord.y)
+                .replace('{z}', zoom);
             }
-            // Fallback: square bounds from center + radius
-            const c = window.center || { lat: ${location.lat}, lng: ${location.lng} };
-            const r = (window.dataLayers && window.dataLayers.radiusMeters) || 120;
-            const latDelta = r / 111320;
-            const lngDelta = r / (111320 * Math.cos((c.lat * Math.PI)/180));
-            const sw = new google.maps.LatLng(c.lat - latDelta, c.lng - lngDelta);
-            const ne = new google.maps.LatLng(c.lat + latDelta, c.lng + lngDelta);
-            return new google.maps.LatLngBounds(sw, ne);
+          });
+          map.overlayMapTypes.insertAt(0, overlay);
+
+          // Fit bounds to imagery bounding box if present
+          const bb = imagery.boundingBox;
+          if (bb && bb.sw && bb.ne) {
+            const bounds = new google.maps.LatLngBounds(
+              new google.maps.LatLng(bb.sw.lat, bb.sw.lng),
+              new google.maps.LatLng(bb.ne.lat, bb.ne.lng)
+            );
+            map.fitBounds(bounds);
+          } else {
+            try { if (window.parent) window.parent.postMessage({ type: 'solar_embed_error', reason: 'missing_bounding_box' }, window.allowedOrigin || '*'); } catch (e) { /* no-op */ }
           }
-
-          function renderMonth(month){
-            const data = Array.isArray(rasters) && rasters.length > month ? rasters[month] : (Array.isArray(rasters) ? rasters[0] : null);
-            if (!data) return;
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            const img = ctx.createImageData(width, height);
-
-            // Determine dynamic max for better contrast
-            let vmax = 0;
-            for (let i = 0; i < data.length; i++) { if (data[i] > vmax) vmax = data[i]; }
-            const vmin = 0;
-
-            for (let i = 0; i < data.length; i++) {
-              const v = data[i];
-              const [cr, cg, cb] = colorScale(v, vmin, vmax || 1);
-              const idx = i * 4;
-              img.data[idx] = cr;
-              img.data[idx+1] = cg;
-              img.data[idx+2] = cb;
-              img.data[idx+3] = 180; // alpha
-            }
-            ctx.putImageData(img, 0, 0);
-
-            const bounds = boundsFromBboxOrRadius();
-            const url = canvas.toDataURL('image/png');
-            if (window.__flux.overlay) { window.__flux.overlay.setMap(null); }
-            window.__flux.overlay = new google.maps.GroundOverlay(url, bounds, { opacity: 0.7 });
-            window.__flux.overlay.setMap(map);
-          }
-
-          // Initial render & expose updater
-          renderMonth(window.currentMonth || 6);
-          window.updateFluxMonth = renderMonth;
         } catch (err) {
-          console.warn('[DataLayers] Failed to render overlay', err);
+          console.warn('[Imagery] Failed to add overlay', err);
         }
       }
       
@@ -566,8 +535,8 @@ serve(async (req) => {
           ]
         });
 
-        // Initialize Google Solar Data Layers overlay
-        try { initDataLayers(map); } catch (e) { console.warn('[Map] initDataLayers failed', e); }
+        // Initialize Google Solar Imagery overlay
+        try { addImageryOverlay(map); } catch (e) { console.warn('[Map] addImageryOverlay failed', e); }
 
         if (hasSeg) {
           map.fitBounds(bounds);
