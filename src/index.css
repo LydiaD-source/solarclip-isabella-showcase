@@ -14,7 +14,7 @@ Cinematic gradients with solar energy themes
 @layer base {
   :root {
     /* Cinematic Background - Navy to space-like depth */
-    --background: 209 100% 8%; /* Deep navy space */
+    --background: 209 80% 12%; /* Slightly lighter navy */
     --foreground: 220 20% 99%; /* Pure white text */
     
     /* Navy Blue Primary - Trust & Engineering */
@@ -39,7 +39,7 @@ Cinematic gradients with solar energy themes
     --gradient-cinematic: linear-gradient(135deg, hsl(209 100% 8%) 0%, hsl(209 100% 12%) 25%, hsl(45 100% 35%) 50%, hsl(209 100% 8%) 75%, hsl(209 100% 5%) 100%);
     --gradient-solar: radial-gradient(ellipse at top right, hsl(45 100% 50% / 0.3) 0%, hsl(45 100% 40% / 0.2) 30%, transparent 70%);
     --gradient-accent: linear-gradient(135deg, hsl(122 48% 56%), hsl(122 48% 66%));
-    --gradient-premium: linear-gradient(135deg, hsl(209 100% 14%), hsl(122 48% 56%));
+    --gradient-premium: linear-gradient(135deg, hsl(var(--accent-light)), hsl(var(--accent))); 
     --gradient-isabella: linear-gradient(135deg, hsl(280 70% 95%), hsl(190 80% 95%));
     --gradient-overlay: linear-gradient(90deg, hsla(209, 100%, 8%, 0.8) 0%, transparent 50%, hsla(209, 100%, 8%, 0.9) 100%);
     

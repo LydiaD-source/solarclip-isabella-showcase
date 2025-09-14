@@ -227,7 +227,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
           {isDirectFullscreen ? (
             // Direct fullscreen solar map
             <motion.div
-              className="w-full h-full"
+              className="w-full h-full animate-smooth-reveal"
               variants={containerVariants}
               initial="hidden"
               animate={isClosing ? "exit" : "visible"}
@@ -258,6 +258,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
             // Regular card layout for other types
             <div className="flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16">
               <motion.div
+                className="animate-card-float-in perspective-1200"
                 variants={containerVariants}
                 initial="hidden"
                 animate={isClosing ? "exit" : "visible"}

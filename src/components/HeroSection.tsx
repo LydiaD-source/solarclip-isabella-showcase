@@ -153,7 +153,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                     style={{ transform: 'scale(1.15)' }}
                   >
                     <Play className="mr-2 w-5 h-5" />
-                    Meet Isabella
+                    Open Assistant
                   </Button>
                   <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
                 </div>
@@ -166,7 +166,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                     style={{ transform: 'scale(1.15)' }}
                   >
                     <Play className="mr-2 w-5 h-5" />
-                    Meet Isabella
+                    Open Assistant
                   </Button>
                   <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
                 </div>

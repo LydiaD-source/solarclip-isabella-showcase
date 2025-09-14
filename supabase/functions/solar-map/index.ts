@@ -40,8 +40,14 @@ serve(async (req) => {
   }
 
   try {
+    // Support both POST (JSON body) and GET (query params)
+    const url = new URL(req.url);
+    const isEmbed = url.searchParams.get('embed') === '1' || url.searchParams.get('format') === 'html';
+    const origin = `${url.protocol}//${url.host}`;
+
     const body = await req.json().catch(() => ({}));
-    const address: string | undefined = body?.address;
+    const qAddress = url.searchParams.get('address') || undefined;
+    const address: string | undefined = req.method === 'GET' ? qAddress : (body?.address);
 
     if (!address) {
       throw new Error("Address is required");
@@ -650,7 +656,13 @@ serve(async (req) => {
   </body>
 </html>`;
 
-    const embedUrl = `data:text/html;charset=utf-8,${encodeURIComponent(embedHtml)}`;
+    // If requested as an embed, return the HTML directly
+    if (isEmbed) {
+      return new Response(embedHtml, { headers: { ...corsHeaders, "Content-Type": "text/html" } });
+    }
+
+    // Otherwise, return JSON with a direct embed URL to this function
+    const embedUrl = `${origin}/functions/v1/solar-map?embed=1&address=${encodeURIComponent(address)}`;
 
     const result = {
       status: "success",
