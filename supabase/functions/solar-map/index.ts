@@ -133,6 +133,10 @@ Deno.serve(async (req) => {
     // Create satellite image URL
     const mapsUrl = createSatelliteImageUrl(lat, lng)
     
+    // Explicit debug logs
+    console.log('DEBUG: mapsUrl generated:', mapsUrl);
+    console.log('DEBUG: coordinates used:', { lat, lng });
+    
     // Log request for debugging
     console.log('Solar map request:', {
       lat,
