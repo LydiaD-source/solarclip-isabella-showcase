@@ -18,6 +18,7 @@ interface SolarData {
     pitchDegrees: number;
     azimuthDegrees: number;
     planeHeightAtCenterMeters: number;
+    polygon?: Array<{ latitude: number; longitude: number }>;
   }>;
   panel_placements?: Array<{
     segmentIndex: number;
@@ -42,6 +43,7 @@ const SolarOverlayMap: React.FC<SolarOverlayMapProps> = ({ address }) => {
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const [imageReady, setImageReady] = useState(0);
   const projectRef = 'mzikfyqzwepnubdsclfd';
 
   useEffect(() => {
@@ -100,79 +102,122 @@ const SolarOverlayMap: React.FC<SolarOverlayMapProps> = ({ address }) => {
     const latRange = 0.001; // Approximate degree range visible in 640x640 at zoom 20
     const lngRange = 0.001;
     
+    const toXY = (lat: number, lng: number) => ({
+      x: ((lng - (centerLng - lngRange / 2)) / lngRange) * canvas.width,
+      y: ((centerLat + latRange / 2 - lat) / latRange) * canvas.height,
+    });
+
     roof_segments.forEach((segment, index) => {
       const segmentPanels = panel_placements?.find(p => p.segmentIndex === index);
-      
-      // Convert lat/lng to pixel coordinates
-      const x1 = ((segment.boundingBox.sw.longitude - (centerLng - lngRange/2)) / lngRange) * canvas.width;
-      const y1 = ((centerLat + latRange/2 - segment.boundingBox.ne.latitude) / latRange) * canvas.height;
-      const x2 = ((segment.boundingBox.ne.longitude - (centerLng - lngRange/2)) / lngRange) * canvas.width;
-      const y2 = ((centerLat + latRange/2 - segment.boundingBox.sw.latitude) / latRange) * canvas.height;
 
-      // Draw roof segment outline
-      ctx.strokeStyle = segmentPanels && segmentPanels.panelsCount > 0 ? '#059669' : '#dc2626';
+      // Prefer polygon from API; otherwise approximate from bounding box + azimuth
+      const poly = (segment as any).polygon && (segment as any).polygon.length === 4
+        ? (segment as any).polygon
+        : (() => {
+            const sw = segment.boundingBox.sw; const ne = segment.boundingBox.ne;
+            const cx = (sw.latitude + ne.latitude) / 2; const cy = (sw.longitude + ne.longitude) / 2;
+            const halfWLng = Math.abs(ne.longitude - sw.longitude) / 2;
+            const halfHLat = Math.abs(ne.latitude - sw.latitude) / 2;
+            const ang = (segment.azimuthDegrees || 0) * Math.PI / 180;
+            const pts = [
+              { dx: -halfWLng, dy: -halfHLat },
+              { dx: halfWLng, dy: -halfHLat },
+              { dx: halfWLng, dy: halfHLat },
+              { dx: -halfWLng, dy: halfHLat },
+            ].map(({ dx, dy }) => {
+              const rx = dx * Math.cos(ang) - dy * Math.sin(ang);
+              const ry = dx * Math.sin(ang) + dy * Math.cos(ang);
+              return { latitude: cx + ry, longitude: cy + rx };
+            });
+            return pts;
+          })();
+
+      // Draw filled polygon
+      ctx.beginPath();
+      const first = toXY(poly[0].latitude, poly[0].longitude);
+      ctx.moveTo(first.x, first.y);
+      for (let i = 1; i < poly.length; i++) {
+        const p = toXY(poly[i].latitude, poly[i].longitude);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+
+      // Fill and stroke with suitability color
+      const hasPanels = !!(segmentPanels && segmentPanels.panelsCount > 0);
+      ctx.fillStyle = hasPanels ? 'rgba(5, 150, 105, 0.28)' : 'rgba(220, 38, 38, 0.18)';
+      ctx.strokeStyle = hasPanels ? '#059669' : '#dc2626';
       ctx.lineWidth = 2;
-      ctx.setLineDash([]);
-      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      ctx.fill();
+      ctx.stroke();
 
-      // Fill segment with semi-transparent color
-      ctx.fillStyle = segmentPanels && segmentPanels.panelsCount > 0 
-        ? 'rgba(5, 150, 105, 0.3)' 
-        : 'rgba(220, 38, 38, 0.2)';
-      ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+      // Draw panel grid, clipped to polygon
+      const bbx1 = ((segment.boundingBox.sw.longitude - (centerLng - lngRange/2)) / lngRange) * canvas.width;
+      const bby1 = ((centerLat + latRange/2 - segment.boundingBox.ne.latitude) / latRange) * canvas.height;
+      const bbx2 = ((segment.boundingBox.ne.longitude - (centerLng - lngRange/2)) / lngRange) * canvas.width;
+      const bby2 = ((centerLat + latRange/2 - segment.boundingBox.sw.latitude) / latRange) * canvas.height;
+      const width = Math.abs(bbx2 - bbx1);
+      const height = Math.abs(bby2 - bby1);
+      const centerX = (bbx1 + bbx2) / 2;
+      const centerY = (bby1 + bby2) / 2;
+      const ang = (segment.azimuthDegrees || 0) * Math.PI / 180;
 
-      // Draw solar panels if present
-      if (segmentPanels && segmentPanels.panelsCount > 0) {
-        const panelWidth = 8;
-        const panelHeight = 12;
-        const spacing = 2;
-        const panelsPerRow = Math.floor((x2 - x1) / (panelWidth + spacing));
-        const panelRows = Math.ceil(segmentPanels.panelsCount / panelsPerRow);
+      const panelCountTarget = segmentPanels?.panelsCount ?? Math.floor((width * height) / (12 * 16));
 
-        ctx.fillStyle = '#1e40af';
-        ctx.strokeStyle = '#1e3a8a';
-        ctx.lineWidth = 1;
+      ctx.save();
+      // Clip to polygon
+      ctx.beginPath();
+      ctx.moveTo(first.x, first.y);
+      for (let i = 1; i < poly.length; i++) {
+        const p = toXY(poly[i].latitude, poly[i].longitude);
+        ctx.lineTo(p.x, p.y);
+      }
+      ctx.closePath();
+      ctx.clip();
 
-        for (let row = 0; row < panelRows; row++) {
-          for (let col = 0; col < panelsPerRow; col++) {
-            const panelIndex = row * panelsPerRow + col;
-            if (panelIndex >= segmentPanels.panelsCount) break;
+      // Rotate grid to match azimuth
+      ctx.translate(centerX, centerY);
+      ctx.rotate(ang);
 
-            const px = x1 + col * (panelWidth + spacing) + spacing;
-            const py = y1 + row * (panelHeight + spacing) + spacing;
+      const panelW = 8; const panelH = 12; const spacing = 2;
+      const cols = Math.floor((width) / (panelW + spacing));
+      const rows = Math.ceil(panelCountTarget / Math.max(cols, 1));
+      const startX = -width/2 + spacing;
+      const startY = -height/2 + spacing;
 
-            // Draw panel
-            ctx.fillRect(px, py, panelWidth, panelHeight);
-            ctx.strokeRect(px, py, panelWidth, panelHeight);
+      ctx.fillStyle = '#1e40af';
+      ctx.strokeStyle = '#1e3a8a';
+      ctx.lineWidth = 1;
 
-            // Add small highlight
-            ctx.fillStyle = '#3b82f6';
-            ctx.fillRect(px + 1, py + 1, panelWidth - 2, 2);
-            ctx.fillStyle = '#1e40af';
-          }
+      let drawn = 0;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (drawn >= panelCountTarget) break;
+          const px = startX + c * (panelW + spacing);
+          const py = startY + r * (panelH + spacing);
+          ctx.fillRect(px, py, panelW, panelH);
+          ctx.strokeRect(px, py, panelW, panelH);
+          drawn++;
         }
       }
 
-      // Label segment
-      const centerX = (x1 + x2) / 2;
-      const centerY = (y1 + y2) / 2;
-      
-      if (segmentPanels && segmentPanels.panelsCount > 0) {
+      ctx.restore();
+
+      // Label if we have panel info
+      if (panelCountTarget > 0) {
         ctx.fillStyle = 'white';
         ctx.strokeStyle = 'black';
         ctx.lineWidth = 2;
         ctx.font = 'bold 12px Arial';
         ctx.textAlign = 'center';
-        
-        const text = `${segmentPanels.panelsCount} panels`;
+        const text = `${panelCountTarget} panels`;
         ctx.strokeText(text, centerX, centerY);
         ctx.fillText(text, centerX, centerY);
       }
     });
-  }, [solarData]);
+  }, [solarData, imageReady]);
 
   const displayUrl = solarData?.coordinates 
-    ? `https://${projectRef}.supabase.co/functions/v1/solar-map-image?lat=${solarData.coordinates.lat}&lng=${solarData.coordinates.lng}&zoom=20&size=640x640`
+    ? `https://${projectRef}.supabase.co/functions/v1/solar-map-image?lat=${solarData.coordinates.lat}&lng=${solarData.coordinates.lng}&zoom=20&size=640x640&maptype=satellite`
     : '';
 
   if (loading) {
@@ -212,13 +257,7 @@ const SolarOverlayMap: React.FC<SolarOverlayMapProps> = ({ address }) => {
                   alt={`Solar analysis for ${address}`}
                   className="w-full h-full object-cover"
                   loading="eager"
-                  onLoad={() => {
-                    // Trigger canvas redraw when image loads
-                    if (canvasRef.current && solarData.roof_segments) {
-                      const event = new Event('imageLoaded');
-                      canvasRef.current.dispatchEvent(event);
-                    }
-                  }}
+                 onLoad={() => setImageReady((c) => c + 1)}
                   onError={(e) => {
                     console.error('Failed to load solar map image:', e);
                   }}

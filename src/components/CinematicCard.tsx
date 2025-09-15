@@ -141,7 +141,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
           const addr = (card as any)?.content?.address || (card as any)?.content?.summary?.address || '';
           return (
             <div className="w-full h-full relative bg-background">
-              <SolarOverlayMap address={addr} />
+               <SolarOverlayMap address={addr} />
             </div>
           );
         }

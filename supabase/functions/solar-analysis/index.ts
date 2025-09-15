@@ -167,27 +167,75 @@ Deno.serve(async (req) => {
     const solarData: GoogleSolarResponse = await solarRes.json()
     console.log('Solar API response received, processing data...')
 
-    // Extract the best panel configuration
+    // Extract the best panel configuration if provided by the API
     const panelConfigs = solarData.solarPotential?.panelConfigs || []
-    const bestConfig = panelConfigs.reduce((best, current) => 
+    const bestConfig = panelConfigs.reduce((best, current) =>
       current.yearlyEnergyDcKwh > (best?.yearlyEnergyDcKwh || 0) ? current : best
     , panelConfigs[0] || null)
-
-    // Calculate capacity in kW (assuming 400W panels)
-    const panelCount = bestConfig?.panelsCount || 0
-    const capacityKw = panelCount * 0.4 // 400W per panel
 
     // Get rooftop area
     const rooftopArea = solarData.solarPotential?.wholeRoofStats?.areaMeters2 || 0
 
+    // Calculate capacity in kW (assuming 400W panels)
+    let panelCount = bestConfig?.panelsCount || 0
+    let capacityKw = panelCount * 0.4 // 400W per panel
+    let estimated = false
+
+    // If API didn't return a config, estimate a conservative potential from roof segments
+    if (!panelCount && (solarData.solarPotential?.roofSegmentStats?.length || 0) > 0) {
+      const metersPerDegLat = 111_320
+      const lat = solarData.solarPotential?.roofSegmentStats?.[0]?.centerPoint?.latitude || 0
+      const metersPerDegLng = Math.cos(lat * Math.PI / 180) * metersPerDegLat
+      let usableAreaM2 = 0
+      for (const seg of solarData.solarPotential!.roofSegmentStats!) {
+        const sw = seg.boundingBox.sw; const ne = seg.boundingBox.ne
+        const widthM = Math.abs(ne.longitude - sw.longitude) * metersPerDegLng
+        const heightM = Math.abs(ne.latitude - sw.latitude) * metersPerDegLat
+        const area = widthM * heightM * Math.max(Math.cos((seg.pitchDegrees || 0) * Math.PI/180), 0.5)
+        usableAreaM2 += area * 0.5 // 50% packing/obstructions
+      }
+      panelCount = Math.max(0, Math.floor(usableAreaM2 / 1.8))
+      capacityKw = Math.round(panelCount * 0.4 * 100) / 100
+      estimated = true
+    }
+
     // Extract roof segments for overlay visualization
-    const roofSegments = solarData.solarPotential?.roofSegmentStats?.map(segment => ({
-      centerPoint: segment.centerPoint,
-      boundingBox: segment.boundingBox,
-      pitchDegrees: segment.pitchDegrees,
-      azimuthDegrees: segment.azimuthDegrees,
-      planeHeightAtCenterMeters: segment.planeHeightAtCenterMeters
-    })) || []
+    const roofSegments = (solarData.solarPotential?.roofSegmentStats || []).map((segment) => {
+      // Derive center if missing
+      const sw = segment.boundingBox.sw;
+      const ne = segment.boundingBox.ne;
+      const center = (segment as any).centerPoint || {
+        latitude: (sw.latitude + ne.latitude) / 2,
+        longitude: (sw.longitude + ne.longitude) / 2,
+      };
+      const halfWidthLng = Math.abs(ne.longitude - sw.longitude) / 2;
+      const halfHeightLat = Math.abs(ne.latitude - sw.latitude) / 2;
+      const angleRad = (segment.azimuthDegrees || 0) * Math.PI / 180;
+
+      // Build a rotated rectangle polygon approximating the roof segment
+      const polygon = [
+        { dx: -halfWidthLng, dy: -halfHeightLat },
+        { dx: halfWidthLng, dy: -halfHeightLat },
+        { dx: halfWidthLng, dy: halfHeightLat },
+        { dx: -halfWidthLng, dy: halfHeightLat },
+      ].map(({ dx, dy }) => {
+        const rx = dx * Math.cos(angleRad) - dy * Math.sin(angleRad);
+        const ry = dx * Math.sin(angleRad) + dy * Math.cos(angleRad);
+        return {
+          latitude: center.latitude + ry,
+          longitude: center.longitude + rx,
+        };
+      });
+
+      return {
+        centerPoint: center,
+        boundingBox: segment.boundingBox,
+        pitchDegrees: segment.pitchDegrees,
+        azimuthDegrees: segment.azimuthDegrees,
+        planeHeightAtCenterMeters: segment.planeHeightAtCenterMeters,
+        polygon,
+      };
+    })
 
     // Get panel placement from roof segment summaries
     const panelPlacements = bestConfig?.roofSegmentSummaries?.map(summary => ({
@@ -207,7 +255,8 @@ Deno.serve(async (req) => {
       panel_placements: panelPlacements,
       yearly_energy_kwh: bestConfig?.yearlyEnergyDcKwh || 0,
       imagery_date: solarData.imagery?.date,
-      imagery_quality: solarData.imagery?.quality
+      imagery_quality: solarData.imagery?.quality,
+      estimated
     }
 
     console.log('Solar analysis complete:', responseData)
