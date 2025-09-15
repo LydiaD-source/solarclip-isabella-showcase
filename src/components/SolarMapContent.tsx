@@ -20,64 +20,86 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!address) return;
+    if (!address) {
+      setSolarData(null);
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
     setError(null);
 
-    fetch(`/functions/v1/solar-map?address=${encodeURIComponent(address)}`)
-      .then(async (res) => {
+    (async () => {
+      try {
+        const res = await fetch(`/functions/v1/solar-map?address=${encodeURIComponent(address)}`);
         if (!res.ok) {
-          const err = await res.json();
-          throw new Error(err.error || "Failed to fetch solar data");
+          let message = "Failed to fetch solar data";
+          try {
+            const err = await res.json();
+            message = err?.error || err?.message || message;
+          } catch {}
+          throw new Error(message);
         }
-        return res.json();
-      })
-      .then((data) => {
+        const data = await res.json();
         setSolarData({
-          panel_count: data.panel_count ?? 0,
-          capacity_kw: data.capacity_kw ?? 0,
-          rooftop_area_m2: data.rooftop_area_m2 ?? 0,
-          mapsUrl: data.mapsUrl ?? "",
-          coordinates: data.coordinates ?? { lat: 0, lng: 0 },
-          zoom: data.zoom ?? 20,
-          size: data.size ?? "640x640",
+          panel_count: data?.panel_count ?? 0,
+          capacity_kw: data?.capacity_kw ?? 0,
+          rooftop_area_m2: data?.rooftop_area_m2 ?? 0,
+          mapsUrl: data?.mapsUrl ?? "",
+          coordinates: data?.coordinates ?? { lat: 0, lng: 0 },
+          zoom: data?.zoom ?? 20,
+          size: data?.size ?? "640x640",
         });
-      })
-      .catch((err) => {
-        console.error("Solar API fetch error:", err);
-        setError(err.message);
-      })
-      .finally(() => setLoading(false));
+      } catch (e: any) {
+        console.error("Solar API fetch error:", e);
+        setError(e?.message || "Error loading solar data");
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [address]);
+
+  // Safe derived values to avoid any undefined reads
+  const panelCount = solarData?.panel_count ?? 0;
+  const capacityKw = solarData?.capacity_kw ?? 0;
+  const rooftopArea = solarData?.rooftop_area_m2 ?? 0;
+  const mapUrl = solarData?.mapsUrl ?? "";
 
   if (loading) {
     return <div>Loading solar map...</div>;
   }
 
-  if (error) {
+  // Show a graceful error but never crash the UI
+  if (error && !mapUrl) {
     return <div>Error loading solar map: {error}</div>;
   }
 
-  if (!solarData) {
-    return <div>No solar data available.</div>;
-  }
-
   return (
-    <div className="solar-map-container" style={{ textAlign: "center" }}>
-      {solarData.mapsUrl ? (
+    <div className="solar-map-container" style={{ width: "100%", height: "400px" }}>
+      {mapUrl ? (
         <img
-          src={solarData.mapsUrl}
+          src={mapUrl}
           alt="Solar map"
-          style={{ width: "100%", maxWidth: "640px", height: "auto" }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }}
         />
       ) : (
-        <div>No map image available</div>
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          Map unavailable
+        </div>
       )}
+
       <div className="solar-info" style={{ marginTop: "1rem" }}>
-        <p>Estimated Panels: {solarData.panel_count}</p>
-        <p>Capacity: {solarData.capacity_kw} kW</p>
-        <p>Rooftop Area: {solarData.rooftop_area_m2} m²</p>
+        <p>Estimated Panels: {panelCount}</p>
+        <p>Capacity: {capacityKw} kW</p>
+        <p>Rooftop Area: {rooftopArea} m²</p>
       </div>
     </div>
   );
