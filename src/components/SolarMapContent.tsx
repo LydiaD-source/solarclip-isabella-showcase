@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 type SolarData = {
   panel_count: number;
@@ -31,16 +32,13 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
 
     (async () => {
       try {
-        const res = await fetch(`/functions/v1/solar-map?address=${encodeURIComponent(address)}`);
-        if (!res.ok) {
-          let message = "Failed to fetch solar data";
-          try {
-            const err = await res.json();
-            message = err?.error || err?.message || message;
-          } catch {}
-          throw new Error(message);
+        const { data, error: fnError } = await supabase.functions.invoke('solar-map', {
+          body: { address }
+        });
+        if (fnError) {
+          throw fnError;
         }
-        const data = await res.json();
+        console.log('Solar analysis response:', data);
         setSolarData({
           panel_count: data?.panel_count ?? 0,
           capacity_kw: data?.capacity_kw ?? 0,
