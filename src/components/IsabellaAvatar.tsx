@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { MessageCircle, Volume2, FileText, Calculator } from 'lucide-react';
+import { MessageCircle, Volume2, VolumeX, Mic, MicOff, FileText, Calculator, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
 // Using approved Cloudinary image for Isabella Navia
 const isabellaNavia = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
 
@@ -13,6 +14,21 @@ interface IsabellaAvatarProps {
 export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAvatarProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [inputText, setInputText] = useState('');
+  
+  const {
+    messages,
+    isProcessing,
+    isSpeakerEnabled,
+    isMicEnabled,
+    isListening,
+    sendMessage,
+    sendGreeting,
+    startListening,
+    toggleSpeaker,
+    toggleMicrophone,
+    initializeAudio,
+  } = useWellnessGeniChat();
 
   useEffect(() => {
     // Auto-play greeting animation on mount
@@ -27,15 +43,36 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
       setShowTooltip(true);
     }, 12000);
 
+    // Send auto-greeting after page load
+    const greetingTimer = setTimeout(() => {
+      sendGreeting();
+    }, 2000);
+
     return () => {
       clearTimeout(timer);
       clearTimeout(tooltipTimer);
+      clearTimeout(greetingTimer);
     };
-  }, []);
+  }, [sendGreeting]);
 
-  const handleChatToggle = () => {
+  const handleChatToggle = async () => {
     setShowTooltip(false); // Hide tooltip after first interaction
+    // Initialize audio context to bypass browser restrictions
+    await initializeAudio();
     onChatToggle?.();
+  };
+
+  const handleSendMessage = async () => {
+    if (inputText.trim()) {
+      await sendMessage(inputText);
+      setInputText('');
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleSendMessage();
+    }
   };
 
   return (
@@ -86,32 +123,68 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
             </div>
           </div>
 
-          <div className="p-4 flex-1">
-            <div className="space-y-3">
-              <div className="bg-secondary/50 rounded-lg p-3">
-                <p className="text-sm text-foreground">
-                  Hello! I'm Isabella Navia, ClearNanoTech's ambassador for SolarClip™. I'm here to answer any questions about our company and our product. Let's explore the future of solar together.
-                </p>
+          <div className="p-4 flex-1 flex flex-col">
+            {/* Voice Controls */}
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex gap-2">
+                <Button
+                  variant={isSpeakerEnabled ? "default" : "outline"}
+                  size="sm"
+                  onClick={toggleSpeaker}
+                  className="h-8 w-8 p-0"
+                >
+                  {isSpeakerEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </Button>
+                <Button
+                  variant={isMicEnabled ? "default" : "outline"}
+                  size="sm"
+                  onClick={toggleMicrophone}
+                  className="h-8 w-8 p-0"
+                >
+                  {isMicEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
+                </Button>
+                {isMicEnabled && (
+                  <Button
+                    variant={isListening ? "destructive" : "secondary"}
+                    size="sm"
+                    onClick={startListening}
+                    disabled={isListening}
+                    className="text-xs px-2"
+                  >
+                    {isListening ? "Listening..." : "Talk"}
+                  </Button>
+                )}
               </div>
+            </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="outline" size="sm" className="h-auto flex-col gap-1 p-3">
-                  <Calculator className="w-4 h-4" />
-                  <span className="text-xs">Get Quote</span>
-                </Button>
-                <Button variant="outline" size="sm" className="h-auto flex-col gap-1 p-3">
-                  <FileText className="w-4 h-4" />
-                  <span className="text-xs">Guides</span>
-                </Button>
-                <Button variant="outline" size="sm" className="h-auto flex-col gap-1 p-3">
-                  <Volume2 className="w-4 h-4" />
-                  <span className="text-xs">Voice Chat</span>
-                </Button>
-                <Button variant="outline" size="sm" className="h-auto flex-col gap-1 p-3">
-                  <MessageCircle className="w-4 h-4" />
-                  <span className="text-xs">Text Chat</span>
-                </Button>
-              </div>
+            {/* Messages */}
+            <div className="flex-1 space-y-3 max-h-60 overflow-y-auto">
+              {messages.length === 0 && (
+                <div className="bg-secondary/50 rounded-lg p-3">
+                  <p className="text-sm text-foreground">
+                    Hello! I'm Isabella Navia, ClearNanoTech's ambassador for SolarClip™. I'm here to answer any questions about our company and our product. Let's explore the future of solar together.
+                  </p>
+                </div>
+              )}
+              
+              {messages.map((message) => (
+                <div
+                  key={message.id}
+                  className={`rounded-lg p-3 ${
+                    message.sender === 'user'
+                      ? 'bg-primary/10 ml-4'
+                      : 'bg-secondary/50 mr-4'
+                  }`}
+                >
+                  <p className="text-sm text-foreground">{message.text}</p>
+                </div>
+              ))}
+              
+              {isProcessing && (
+                <div className="bg-secondary/50 rounded-lg p-3 mr-4">
+                  <p className="text-sm text-muted-foreground">Isabella is thinking...</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -121,9 +194,18 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
                 type="text" 
                 placeholder="Ask me about SolarClip™..." 
                 className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background"
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={isProcessing}
               />
-              <Button size="sm" variant="default">
-                Send
+              <Button 
+                size="sm" 
+                variant="default" 
+                onClick={handleSendMessage}
+                disabled={isProcessing || !inputText.trim()}
+              >
+                <Send className="w-4 h-4" />
               </Button>
             </div>
           </div>
