@@ -24,6 +24,19 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
   const [isExpandingToFullscreen, setIsExpandingToFullscreen] = useState(false);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [embedImgError, setEmbedImgError] = useState(false);
+  
+  // State for dynamic embed URL fallback
+  const [embedSrc, setEmbedSrc] = useState<string>('');
+  
+  // Update embed source when card content changes
+  useEffect(() => {
+    const content: any = (card as any)?.content ?? {};
+    const baseEmbed: string = String(
+      content.mapsUrl || content.embed_url || content.embedUrl || content.url || ''
+    );
+    setEmbedSrc(baseEmbed);
+    setEmbedImgError(false);
+  }, [card]);
 
   useEffect(() => {
     // Trigger entrance animation
@@ -100,53 +113,43 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         );
 
       case 'google_solar':
-        {
+        if (embedSrc) {
           const content: any = (card as any)?.content ?? {};
-          const baseEmbed: string = String(
-            content.mapsUrl || content.embed_url || content.embedUrl || content.url || ''
+          return (
+            <div className="w-full h-full relative bg-muted">
+              <img
+                key={embedSrc}
+                src={embedSrc}
+                alt="Rooftop satellite view for solar analysis"
+                className="w-full h-full object-cover"
+                loading="eager"
+                onError={() => {
+                  if (!embedSrc.includes('mzikfyqzwepnubdsclfd.supabase.co/functions/v1/solar-map-image')) {
+                    try {
+                      const baseEmbed = content.mapsUrl || content.embed_url || content.embedUrl || content.url || '';
+                      const u = new URL(baseEmbed);
+                      const center = u.searchParams.get('center');
+                      let proxied = 'https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/solar-map-image';
+                      if (center) {
+                        proxied += `?center=${encodeURIComponent(center)}`;
+                      } else if (content?.coordinates?.lat && content?.coordinates?.lng) {
+                        proxied += `?lat=${content.coordinates.lat}&lng=${content.coordinates.lng}`;
+                      } else if (content?.summary?.address || content?.address) {
+                        const addr = content.summary?.address || content.address;
+                        proxied += `?address=${encodeURIComponent(addr)}`;
+                      }
+                      console.warn('Falling back to proxied image URL:', proxied);
+                      setEmbedSrc(proxied);
+                      return;
+                    } catch {}
+                  }
+                  console.error('Failed to load embed URL:', embedSrc);
+                }}
+              />
+            </div>
           );
-
-          const [embedSrc, setEmbedSrc] = useState(baseEmbed);
-          useEffect(() => {
-            setEmbedSrc(baseEmbed);
-          }, [baseEmbed]);
-
-          if (baseEmbed) {
-            const projectRef = 'mzikfyqzwepnubdsclfd';
-            return (
-              <div className="w-full h-full relative bg-muted">
-                <img
-                  key={embedSrc}
-                  src={embedSrc}
-                  alt="Rooftop satellite view for solar analysis"
-                  className="w-full h-full object-cover"
-                  loading="eager"
-                  onError={() => {
-                    if (!embedSrc.includes(`${projectRef}.supabase.co/functions/v1/solar-map-image`)) {
-                      try {
-                        const u = new URL(baseEmbed);
-                        const center = u.searchParams.get('center');
-                        let proxied = `https://${projectRef}.supabase.co/functions/v1/solar-map-image`;
-                        if (center) {
-                          proxied += `?center=${encodeURIComponent(center)}`;
-                        } else if (content?.coordinates?.lat && content?.coordinates?.lng) {
-                          proxied += `?lat=${content.coordinates.lat}&lng=${content.coordinates.lng}`;
-                        } else if (content?.summary?.address || content?.address) {
-                          const addr = content.summary?.address || content.address;
-                          proxied += `?address=${encodeURIComponent(addr)}`;
-                        }
-                        console.warn('Falling back to proxied image URL:', proxied);
-                        setEmbedSrc(proxied);
-                        return;
-                      } catch {}
-                    }
-                    console.error('Failed to load embed URL:', embedSrc);
-                  }}
-                />
-              </div>
-            );
-          }
         }
+        // Fallback to internal renderer
         {
           const addr = (card as any)?.content?.address || (card as any)?.content?.summary?.address || '';
           return <SolarMapContent address={addr} />;
