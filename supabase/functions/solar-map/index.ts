@@ -50,17 +50,64 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Parse query parameters
+    // Parse query parameters and optional body
     const url = new URL(req.url)
     const latParam = url.searchParams.get('lat')
     const lngParam = url.searchParams.get('lng')
+    const addressParam = url.searchParams.get('address')
 
-    // Validate required parameters
-    if (!latParam || !lngParam) {
-      console.log('Missing required parameters:', { lat: latParam, lng: lngParam })
+    let lat: number | null = null
+    let lng: number | null = null
+    let address: string | null = addressParam
+
+    // Try to read JSON body for POST requests (and gracefully for others)
+    try {
+      if (req.method !== 'GET') {
+        const body = await req.json().catch(() => null) as Partial<SolarMapRequest & { address?: string }>|null
+        if (body) {
+          if (typeof body.lat === 'number') lat = body.lat
+          if (typeof body.lng === 'number') lng = body.lng
+          if (!address && typeof body.address === 'string') address = body.address
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to parse JSON body:', e)
+    }
+
+    // Use query params if present
+    if (latParam) lat = parseFloat(latParam)
+    if (lngParam) lng = parseFloat(lngParam)
+
+    // If still missing, try geocoding when an address is provided
+    if ((lat === null || lng === null) && address) {
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?${new URLSearchParams({ address, key: GOOGLE_MAPS_API_KEY || '' }).toString()}`
+      console.log('Geocoding address:', { address, geocodeUrl })
+      const geoRes = await fetch(geocodeUrl, { headers: { 'Accept': 'application/json' } })
+      if (!geoRes.ok) {
+        console.error('Geocoding HTTP error:', geoRes.status, geoRes.statusText)
+        return new Response(
+          JSON.stringify({ error: 'Failed to geocode address', status: geoRes.status }),
+          { status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      const geoData = await geoRes.json()
+      if (geoData.status !== 'OK' || !geoData.results?.[0]?.geometry?.location) {
+        console.error('Geocoding returned no results:', geoData.status, geoData.error_message)
+        return new Response(
+          JSON.stringify({ error: 'Address not found', geocodeStatus: geoData.status, message: geoData.error_message }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      lat = geoData.results[0].geometry.location.lat
+      lng = geoData.results[0].geometry.location.lng
+    }
+
+    // Validate we have coordinates
+    if (lat === null || lng === null) {
+      console.log('Missing required parameters after parsing:', { lat, lng, address })
       return new Response(
         JSON.stringify({ 
-          error: 'Missing required parameters: lat and lng are required' 
+          error: 'Missing required parameters: provide lat & lng via query or JSON body, or an address to geocode' 
         }),
         { 
           status: 400, 
@@ -69,11 +116,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Parse coordinates
-    const lat = parseFloat(latParam)
-    const lng = parseFloat(lngParam)
-
-    // Validate coordinates
+    // Validate coordinates range
     if (!validateCoordinates(lat, lng)) {
       console.log('Invalid coordinates:', { lat, lng })
       return new Response(
