@@ -318,6 +318,17 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         )}
       </div>
 
+      {/* Footer Link */}
+      <div className="absolute bottom-4 right-6">
+        <a 
+          href="https://ovelainteractive.com" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="text-sm text-gradient-blue-footer hover:opacity-80 transition-opacity"
+        >
+          Powered by Ovela AI
+        </a>
+      </div>
 
       {/* Video Presentation Area - Reserved Space for Sliding Cards */}
       <div id="video-presentation-area" className="absolute top-1/2 left-8 lg:left-16 transform -translate-y-1/2 w-[350px] h-[250px] pointer-events-none">
