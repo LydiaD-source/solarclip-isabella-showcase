@@ -15,8 +15,8 @@ interface CinematicCardProps {
   onAction?: (action: string, data?: any) => void;
 }
 
-// Import the new SolarMapContent component
-const SolarMapContent = React.lazy(() => import('./SolarMapContent').then(module => ({ default: module.SolarMapContent })));
+// Import the new SolarOverlayMap component
+const SolarOverlayMap = React.lazy(() => import('./SolarOverlayMap'));
 
 export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) => {
   const [isVisible, setIsVisible] = useState(false);
@@ -140,8 +140,8 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         {
           const addr = (card as any)?.content?.address || (card as any)?.content?.summary?.address || '';
           return (
-            <div className="w-full h-full relative bg-muted">
-              <SolarMapContent address={addr} />
+            <div className="w-full h-full relative bg-background">
+              <SolarOverlayMap address={addr} />
             </div>
           );
         }

@@ -5,3 +5,12 @@ verify_jwt = false
 
 [functions.solar-map-image]
 verify_jwt = false
+
+[functions.solar-analysis]
+verify_jwt = false
+
+[functions.submit-lead]
+verify_jwt = false
+
+[functions.isabella-orchestrator]
+verify_jwt = false
