@@ -24,20 +24,23 @@ interface SolarMapContentProps {
 }
 
 export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
-  const summary = card?.content?.summary ?? {
-    annual_kwh: 0,
-    monthly_kwh: new Array(12).fill(0),
-    co2_saved: 0,
-    panel_count: 1,
-    roof_area: 0,
-    max_panels: 1,
-    address: ''
+  // Build a fully safe summary object
+  const rawSummary = (card && (card as any).content && (card as any).content.summary) ? (card as any).content.summary : undefined;
+  const summary = {
+    annual_kwh: Number(rawSummary?.annual_kwh ?? 0),
+    monthly_kwh: Array.isArray(rawSummary?.monthly_kwh) ? rawSummary!.monthly_kwh : new Array(12).fill(0),
+    co2_saved: Number(rawSummary?.co2_saved ?? 0),
+    panel_count: Number(rawSummary?.panel_count ?? 1) || 1,
+    roof_area: Number(rawSummary?.roof_area ?? 0),
+    max_panels: Number(rawSummary?.max_panels ?? 1) || 1,
+    address: String(rawSummary?.address ?? ''),
   };
   const embedUrl = (card as any)?.content?.embed_url || (card as any)?.content?.mapsUrl || (card as any)?.content?.embedUrl || '';
+  const interactive = Boolean((card as any)?.content?.interactive);
   const [adjustedPanels, setAdjustedPanels] = useState<number>(summary.panel_count);
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
   const [iframeError, setIframeError] = useState(false);
-  // Listen for messages from the embed (e.g., missing_bounding_box)
+  
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       try {
