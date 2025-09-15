@@ -87,7 +87,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           {/* Main Headline */}
           <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight hero-text-glow">
             The Future of
-            <span className="block text-gradient-red"> Lightweight Solar</span>
+            <span className="block lw-solar-text" data-text="Lightweight Solar">Lightweight Solar</span>
             is Here.
           </h1>
 
@@ -176,10 +176,10 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             {/* Powered by Ovela AI - Bottom right corner */}
             <div className="absolute -bottom-20 right-0 text-center">
               <a 
-                href="https://ovelinteractive.com" 
+                href="https://ovelainteractive.com" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gradient-blue text-xs font-medium hover:opacity-80 transition-opacity caption-style"
+                className="text-gradient-blue-footer text-sm font-medium hover:opacity-80 transition-opacity caption-style"
               >
                 Powered by Ovela AI
               </a>

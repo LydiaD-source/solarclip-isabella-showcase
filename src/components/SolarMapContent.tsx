@@ -207,36 +207,63 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                   <div className="text-white text-sm">Loading segmentation...</div>
                 </div>
               )}
-              <RoofSegmentationOverlay
-                address={card.content.summary.address || ''}
-                roofSegments={segmentationData?.polygons || (card.content.roof_segments?.map((seg: any) => ({
-                  ...seg,
-                  potential: seg.potential === 'high' || seg.potential === 'medium' || seg.potential === 'low' ? seg.potential : 'medium'
-                })) || [
-                  {
-                    id: 'main-roof',
-                    polygon: [[80, 60], [320, 60], [320, 180], [80, 180]],
-                    potential: 'high',
-                    panelCount: Math.floor(adjustedPanels * 0.7)
-                  },
-                  {
-                    id: 'side-roof', 
-                    polygon: [[320, 80], [380, 80], [380, 160], [320, 160]],
-                    potential: 'medium',
-                    panelCount: Math.floor(adjustedPanels * 0.2)
-                  },
-                  {
-                    id: 'small-section',
-                    polygon: [[60, 180], [140, 180], [140, 220], [60, 220]],
-                    potential: 'low',
-                    panelCount: Math.floor(adjustedPanels * 0.1)
+              {(() => {
+                const segs = segmentationData?.polygons;
+                let overlaySegments = segs;
+                if (segs && segs.length > 0) {
+                  const isLatLng = Math.abs(segs[0].polygon?.[0]?.[0]) <= 180 && Math.abs(segs[0].polygon?.[0]?.[1]) <= 90;
+                  if (isLatLng) {
+                    const allPts = segs.flatMap((s: any) => s.polygon);
+                    const lons = allPts.map((p: any) => p[0]);
+                    const lats = allPts.map((p: any) => p[1]);
+                    const minLon = Math.min(...lons);
+                    const maxLon = Math.max(...lons);
+                    const minLat = Math.min(...lats);
+                    const maxLat = Math.max(...lats);
+                    const dx = Math.max(1e-6, maxLon - minLon);
+                    const dy = Math.max(1e-6, maxLat - minLat);
+                    overlaySegments = segs.map((s: any) => ({
+                      ...s,
+                      polygon: s.polygon.map(([lon, lat]: [number, number]) => [
+                        ((lon - minLon) / dx) * 400,
+                        ((maxLat - lat) / dy) * 300,
+                      ]),
+                    }));
                   }
-                ])}
-                onSegmentClick={(segment) => {
-                  console.log('Clicked segment:', segment);
-                  onAction?.('segment_selected', segment);
-                }}
-              />
+                }
+                return (
+                  <RoofSegmentationOverlay
+                    address={card.content.summary.address || ''}
+                    roofSegments={overlaySegments || (card.content.roof_segments?.map((seg: any) => ({
+                      ...seg,
+                      potential: seg.potential === 'high' || seg.potential === 'medium' || seg.potential === 'low' ? seg.potential : 'medium'
+                    })) || [
+                      {
+                        id: 'main-roof',
+                        polygon: [[80, 60], [320, 60], [320, 180], [80, 180]],
+                        potential: 'high',
+                        panelCount: Math.floor(adjustedPanels * 0.7)
+                      },
+                      {
+                        id: 'side-roof', 
+                        polygon: [[320, 80], [380, 80], [380, 160], [320, 160]],
+                        potential: 'medium',
+                        panelCount: Math.floor(adjustedPanels * 0.2)
+                      },
+                      {
+                        id: 'small-section',
+                        polygon: [[60, 180], [140, 180], [140, 220], [60, 220]],
+                        potential: 'low',
+                        panelCount: Math.floor(adjustedPanels * 0.1)
+                      }
+                    ])}
+                    onSegmentClick={(segment) => {
+                      console.log('Clicked segment:', segment);
+                      onAction?.('segment_selected', segment);
+                    }}
+                  />
+                );
+              })()}
               
               {/* Overlay with current stats */}
               <div className="absolute top-2 left-2 bg-white/95 dark:bg-black/95 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm">
