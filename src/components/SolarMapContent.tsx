@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Plus, Minus, Maximize2, ArrowLeft } from 'lucide-react';
+import { RoofSegmentationOverlay } from './RoofSegmentationOverlay';
 
 interface SolarMapContentProps {
   card: {
@@ -151,15 +152,34 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
               </Button>
             </div>
 
-            {/* Embedded Google Solar Map */}
-            <div className="relative w-full h-64 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
-              <iframe
-                src={card.content.embed_url}
-                className="w-full h-full border-0"
-                title="Interactive Solar Roof Map"
-                loading="lazy"
-                allow="geolocation"
-                style={{ minHeight: '250px' }}
+            {/* Enhanced Roof Segmentation Map */}
+            <div className="relative w-full bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
+              <RoofSegmentationOverlay
+                address={card.content.summary.address || ''}
+                roofSegments={[
+                  {
+                    id: 'main-roof',
+                    polygon: [[80, 60], [320, 60], [320, 180], [80, 180]],
+                    potential: 'high',
+                    panelCount: Math.floor(adjustedPanels * 0.7)
+                  },
+                  {
+                    id: 'side-roof',
+                    polygon: [[320, 80], [380, 80], [380, 160], [320, 160]],
+                    potential: 'medium',
+                    panelCount: Math.floor(adjustedPanels * 0.2)
+                  },
+                  {
+                    id: 'small-section',
+                    polygon: [[60, 180], [140, 180], [140, 220], [60, 220]],
+                    potential: 'low',
+                    panelCount: Math.floor(adjustedPanels * 0.1)
+                  }
+                ]}
+                onSegmentClick={(segment) => {
+                  console.log('Clicked segment:', segment);
+                  onAction?.('segment_selected', segment);
+                }}
               />
               
               {/* Overlay with current stats */}

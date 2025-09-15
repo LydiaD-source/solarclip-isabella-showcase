@@ -87,7 +87,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           {/* Main Headline */}
           <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight hero-text-glow">
             The Future of
-            <span className="block text-gradient"> Lightweight Solar</span>
+            <span className="block text-gradient-red"> Lightweight Solar</span>
             is Here.
           </h1>
 
@@ -153,7 +153,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                     style={{ transform: 'scale(1.15)' }}
                   >
                     <Play className="mr-2 w-5 h-5" />
-                    Meet Isabella
+                    Start Assistant
                   </Button>
                   <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
                 </div>
@@ -166,16 +166,28 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                     style={{ transform: 'scale(1.15)' }}
                   >
                     <Play className="mr-2 w-5 h-5" />
-                    Meet Isabella
+                    Start Assistant
                   </Button>
                   <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
                 </div>
               </>
             )}
             
+            {/* Powered by Ovela AI */}
+            <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 text-center">
+              <a 
+                href="https://ovelainteractive.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-gradient-blue text-sm font-medium hover:opacity-80 transition-opacity"
+              >
+                Powered by Ovela AI
+              </a>
+            </div>
+            
             {/* Hover Tooltip */}
             {!isExpanded && !showMeetButton && (
-              <div className="absolute -bottom-12 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 text-white text-sm border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <div className="absolute -bottom-32 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 text-white text-sm border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                 Click to talk with Isabella
               </div>
             )}
