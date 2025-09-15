@@ -276,7 +276,10 @@ serve(async (req) => {
       async function fetchDataLayers(rad: number) {
         const url = `https://solar.googleapis.com/v1/dataLayers:compute?key=${GOOGLE_SOLAR_KEY}`;
         const body = {
-          location: { latitude: location.lat, longitude: location.lng },
+          location: { 
+            latitude: location.lat, 
+            longitude: location.lng 
+          },
           radiusMeters: rad,
           requiredQuality: "HIGH",
           view: "DATA_LAYERS"
@@ -287,13 +290,15 @@ serve(async (req) => {
 
         const res = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+          headers: { 
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
         });
 
         if (!res.ok) {
           const text = await res.text();
-          console.error("[solar-map] Google error:", res.status, text.slice(0, 500));
+          console.error("[solar-map] Google error:", res.status, "URL:", res.url, "Response:", text.slice(0, 500));
           return { ok: false, json: null };
         }
 
