@@ -101,7 +101,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     setAdjustedPanels(next);
     onAction?.('adjust_panels', {
       panel_count: next,
-      annual_kwh: Math.round((Number(solarData.summary.annual_kwh) || 0) * (originalPanels ? next / originalPanels : 0)),
+      annual_kwh: Math.round((Number(solarData.summary?.annual_kwh ?? 0)) * (originalPanels ? next / originalPanels : 0)),
     });
   };
 
@@ -228,29 +228,15 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             {/* 5) Render map safely using solarData */}
             <div className="relative w-full h-80 md:h-96 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
               {solarData.mapsUrl ? (
-                /staticmap|\.(png|jpg|jpeg|webp)(\?|$)/i.test(solarData.mapsUrl) ? (
-                  <img
-                    src={solarData.mapsUrl}
-                    alt="Rooftop satellite view for solar analysis"
-                    className="w-full h-full object-cover"
-                    loading="eager"
-                    referrerPolicy="no-referrer"
-                    onError={() => setImageError(true)}
-                    onLoad={() => setImageError(false)}
-                  />
-                ) : (
-                  <iframe
-                    src={solarData.mapsUrl}
-                    className="w-full h-full border-0"
-                    title="Interactive Solar Roof Map"
-                    loading="lazy"
-                    allow="geolocation"
-                    style={{ minHeight: '250px' }}
-                    onLoad={() => setIframeError(false)}
-                    onError={() => setIframeError(true)}
-                    sandbox="allow-scripts allow-same-origin"
-                  />
-                )
+                <img
+                  src={solarData.mapsUrl}
+                  alt="Rooftop satellite view for solar analysis"
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                  referrerPolicy="no-referrer"
+                  onError={() => setImageError(true)}
+                  onLoad={() => setImageError(false)}
+                />
               ) : (
                 <div 
                   style={{ width: '100%', height: '100%', backgroundColor: '#ccc' }}

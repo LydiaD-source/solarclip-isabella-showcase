@@ -94,37 +94,21 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         );
 
       case 'google_solar':
-        // Prefer static image maps when available; guard content access
+        // Prefer static images. If embed URL exists, render as <img> only.
         {
           const content: any = (card as any)?.content ?? {};
           const embed: string = String(
             content.mapsUrl || content.embed_url || content.embedUrl || content.url || ''
           );
           if (embed) {
-            const isStaticImage = embed.includes('staticmap') || /\.(png|jpg|jpeg|webp)(\?|$)/i.test(embed);
-            if (isStaticImage) {
-              return (
-                <div className="w-full h-full relative bg-muted">
-                  <img
-                    src={embed}
-                    alt="Rooftop satellite view for solar analysis"
-                    className="w-full h-full object-cover"
-                    loading="eager"
-                    referrerPolicy="no-referrer"
-                  />
-                </div>
-              );
-            }
             return (
-              <div className="w-full h-full relative">
-                <iframe
+              <div className="w-full h-full relative bg-muted">
+                <img
                   src={embed}
-                  className="w-full h-full border-0"
-                  title="Interactive Solar Map"
+                  alt="Rooftop satellite view for solar analysis"
+                  className="w-full h-full object-cover"
                   loading="eager"
-                  allow="geolocation"
                   referrerPolicy="no-referrer"
-                  sandbox="allow-scripts allow-same-origin"
                 />
               </div>
             );
