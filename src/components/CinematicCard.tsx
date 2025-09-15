@@ -115,12 +115,10 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
           }
         }
         // Fallback to internal renderer with safe handling
-        return (
-          <SolarMapContent 
-            card={card} 
-            onAction={onAction}
-          />
-        );
+        {
+          const addr = (card as any)?.content?.address || (card as any)?.content?.summary?.address || '';
+          return <SolarMapContent address={addr} />;
+        }
 
       case 'lead_form':
         return (
