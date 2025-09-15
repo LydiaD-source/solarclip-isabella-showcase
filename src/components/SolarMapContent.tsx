@@ -31,7 +31,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     interactive: false
   };
 
-  const [solarData, setSolarData] = useState(safeSolarData);
+  const [solarData, setSolarData] = useState<typeof safeSolarData | undefined>(undefined);
   const [adjustedPanels, setAdjustedPanels] = useState(0);
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
   const [iframeError, setIframeError] = useState(false);
@@ -41,26 +41,28 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
   useEffect(() => {
     if (card?.content) {
       setSolarData(prev => {
+        const base = prev ?? safeSolarData;
+        const content = card.content || {};
         const merged = {
-          ...prev,
-          ...card.content,
+          ...base,
+          ...content,
           // Normalize field names
-          mapsUrl: card.content.mapsUrl || card.content.embed_url || card.content.embedUrl || prev.mapsUrl,
-          panel_count: Number(card.content.panel_count ?? card.content.summary?.panel_count ?? prev.panel_count) || 0,
-          capacity_kw: Number(card.content.capacity_kw ?? prev.capacity_kw) || 0,
-          rooftop_area_m2: Number(card.content.rooftop_area_m2 ?? card.content.summary?.roof_area ?? prev.rooftop_area_m2) || 0,
-          coordinates: card.content.coordinates ?? prev.coordinates,
+          mapsUrl: content.mapsUrl || content.embed_url || content.embedUrl || base.mapsUrl,
+          panel_count: Number(content.panel_count ?? content.summary?.panel_count ?? base.panel_count) || 0,
+          capacity_kw: Number(content.capacity_kw ?? base.capacity_kw) || 0,
+          rooftop_area_m2: Number(content.rooftop_area_m2 ?? content.summary?.roof_area ?? base.rooftop_area_m2) || 0,
+          coordinates: content.coordinates ?? base.coordinates,
           summary: {
-            ...prev.summary,
-            ...(card.content.summary ?? {}),
-            annual_kwh: Number(card.content.summary?.annual_kwh ?? prev.summary.annual_kwh) || 0,
-            co2_saved: Number(card.content.summary?.co2_saved ?? prev.summary.co2_saved) || 0,
-            panel_count: Number(card.content.summary?.panel_count ?? card.content.panel_count ?? prev.summary.panel_count) || 0,
-            roof_area: Number(card.content.summary?.roof_area ?? card.content.rooftop_area_m2 ?? prev.summary.roof_area) || 0,
-            max_panels: Number(card.content.summary?.max_panels ?? (card.content.panel_count || 10) * 2 ?? prev.summary.max_panels) || 20,
-            address: String(card.content.summary?.address ?? prev.summary.address)
+            ...base.summary,
+            ...(content.summary ?? {}),
+            annual_kwh: Number(content.summary?.annual_kwh ?? base.summary.annual_kwh) || 0,
+            co2_saved: Number(content.summary?.co2_saved ?? base.summary.co2_saved) || 0,
+            panel_count: Number(content.summary?.panel_count ?? content.panel_count ?? base.summary.panel_count) || 0,
+            roof_area: Number(content.summary?.roof_area ?? content.rooftop_area_m2 ?? base.summary.roof_area) || 0,
+            max_panels: Number(content.summary?.max_panels ?? (content.panel_count || 10) * 2 ?? base.summary.max_panels) || 20,
+            address: String(content.summary?.address ?? base.summary.address)
           },
-          interactive: Boolean(card.content.interactive ?? prev.interactive)
+          interactive: Boolean(content.interactive ?? base.interactive)
         };
         return merged;
       });
@@ -89,11 +91,22 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
-  const originalPanels = Math.max(1, Number(solarData.panel_count ?? solarData.summary?.panel_count ?? 0) || 1);
-  const maxPanels = Math.max(originalPanels, Number(solarData.summary?.max_panels ?? originalPanels * 2) || originalPanels * 2);
+  // Loading fallback if data not yet available
+  if (!solarData) {
+    return (<div>Loading solar map...</div>);
+  }
+
+  // Safe derived reads from solarData
+  const panelCount = solarData?.panel_count ?? solarData?.summary?.panel_count ?? 0;
+  const capacityKw = solarData?.capacity_kw ?? 0;
+  const rooftopArea = solarData?.rooftop_area_m2 ?? solarData?.summary?.roof_area ?? 0;
+  const mapUrl = solarData?.mapsUrl ?? '';
+
+  const originalPanels = Math.max(1, Number(panelCount) || 1);
+  const maxPanels = Math.max(originalPanels, Number(solarData?.summary?.max_panels ?? originalPanels * 2) || originalPanels * 2);
   const panelRatio = originalPanels > 0 ? Math.max(0, adjustedPanels) / originalPanels : 0;
-  const adjustedAnnualKwh = Math.round((Number(solarData.summary?.annual_kwh ?? 0)) * panelRatio);
-  const adjustedCo2Saved = Math.round((Number(solarData.summary?.co2_saved ?? 0)) * panelRatio);
+  const adjustedAnnualKwh = Math.round((Number(solarData?.summary?.annual_kwh ?? 0)) * panelRatio);
+  const adjustedCo2Saved = Math.round((Number(solarData?.summary?.co2_saved ?? 0)) * panelRatio);
   const adjustedMonthlyAvg = Math.round(adjustedAnnualKwh / 12);
 
   const handlePanelAdjustment = (change: number) => {
@@ -124,11 +137,11 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             <div className="space-y-2">
               <p className="text-muted-foreground">
                 <strong className="text-foreground">Panels:</strong><br />
-                {(solarData.panel_count ?? solarData.summary?.panel_count ?? 0)}
+                {panelCount}
               </p>
               <p className="text-muted-foreground">
                 <strong className="text-foreground">Capacity:</strong><br />
-                {solarData.capacity_kw} kW
+                {capacityKw} kW
               </p>
             </div>
           </div>
@@ -137,7 +150,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             <div className="space-y-2">
               <p className="text-muted-foreground">
                 <strong className="text-foreground">Roof Area:</strong><br />
-                {(solarData.rooftop_area_m2 ?? solarData.summary?.roof_area ?? 0)} m²
+                {rooftopArea} m²
               </p>
             </div>
             <div className="space-y-2">
@@ -229,8 +242,8 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             <div className="relative w-full h-80 md:h-96 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
               {solarData.mapsUrl ? (
                 <img
-                  src={solarData.mapsUrl}
-                  alt="Rooftop satellite view for solar analysis"
+                  src={mapUrl}
+                  alt="Solar map"
                   className="w-full h-full object-cover"
                   loading="eager"
                   referrerPolicy="no-referrer"
@@ -293,8 +306,8 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                 variant="outline" 
                 size="sm"
                 className="gap-1"
-                onClick={() => solarData.mapsUrl && window.open(solarData.mapsUrl, '_blank')}
-                disabled={!solarData.mapsUrl}
+                onClick={() => mapUrl && window.open(mapUrl, '_blank')}
+                disabled={!mapUrl}
               >
                 <ExternalLink className="h-3 w-3" />
                 Full Map
