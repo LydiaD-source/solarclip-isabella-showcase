@@ -69,8 +69,8 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
 
   // Update adjusted panels when solarData changes
   useEffect(() => {
-    setAdjustedPanels(solarData.panel_count || solarData.summary.panel_count || 0);
-  }, [solarData.panel_count, solarData.summary.panel_count]);
+    setAdjustedPanels((solarData?.panel_count ?? solarData?.summary?.panel_count ?? 0) as number);
+  }, [solarData]);
 
   // 3) Log for debugging
   useEffect(() => {
@@ -89,12 +89,11 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     return () => window.removeEventListener('message', onMessage);
   }, []);
 
-  // 4) All calculations use solarData, never card.content
-  const originalPanels = Math.max(1, Number(solarData.panel_count || solarData.summary.panel_count) || 1);
-  const maxPanels = Math.max(originalPanels, Number(solarData.summary.max_panels) || originalPanels * 2);
+  const originalPanels = Math.max(1, Number(solarData.panel_count ?? solarData.summary?.panel_count ?? 0) || 1);
+  const maxPanels = Math.max(originalPanels, Number(solarData.summary?.max_panels ?? originalPanels * 2) || originalPanels * 2);
   const panelRatio = originalPanels > 0 ? Math.max(0, adjustedPanels) / originalPanels : 0;
-  const adjustedAnnualKwh = Math.round((Number(solarData.summary.annual_kwh) || 0) * panelRatio);
-  const adjustedCo2Saved = Math.round((Number(solarData.summary.co2_saved) || 0) * panelRatio);
+  const adjustedAnnualKwh = Math.round((Number(solarData.summary?.annual_kwh ?? 0)) * panelRatio);
+  const adjustedCo2Saved = Math.round((Number(solarData.summary?.co2_saved ?? 0)) * panelRatio);
   const adjustedMonthlyAvg = Math.round(adjustedAnnualKwh / 12);
 
   const handlePanelAdjustment = (change: number) => {
@@ -125,7 +124,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             <div className="space-y-2">
               <p className="text-muted-foreground">
                 <strong className="text-foreground">Panels:</strong><br />
-                {solarData.panel_count || solarData.summary.panel_count}
+                {(solarData.panel_count ?? solarData.summary?.panel_count ?? 0)}
               </p>
               <p className="text-muted-foreground">
                 <strong className="text-foreground">Capacity:</strong><br />
@@ -138,7 +137,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             <div className="space-y-2">
               <p className="text-muted-foreground">
                 <strong className="text-foreground">Roof Area:</strong><br />
-                {solarData.rooftop_area_m2 || solarData.summary.roof_area} m²
+                {(solarData.rooftop_area_m2 ?? solarData.summary?.roof_area ?? 0)} m²
               </p>
             </div>
             <div className="space-y-2">
@@ -197,7 +196,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
               onClick={() => onAction?.('request_quote', { 
                 panel_count: adjustedPanels, 
                 annual_kwh: adjustedAnnualKwh,
-                address: solarData.summary.address
+                address: solarData.summary?.address || ''
               })}
             >
               Get Quote for {adjustedPanels} Panels
@@ -213,7 +212,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
               <div>
                 <h3 className="font-semibold text-sm">Interactive Solar Map</h3>
                 <p className="text-xs text-muted-foreground">
-                  {solarData.summary.address || 'Your roof with solar panels'}
+                  {solarData.summary?.address || 'Your roof with solar panels'}
                 </p>
               </div>
               <Button 
@@ -320,7 +319,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                 onClick={() => onAction?.('request_quote', { 
                   panel_count: adjustedPanels, 
                   annual_kwh: adjustedAnnualKwh,
-                  address: solarData.summary.address
+                  address: solarData.summary?.address || ''
                 })}
               >
                 Get Quote
