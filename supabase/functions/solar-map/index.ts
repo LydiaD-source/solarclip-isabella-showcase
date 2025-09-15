@@ -46,30 +46,50 @@ serve(async (req) => {
     const origin = `${url.protocol}//${url.host}`;
 
     const body = await req.json().catch(() => ({}));
-    const qAddress = url.searchParams.get('address') || undefined;
+    const q = new URL(req.url).searchParams;
+    const qAddress = q.get('address') || undefined;
+    const latParam = q.get('lat');
+    const lngParam = q.get('lng');
     const address: string | undefined = req.method === 'GET' ? qAddress : (body?.address);
 
-    if (!address) {
-      throw new Error("Address is required");
+    // Debug: verify env var injection for Google keys
+    const solarKey = Deno.env.get("GOOGLE_SOLAR_API_KEY") || "";
+    const mapsKey = Deno.env.get("GOOGLE_MAPS_API_KEY") || "";
+    console.log("[solar-map] GOOGLE_SOLAR_KEY length:", solarKey ? String(solarKey.length) : "undefined");
+    console.log("[solar-map] GOOGLE_MAPS_KEY length:", mapsKey ? String(mapsKey.length) : "undefined");
+
+    const googleApiKey = mapsKey || solarKey;
+    if (!googleApiKey) throw new Error("Google Maps/Solar API key not configured");
+
+    let location: { lat: number; lng: number };
+    let formattedAddress: string | undefined = address;
+    let viewport: any = null;
+
+    // Support direct lat/lng testing (bypass geocoding)
+    if (latParam && lngParam && !isNaN(parseFloat(latParam)) && !isNaN(parseFloat(lngParam))) {
+      location = { lat: parseFloat(latParam), lng: parseFloat(lngParam) };
+      formattedAddress = formattedAddress || `${location.lat}, ${location.lng}`;
+      console.info("[solar-map] Using provided lat/lng:", location);
+    } else {
+      if (!address) {
+        throw new Error("Address is required");
+      }
+
+      console.info("[solar-map] Geocoding address:", address);
+
+      // 1) Geocoding to coordinates
+      const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${googleApiKey}`;
+      const geocodeResponse = await fetch(geocodeUrl);
+      if (!geocodeResponse.ok) throw new Error(`Geocoding failed: ${geocodeResponse.status}`);
+      const geocodeData = await geocodeResponse.json();
+      if (geocodeData.status !== "OK" || !geocodeData.results?.length) throw new Error("Address not found");
+
+      location = geocodeData.results[0].geometry.location;
+      formattedAddress = geocodeData.results[0].formatted_address;
+      viewport = geocodeData.results[0].geometry.viewport || null;
+
+      console.info("[solar-map] Geocoded:", formattedAddress, location, viewport ? "with viewport" : "no viewport");
     }
-
-    const googleApiKey = Deno.env.get("GOOGLE_MAPS_API_KEY") || Deno.env.get("GOOGLE_SOLAR_API_KEY");
-    if (!googleApiKey) throw new Error("Google Maps API key not configured");
-
-    console.info("[solar-map] Geocoding address:", address);
-
-    // 1) Geocoding to coordinates
-    const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${googleApiKey}`;
-    const geocodeResponse = await fetch(geocodeUrl);
-    if (!geocodeResponse.ok) throw new Error(`Geocoding failed: ${geocodeResponse.status}`);
-    const geocodeData = await geocodeResponse.json();
-    if (geocodeData.status !== "OK" || !geocodeData.results?.length) throw new Error("Address not found");
-
-    const location = geocodeData.results[0].geometry.location;
-    const formattedAddress = geocodeData.results[0].formatted_address;
-    const viewport = geocodeData.results[0].geometry.viewport || null;
-
-    console.info("[solar-map] Geocoded:", formattedAddress, location, viewport ? "with viewport" : "no viewport");
 
     // 2) Google Solar API - Building Insights (closest)
     const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&key=${googleApiKey}`;
