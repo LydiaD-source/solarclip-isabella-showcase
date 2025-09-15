@@ -24,35 +24,50 @@ interface SolarMapContentProps {
 }
 
 export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
-  // Log received data to aid debugging
-  try {
-    console.log('SolarMapContent received card:', JSON.stringify(card, null, 2));
-  } catch {}
-  
-  // Build a fully safe summary object
-  const rawSummary = (card && (card as any).content && (card as any).content.summary) ? (card as any).content.summary : undefined;
-  const summary = {
-    annual_kwh: Number(rawSummary?.annual_kwh ?? 0),
-    monthly_kwh: Array.isArray(rawSummary?.monthly_kwh) ? rawSummary!.monthly_kwh : new Array(12).fill(0),
-    co2_saved: Number(rawSummary?.co2_saved ?? 0),
-    panel_count: Number(rawSummary?.panel_count ?? 1) || 1,
-    roof_area: Number(rawSummary?.roof_area ?? 0),
-    max_panels: Number(rawSummary?.max_panels ?? 1) || 1,
-    address: String(rawSummary?.address ?? ''),
+  // 1) Safe defaults to guarantee stability
+  const initialSafe = {
+    panel_count: 0,
+    capacity_kw: 0,
+    rooftop_area_m2: 0,
+    mapsUrl: '',
+    coordinates: { lat: 0, lng: 0 },
+    zoom: 20 as number,
+    size: '640x640',
   };
-  const embedUrl = (card as any)?.content?.embed_url || (card as any)?.content?.mapsUrl || (card as any)?.content?.embedUrl || '';
-  const interactive = Boolean((card as any)?.content?.interactive);
-  const safeSolarData = {
-    panel_count: Number((card as any)?.content?.summary?.panel_count ?? 1) || 1,
-    panels: (card as any)?.content?.roof_segments ?? [],
-    coordinates: (card as any)?.content?.coordinates ?? { lat: 0, lng: 0 },
-    embed_url: embedUrl,
-    summary: (card as any)?.content?.summaryText ?? 'No solar data available'
-  };
-  const [adjustedPanels, setAdjustedPanels] = useState<number>(safeSolarData.panel_count);
+
+  // 2) Local state – never read directly from props
+  const [solarData, setSolarData] = useState<typeof initialSafe>(initialSafe);
+  const [adjustedPanels, setAdjustedPanels] = useState<number>(0);
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
   const [iframeError, setIframeError] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const backendContent = (card as any)?.content ?? {};
+
+  // 3) Merge backend response into safe defaults on mount/update
+  useEffect(() => {
+    const merged = {
+      ...initialSafe,
+      ...backendContent,
+      // Normalize field names
+      mapsUrl: backendContent.mapsUrl || backendContent.embed_url || backendContent.embedUrl || '',
+      coordinates: backendContent.coordinates ?? initialSafe.coordinates,
+    };
+
+    // Ensure numeric fields are present
+    merged.panel_count = Number(backendContent.panel_count ?? backendContent.summary?.panel_count ?? 0) || 0;
+    merged.capacity_kw = Number(backendContent.capacity_kw ?? 0) || 0;
+    merged.rooftop_area_m2 = Number(backendContent.rooftop_area_m2 ?? backendContent.summary?.roof_area ?? 0) || 0;
+
+    setSolarData(merged);
+    setAdjustedPanels(merged.panel_count);
+
+    try {
+      console.log('Solar analysis response:', JSON.stringify(backendContent, null, 2));
+    } catch {}
+  }, [card]);
   
+  const interactive = Boolean(backendContent?.interactive);
+
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       try {
@@ -65,27 +80,35 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     return () => window.removeEventListener('message', onMessage);
   }, []);
   
-  // Use safeSolarData for all calculations
-  const originalPanels = Math.max(1, Number(summary.panel_count) || 1);
-  const maxPanels = Math.max(originalPanels, Number(summary.max_panels) || originalPanels * 2);
-  
+  // Build a fully safe summary derived from state
+  const summary = {
+    annual_kwh: Number(backendContent?.summary?.annual_kwh ?? 0),
+    monthly_kwh: Array.isArray(backendContent?.summary?.monthly_kwh)
+      ? backendContent.summary.monthly_kwh
+      : new Array(12).fill(0),
+    co2_saved: Number(backendContent?.summary?.co2_saved ?? 0),
+    panel_count: Number(solarData.panel_count ?? 0) || 0,
+    roof_area: Number(backendContent?.summary?.roof_area ?? solarData.rooftop_area_m2 ?? 0) || 0,
+    max_panels: Number(backendContent?.summary?.max_panels ?? (solarData.panel_count || 10) * 2) || 20,
+    address: String(backendContent?.summary?.address ?? ''),
+  };
+
   // Calculate adjusted energy based on panel count
-  const panelRatio = adjustedPanels / originalPanels;
+  const originalPanels = Math.max(1, Number(summary.panel_count) || 1); // prevent divide-by-zero
+  const maxPanels = Math.max(originalPanels, Number(summary.max_panels) || originalPanels * 2);
+  const panelRatio = originalPanels > 0 ? (Math.max(0, adjustedPanels) / originalPanels) : 0;
   const adjustedAnnualKwh = Math.round((Number(summary.annual_kwh) || 0) * panelRatio);
   const adjustedCo2Saved = Math.round((Number(summary.co2_saved) || 0) * panelRatio);
   const adjustedMonthlyAvg = Math.round(adjustedAnnualKwh / 12);
 
   const handlePanelAdjustment = (change: number) => {
-    const newCount = Math.max(1, Math.min(maxPanels, adjustedPanels + change));
-    setAdjustedPanels(newCount);
-    
-    // Trigger action for panel adjustment
-    onAction?.('adjust_panels', { 
-      panel_count: newCount, 
-      annual_kwh: Math.round(summary.annual_kwh * (newCount / originalPanels))
+    const next = Math.max(0, Math.min(maxPanels, (adjustedPanels || 0) + change));
+    setAdjustedPanels(next);
+    onAction?.('adjust_panels', {
+      panel_count: next,
+      annual_kwh: Math.round((Number(summary.annual_kwh) || 0) * (originalPanels ? next / originalPanels : 0)),
     });
   };
-
   return (
     <div className="space-y-4">
       {!showInteractiveMap ? (
@@ -193,21 +216,40 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
 
             {/* Embedded Google Solar Map */}
             <div className="relative w-full h-80 md:h-96 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
-              <iframe
-                src={embedUrl}
-                className="w-full h-full border-0"
-                title="Interactive Solar Roof Map"
-                loading="lazy"
-                allow="geolocation"
-                style={{ minHeight: '250px' }}
-                onLoad={() => setIframeError(false)}
-                onError={() => setIframeError(true)}
-              />
+              {solarData.mapsUrl ? (
+                /staticmap|\.(png|jpg|jpeg|webp)(\?|$)/i.test(solarData.mapsUrl) ? (
+                  <img
+                    src={solarData.mapsUrl}
+                    alt="Rooftop satellite view for solar analysis"
+                    className="w-full h-full object-cover"
+                    loading="eager"
+                    referrerPolicy="no-referrer"
+                    onError={() => setImageError(true)}
+                    onLoad={() => setImageError(false)}
+                  />
+                ) : (
+                  <iframe
+                    src={solarData.mapsUrl}
+                    className="w-full h-full border-0"
+                    title="Interactive Solar Roof Map"
+                    loading="lazy"
+                    allow="geolocation"
+                    style={{ minHeight: '250px' }}
+                    onLoad={() => setIframeError(false)}
+                    onError={() => setIframeError(true)}
+                    sandbox="allow-scripts allow-same-origin"
+                  />
+                )
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                  No map available.
+                </div>
+              )}
 
-              {iframeError && (
+              {(iframeError || imageError) && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm p-3 text-center">
                   <div className="text-xs text-foreground">
-                    Roof segmentation is not available for this location. Please try a different address.
+                    We couldn't load the map preview. Try opening the full map instead.
                   </div>
                 </div>
               )}
