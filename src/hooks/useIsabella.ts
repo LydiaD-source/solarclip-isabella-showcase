@@ -91,31 +91,58 @@ export const useIsabella = (clientId: string = 'solarclip') => {
     addMessage(`Analyzing solar potential for: ${address}`, 'user');
 
     try {
+      // Call the solar-map function with address
       const { data, error } = await supabase.functions.invoke('solar-map', {
         body: {
-          client_id: clientId,
-          address: address,
-          session_id: sessionId
+          address: address.trim()
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Solar analysis error:', error);
+        throw error;
+      }
+
+      console.log('Solar analysis response:', data);
+
+      // Verify we got valid data
+      if (!data || !data.mapsUrl) {
+        throw new Error('Invalid response from solar analysis service');
+      }
+
+      // Create a solar card with the imagery
+      const solarCard: IsabellaCard = {
+        type: 'google_solar',
+        title: `Solar Analysis for ${address}`,
+        content: {
+          address,
+          mapsUrl: data.mapsUrl,
+          coordinates: data.coordinates || {},
+          message: `Here's the satellite view of your property. This shows your rooftop and surrounding area for solar potential analysis.`
+        },
+        animation: 'swoop-left'
+      };
 
       addMessage(
-        `Here's the solar analysis for ${address}. The results show great potential for solar installation!`,
-        'isabella'
+        `Great! I've analyzed the solar potential for ${address}. Here's the satellite imagery of your property:`,
+        'isabella',
+        [solarCard]
       );
 
-      if (data.card) {
-        setCurrentCard(data.card);
-      }
+      setCurrentCard(solarCard);
 
     } catch (error) {
       console.error('Error getting solar analysis:', error);
-      addMessage(
-        "I couldn't retrieve solar data for that address. Please try a different address or contact us directly.",
-        'isabella'
-      );
+      
+      // Show specific error message based on the error
+      let errorMessage = "I couldn't retrieve solar data for that address.";
+      if (error.message?.includes('Address not found')) {
+        errorMessage = "Sorry, I couldn't locate that address. Please try another.";
+      } else if (error.message?.includes('geocode')) {
+        errorMessage = "I had trouble finding that address. Please check the spelling and try again.";
+      }
+      
+      addMessage(errorMessage, 'isabella');
     } finally {
       setIsProcessing(false);
     }
