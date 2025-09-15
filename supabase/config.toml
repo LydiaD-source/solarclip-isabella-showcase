@@ -2,3 +2,6 @@ project_id = "mzikfyqzwepnubdsclfd"
 
 [functions.solar-map]
 verify_jwt = false
+
+[functions.solar-segmentation]
+verify_jwt = false

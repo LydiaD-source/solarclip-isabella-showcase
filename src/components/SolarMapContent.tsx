@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { ExternalLink, Plus, Minus, Maximize2, ArrowLeft } from 'lucide-react';
 import { RoofSegmentationOverlay } from './RoofSegmentationOverlay';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SolarMapContentProps {
   card: {
@@ -15,6 +16,8 @@ interface SolarMapContentProps {
         roof_area: number;
         max_panels?: number;
         address?: string;
+        latitude?: number;
+        longitude?: number;
       };
       embed_url: string;
       interactive?: boolean;
@@ -27,6 +30,51 @@ interface SolarMapContentProps {
 export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
   const [adjustedPanels, setAdjustedPanels] = useState(card.content.summary.panel_count);
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
+  const [segmentationData, setSegmentationData] = useState<any>(null);
+  const [loadingSegmentation, setLoadingSegmentation] = useState(false);
+  
+  // Load segmentation data when switching to interactive map
+  const loadSegmentationData = async () => {
+    if (segmentationData || loadingSegmentation) return;
+    
+    setLoadingSegmentation(true);
+    try {
+      const address = card.content.summary.address;
+      const lat = card.content.summary.latitude || 40.7128;
+      const lng = card.content.summary.longitude || -74.0060;
+      
+      console.log("Loading segmentation for:", { address, lat, lng });
+      
+      const { data, error } = await supabase.functions.invoke('solar-segmentation', {
+        body: { address, lat, lng }
+      });
+      
+      if (error) {
+        console.error("Segmentation error:", error);
+        throw error;
+      }
+      
+      if (data?.success) {
+        setSegmentationData(data.segmentation);
+        console.log("Segmentation loaded:", data.segmentation);
+      } else {
+        throw new Error(data?.error || "Failed to load segmentation");
+      }
+    } catch (error) {
+      console.error("Failed to load segmentation:", error);
+      // Continue without segmentation - don't break the UI
+    } finally {
+      setLoadingSegmentation(false);
+    }
+  };
+
+  // Load segmentation when interactive map is shown
+  useEffect(() => {
+    if (showInteractiveMap) {
+      loadSegmentationData();
+    }
+  }, [showInteractiveMap]);
+
   const originalPanels = card.content.summary.panel_count;
   const maxPanels = card.content.summary.max_panels || originalPanels * 2;
   
@@ -154,9 +202,14 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
 
             {/* Enhanced Roof Segmentation Map */}
             <div className="relative w-full bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
+              {loadingSegmentation && (
+                <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+                  <div className="text-white text-sm">Loading segmentation...</div>
+                </div>
+              )}
               <RoofSegmentationOverlay
                 address={card.content.summary.address || ''}
-                roofSegments={(card.content.roof_segments?.map((seg: any) => ({
+                roofSegments={segmentationData?.polygons || (card.content.roof_segments?.map((seg: any) => ({
                   ...seg,
                   potential: seg.potential === 'high' || seg.potential === 'medium' || seg.potential === 'low' ? seg.potential : 'medium'
                 })) || [
