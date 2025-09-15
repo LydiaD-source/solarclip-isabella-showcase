@@ -274,7 +274,7 @@ serve(async (req) => {
       let radiusMeters = 100;
 
       async function fetchDataLayers(rad: number) {
-        const url = `https://solar.googleapis.com/v1/dataLayers:compute?key=${GOOGLE_SOLAR_KEY}`;
+        const url = `https://maps.googleapis.com/maps/v1/solar/dataLayers:compute?key=${GOOGLE_SOLAR_KEY}`;
         const body = {
           location: { 
             latitude: location.lat, 
@@ -434,7 +434,7 @@ serve(async (req) => {
           <div class="row tot"><span class="label">CO₂ Saved</span><span id="co2Saved" class="value">${Math.round(annual_kwh*0.0004).toLocaleString()} tons</span></div>
         </div>
       </div>
-      <div class="map"><div id="map"></div></div>
+      <div class="map"><div id="map"></div><div id="dlOverlay" style="display:none; position:absolute; inset:0; background: rgba(255,255,255,0.92); color:#202124; font-weight:600; font-size:14px; line-height:1.4; align-items:center; justify-content:center; text-align:center; padding:16px; z-index:2000;">Roof segmentation unavailable for this location. Please try a different address.</div></div>
     </div>
 
     <script src="https://unpkg.com/geotiff@2.0.7/dist-browser/geotiff.min.js"></script>
@@ -511,6 +511,7 @@ serve(async (req) => {
           const imagery = window.dataLayers && window.dataLayers.imagery;
           if (!imagery || !imagery.rasterUrlTemplate) {
             console.log('[Imagery] Not available');
+            var ov = document.getElementById('dlOverlay'); if (ov) ov.style.display = 'flex';
             try { if (window.parent) window.parent.postMessage({ type: 'solar_embed_error', reason: 'missing_imagery' }, window.allowedOrigin || '*'); } catch (e) { /* no-op */ }
             return;
           }
@@ -528,6 +529,7 @@ serve(async (req) => {
           });
           map.overlayMapTypes.insertAt(0, overlay);
           window.hasDataLayers = true;
+          var ov2 = document.getElementById('dlOverlay'); if (ov2) ov2.style.display = 'none';
 
           // Fit bounds to imagery bounding box if present
           const bb = imagery.boundingBox;
@@ -687,6 +689,7 @@ serve(async (req) => {
         if (typeof window.setMonthColor === 'function') {
           window.setMonthColor(window.currentMonth || 6);
         }
+        var ov = document.getElementById('dlOverlay'); if (ov && !window.hasDataLayers) ov.style.display = 'flex';
         // Notify parent that the embed is ready; use configured origin (defaults to '*')
         try { if (window.parent) window.parent.postMessage({ type: 'solar_embed_ready', hasDataLayers: (window.hasDataLayers === true) }, window.allowedOrigin || '*'); } catch (e) { /* no-op */ }
       });
