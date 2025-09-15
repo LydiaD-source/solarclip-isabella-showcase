@@ -140,18 +140,21 @@ Deno.serve(async (req) => {
       mapsUrl
     })
 
-    // Return response
-    const response = {
+    // Return response with safe defaults for solar fields
+    const safeSolarData = {
+      panel_count: 0,
+      capacity_kw: 0,
+      rooftop_area_m2: 0,
       mapsUrl,
       coordinates: { lat, lng },
       zoom: 20,
       size: '640x640'
     }
 
-    console.log('Solar map response:', response)
+    console.log('Solar map response:', safeSolarData)
 
     return new Response(
-      JSON.stringify(response),
+      JSON.stringify(safeSolarData),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
