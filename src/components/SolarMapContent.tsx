@@ -27,6 +27,20 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
   const [adjustedPanels, setAdjustedPanels] = useState(card.content.summary.panel_count);
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
   const [iframeError, setIframeError] = useState(false);
+  
+  // Listen for messages from the embed (e.g., missing_bounding_box)
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      try {
+        if (e?.data?.type === 'solar_embed_error') {
+          setIframeError(true);
+        }
+      } catch (_) {}
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+  
   const originalPanels = card.content.summary.panel_count;
   const maxPanels = card.content.summary.max_panels || originalPanels * 2;
   
@@ -153,7 +167,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             </div>
 
             {/* Embedded Google Solar Map */}
-            <div className="relative w-full h-64 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
+            <div className="relative w-full h-80 md:h-96 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
               <iframe
                 src={card.content.embed_url}
                 className="w-full h-full border-0"
@@ -168,7 +182,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
               {iframeError && (
                 <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm p-3 text-center">
                   <div className="text-xs text-foreground">
-                    Roof segmentation unavailable for this location. Try a different address.
+                    Roof segmentation is not available for this location. Please try a different address.
                   </div>
                 </div>
               )}

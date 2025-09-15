@@ -246,11 +246,11 @@ serve(async (req) => {
       maxFlux: Math.max(...monthly_flux),
     };
 
-    // 4b) Fetch Google Solar Data Layers (FULL_LAYERS raster tiles + bounding box)
+    // 4b) Fetch Google Solar Data Layers (DATA_LAYERS raster tiles + bounding box)
     let data_layers: any = null;
     try {
-      // Per requirements: start at 300m, retry at 500m
-      let radiusMeters = 300;
+      // Updated requirements: start at 100m, retry at 300m
+      let radiusMeters = 100;
 
       async function fetchDataLayers(rad: number) {
         const computeUrl = `https://solar.googleapis.com/v1/dataLayers:compute?key=${googleApiKey}`;
@@ -258,7 +258,7 @@ serve(async (req) => {
           location: { latitude: location.lat, longitude: location.lng },
           radiusMeters: rad,
           requiredQuality: "HIGH",
-          view: "FULL_LAYERS",
+          view: "DATA_LAYERS",
         } as const;
         const res = await fetch(computeUrl, {
           method: 'POST',
@@ -268,15 +268,22 @@ serve(async (req) => {
         const raw = await res.text();
         console.info('[solar-map] dataLayers:compute status:', res.status);
         console.info('[solar-map] dataLayers:compute raw:', raw.slice(0, 2000));
-        if (!res.ok) return { ok: false as boolean, json: null as any };
         let json: any = null;
-        try { json = JSON.parse(raw); } catch (e) { console.error('[solar-map] Failed to parse dataLayers JSON:', e); }
+        try { json = JSON.parse(raw); } catch (e) {
+          console.error('[solar-map] Failed to parse dataLayers JSON:', e);
+        }
+        if (!res.ok) {
+          // Log structured error payload when available
+          try { console.error('[solar-map] dataLayers error json:', JSON.stringify(json)); } catch (_) {}
+          return { ok: false as boolean, json };
+        }
         return { ok: true as boolean, json };
       }
 
       let attempt = await fetchDataLayers(radiusMeters);
-      if (!attempt.ok || !attempt.json || !attempt.json.imagery || !attempt.json.imagery.rasterUrlTemplate) {
-        const newRadius = 500;
+      const missingImagery = !attempt.ok || !attempt.json || !attempt.json.imagery || (!attempt.json.imagery.imageryDate && !attempt.json.imagery.rasterUrlTemplate);
+      if (missingImagery) {
+        const newRadius = 300;
         console.warn('[solar-map] Retrying dataLayers:compute with radiusMeters =', newRadius);
         attempt = await fetchDataLayers(newRadius);
         radiusMeters = newRadius;
@@ -320,6 +327,7 @@ serve(async (req) => {
           imagery: {
             rasterUrlTemplate: rasterUrlTemplate,
             boundingBox: bbox,
+            imageryDate: imagery?.imageryDate || null,
           },
           center: { lat: location.lat, lng: location.lng },
           radiusMeters,
