@@ -37,7 +37,14 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
   };
   const embedUrl = (card as any)?.content?.embed_url || (card as any)?.content?.mapsUrl || (card as any)?.content?.embedUrl || '';
   const interactive = Boolean((card as any)?.content?.interactive);
-  const [adjustedPanels, setAdjustedPanels] = useState<number>(summary.panel_count);
+  const safeSolarData = {
+    panel_count: Number((card as any)?.content?.summary?.panel_count ?? 1) || 1,
+    panels: (card as any)?.content?.roof_segments ?? [],
+    coordinates: (card as any)?.content?.coordinates ?? { lat: 0, lng: 0 },
+    embed_url: embedUrl,
+    summary: (card as any)?.content?.summaryText ?? 'No solar data available'
+  };
+  const [adjustedPanels, setAdjustedPanels] = useState<number>(safeSolarData.panel_count);
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
   const [iframeError, setIframeError] = useState(false);
   
@@ -102,7 +109,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
           </div>
 
           {/* Interactive Panel Adjustment */}
-          {card.content.interactive && (
+          {interactive && (
             <div className="border rounded-lg p-3 bg-muted/30">
               <p className="text-sm font-medium mb-2">Adjust Solar Panels</p>
               <div className="flex items-center justify-between">
