@@ -150,7 +150,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                   <Button 
                     className="meet-isabella-btn-animated text-base px-6 py-3"
                     onClick={handleMeetIsabella}
-                    style={{ transform: 'scale(1.15)' }}
+                    style={{ transform: 'scale(0.92)' }}
                   >
                     <Play className="mr-2 w-5 h-5" />
                     Start Assistant
@@ -163,7 +163,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                   <Button 
                     className="meet-isabella-btn-animated text-base px-6 py-3"
                     onClick={handleMeetIsabella}
-                    style={{ transform: 'scale(1.15)' }}
+                    style={{ transform: 'scale(0.92)' }}
                   >
                     <Play className="mr-2 w-5 h-5" />
                     Start Assistant
@@ -173,13 +173,13 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
               </>
             )}
             
-            {/* Powered by Ovela AI */}
-            <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2 text-center">
+            {/* Powered by Ovela AI - Bottom right corner */}
+            <div className="absolute -bottom-20 right-0 text-center">
               <a 
-                href="https://ovelainteractive.com" 
+                href="https://ovelinteractive.com" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gradient-blue text-sm font-medium hover:opacity-80 transition-opacity"
+                className="text-gradient-blue text-xs font-medium hover:opacity-80 transition-opacity caption-style"
               >
                 Powered by Ovela AI
               </a>
