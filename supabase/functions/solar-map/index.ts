@@ -65,7 +65,7 @@ serve(async (req) => {
 
     console.info("[solar-map] Geocoded:", formattedAddress, location, viewport ? "with viewport" : "no viewport");
 
-    // 2) Google Solar API - Building Insights (closest)
+    // 2) Google Solar API - Building Insights (closest) - SAFE VERSION
     const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&key=${googleApiKey}`;
     const solarRes = await fetch(solarApiUrl, { headers: { Accept: "application/json" } });
     if (!solarRes.ok) throw new Error(`Solar API error: ${solarRes.status}`);
@@ -73,6 +73,12 @@ serve(async (req) => {
 
     const solarPotential = solarData.solarPotential || {};
     const roofSegmentStats: any[] = solarPotential.roofSegmentStats || [];
+    
+    // Extract capacity and area from the building insights 
+    const solarPanelConfigs = solarPotential.solarPanelConfigs || [];
+    const maxConfig = solarPanelConfigs.find((config: any) => config.panelsCount) || {};
+    const capacity_kw = maxConfig.panelsCount ? Math.round(maxConfig.panelsCount * 0.4) : 50; // 400W per panel estimate
+    const rooftop_area_m2 = solarPotential.wholeRoofStats?.areaMeters2 || 200;
 
     console.info(`[solar-map] Segments returned: ${roofSegmentStats.length}`);
     if (roofSegmentStats.length) {
@@ -534,6 +540,12 @@ serve(async (req) => {
         animation: "swoop-left",
       },
     };
+
+    // Add the safe segmentation data to the result 
+    result.content.panel_count = result.content.summary.panel_count;
+    result.content.capacity_kw = capacity_kw;
+    result.content.rooftop_area_m2 = rooftop_area_m2;
+    result.content.roof_segments = roof_segments;
 
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {

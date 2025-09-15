@@ -23,30 +23,9 @@ export const RoofSegmentationOverlay = ({
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadSatelliteImage = async () => {
-      try {
-        setLoading(true);
-        
-        // Use our solar-map-image function to get satellite imagery
-        const response = await fetch('/api/solar-map-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address, width: 400, height: 300 })
-        });
-        
-        if (response.ok) {
-          const blob = await response.blob();
-          const imageUrl = URL.createObjectURL(blob);
-          setMapImage(imageUrl);
-        }
-      } catch (error) {
-        console.error('Failed to load satellite image:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadSatelliteImage();
+    // Use a simple static satellite-style base image instead of calling non-existent API
+    setLoading(false);
+    setMapImage('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8ZGVmcz4KICAgIDxsaW5lYXJHcmFkaWVudCBpZD0iZ3JhZGllbnQiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdHlsZT0ic3RvcC1jb2xvcjojOGVjNWZjO3N0b3Atb3BhY2l0eToxIiAvPgogICAgICA8c3RvcCBvZmZzZXQ9IjEwMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiM2MzY2ZjE7c3RvcC1vcGFjaXR5OjEiIC8+CiAgICA8L2xpbmVhckdyYWRpZW50PgogIDwvZGVmcz4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0idXJsKCNncmFkaWVudCkiLz4KICA8IS0tIEJ1aWxkaW5nIE91dGxpbmUgLS0+CiAgPHJlY3QgeD0iMTAwIiB5PSI4MCIgd2lkdGg9IjIwMCIgaGVpZ2h0PSIxNDAiIGZpbGw9IiNmM2Y0ZjYiIHN0cm9rZT0iI2Q2ZDNkMSIgc3Ryb2tlLXdpZHRoPSIyIi8+CiAgPCEtLSBSb29mIDEgLS0+CiAgPHBvbHlnb24gcG9pbnRzPSI4MCw2MCAzMjAsNjAgMzIwLDE4MCA4MCwxODAiIGZpbGw9IiNlNWU3ZWIiIHN0cm9rZT0iI2Q2ZDNkMSIgc3Ryb2tlLXdpZHRoPSIxIi8+CiAgPCEtLSBSb29mIDIgLS0+CiAgPHBvbHlnb24gcG9pbnRzPSIzMjAsODAgMzgwLDgwIDM4MCwxNjAgMzIwLDE2MCIgZmlsbD0iI2Y5ZmFmYiIgc3Ryb2tlPSIjZDZkM2QxIiBzdHJva2Utd2lkdGg9IjEiLz4KICA8IS0tIFNtYWxsIFNlY3Rpb24gLS0+CiAgPHBvbHlnb24gcG9pbnRzPSI2MCwxODAgMTQwLDE4MCAxNDAsMjIwIDYwLDIyMCIgZmlsbD0iI2Y5ZmFmYiIgc3Ryb2tlPSIjZDZkM2QxIiBzdHJva2Utd2lkdGg9IjEiLz4KICA8dGV4dCB4PSIyMDAiIHk9IjI4MCIgZm9udC1mYW1pbHk9IkFyaWFsLCBzYW5zLXNlcmlmIiBmb250LXNpemU9IjEwIiBmaWxsPSIjMDAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj5Tb2xhciBBbmFseXNpcyBNYXA8L3RleHQ+Cjwvc3ZnPg==');
   }, [address]);
 
   useEffect(() => {

@@ -156,7 +156,10 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             <div className="relative w-full bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
               <RoofSegmentationOverlay
                 address={card.content.summary.address || ''}
-                roofSegments={[
+                roofSegments={(card.content.roof_segments?.map((seg: any) => ({
+                  ...seg,
+                  potential: seg.potential === 'high' || seg.potential === 'medium' || seg.potential === 'low' ? seg.potential : 'medium'
+                })) || [
                   {
                     id: 'main-roof',
                     polygon: [[80, 60], [320, 60], [320, 180], [80, 180]],
@@ -164,7 +167,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                     panelCount: Math.floor(adjustedPanels * 0.7)
                   },
                   {
-                    id: 'side-roof',
+                    id: 'side-roof', 
                     polygon: [[320, 80], [380, 80], [380, 160], [320, 160]],
                     potential: 'medium',
                     panelCount: Math.floor(adjustedPanels * 0.2)
@@ -175,7 +178,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                     potential: 'low',
                     panelCount: Math.floor(adjustedPanels * 0.1)
                   }
-                ]}
+                ])}
                 onSegmentClick={(segment) => {
                   console.log('Clicked segment:', segment);
                   onAction?.('segment_selected', segment);
