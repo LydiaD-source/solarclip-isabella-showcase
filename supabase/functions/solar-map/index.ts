@@ -53,12 +53,13 @@ serve(async (req) => {
     const address: string | undefined = req.method === 'GET' ? qAddress : (body?.address);
 
     // Debug: verify env var injection for Google keys
-    const solarKey = Deno.env.get("GOOGLE_SOLAR_API_KEY") || "";
-    const mapsKey = Deno.env.get("GOOGLE_MAPS_API_KEY") || "";
-    console.log("[solar-map] GOOGLE_SOLAR_KEY length:", solarKey ? String(solarKey.length) : "undefined");
-    console.log("[solar-map] GOOGLE_MAPS_KEY length:", mapsKey ? String(mapsKey.length) : "undefined");
+    const GOOGLE_SOLAR_KEY = Deno.env.get("GOOGLE_SOLAR_API_KEY");
+    const GOOGLE_MAPS_KEY = Deno.env.get("GOOGLE_MAPS_API_KEY");
+    console.log("[solar-map] GOOGLE_SOLAR_KEY length:", GOOGLE_SOLAR_KEY?.length);
+    console.log("[solar-map] GOOGLE_MAPS_KEY length:", GOOGLE_MAPS_KEY?.length);
 
-    const googleApiKey = mapsKey || solarKey;
+    const googleApiKey = GOOGLE_MAPS_KEY || GOOGLE_SOLAR_KEY;
+    if (!GOOGLE_SOLAR_KEY) throw new Error("GOOGLE_SOLAR_API_KEY not configured");
     if (!googleApiKey) throw new Error("Google Maps/Solar API key not configured");
 
     let location: { lat: number; lng: number };
@@ -273,35 +274,32 @@ serve(async (req) => {
       let radiusMeters = 100;
 
       async function fetchDataLayers(rad: number) {
-        const computeUrl = `https://solar.googleapis.com/v1/dataLayers:compute?key=${googleApiKey}`;
-        const payload = {
+        const url = `https://solar.googleapis.com/v1/dataLayers:compute?key=${GOOGLE_SOLAR_KEY}`;
+        const body = {
           location: { latitude: location.lat, longitude: location.lng },
           radiusMeters: rad,
           requiredQuality: "HIGH",
-          view: "DATA_LAYERS",
-        } as const;
-        const res = await fetch(computeUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify(payload),
+          view: "DATA_LAYERS"
+        };
+
+        console.info('[solar-map] dataLayers:compute url:', url);
+        console.info('[solar-map] dataLayers:compute body:', JSON.stringify(body));
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
         });
-        const raw = await res.text();
-        console.info('[solar-map] dataLayers:compute url:', res.url);
-        console.info('[solar-map] dataLayers:compute status:', res.status);
-        console.info('[solar-map] dataLayers:compute raw:', raw.slice(0, 200));
-        let json: any = null;
-        try {
-          json = JSON.parse(raw);
-        } catch (e) {
-          console.error('[solar-map] Google returned non-JSON', raw.slice(0, 200));
-          return { ok: false as boolean, json: null };
-        }
+
         if (!res.ok) {
-          // Log structured error payload when available
-          try { console.error('[solar-map] dataLayers error json:', JSON.stringify(json)); } catch (_) {}
-          return { ok: false as boolean, json };
+          const text = await res.text();
+          console.error("[solar-map] Google error:", res.status, text.slice(0, 500));
+          return { ok: false, json: null };
         }
-        return { ok: true as boolean, json };
+
+        const data = await res.json();
+        console.info('[solar-map] dataLayers:compute success, keys:', Object.keys(data || {}));
+        return { ok: true, json: data };
       }
 
       let attempt = await fetchDataLayers(radiusMeters);
@@ -321,8 +319,8 @@ serve(async (req) => {
         const appendKey = (url?: string | null) => {
           if (!url) return null;
           if (url.includes('key=')) return url; // already contains key/signature
-          if (url.indexOf('?') > -1) return `${url}&key=${googleApiKey}`;
-          return `${url}?key=${googleApiKey}`;
+          if (url.indexOf('?') > -1) return `${url}&key=${GOOGLE_SOLAR_KEY}`;
+          return `${url}?key=${GOOGLE_SOLAR_KEY}`;
         };
 
         function normalizeBBox(b: any): { sw: { lat: number; lng: number }; ne: { lat: number; lng: number } } | null {
