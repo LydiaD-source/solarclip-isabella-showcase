@@ -95,8 +95,11 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
 
       case 'google_solar':
         // Render fullscreen solar map interface directly
-        if ((card as any)?.content?.embed_url || (card as any)?.content?.embedUrl || (card as any)?.content?.url) {
-          const embed = (card as any).content.embed_url || (card as any).content.embedUrl || (card as any).content.url;
+        if ((card as any)?.content?.embed_url || (card as any)?.content?.embedUrl || (card as any)?.content?.url || (card as any)?.content?.mapsUrl) {
+          const embed = (card as any).content.embed_url 
+            || (card as any).content.embedUrl 
+            || (card as any).content.url 
+            || (card as any).content.mapsUrl;
           const isStaticImage = typeof embed === 'string' && (embed.includes('staticmap') || /\.(png|jpg|jpeg|webp)(\?|$)/i.test(embed));
           if (isStaticImage) {
             return (
@@ -120,6 +123,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
                 loading="eager"
                 allow="geolocation"
                 referrerPolicy="no-referrer"
+                sandbox="allow-scripts allow-same-origin"
               />
             </div>
           );

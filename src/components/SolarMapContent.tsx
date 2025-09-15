@@ -24,6 +24,11 @@ interface SolarMapContentProps {
 }
 
 export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
+  // Log received data to aid debugging
+  try {
+    console.log('SolarMapContent received card:', JSON.stringify(card, null, 2));
+  } catch {}
+  
   // Build a fully safe summary object
   const rawSummary = (card && (card as any).content && (card as any).content.summary) ? (card as any).content.summary : undefined;
   const summary = {
@@ -60,13 +65,14 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     return () => window.removeEventListener('message', onMessage);
   }, []);
   
-  const originalPanels = summary.panel_count;
-  const maxPanels = summary.max_panels || originalPanels * 2;
+  // Use safeSolarData for all calculations
+  const originalPanels = Math.max(1, Number(summary.panel_count) || 1);
+  const maxPanels = Math.max(originalPanels, Number(summary.max_panels) || originalPanels * 2);
   
   // Calculate adjusted energy based on panel count
   const panelRatio = adjustedPanels / originalPanels;
-  const adjustedAnnualKwh = Math.round(summary.annual_kwh * panelRatio);
-  const adjustedCo2Saved = Math.round(summary.co2_saved * panelRatio);
+  const adjustedAnnualKwh = Math.round((Number(summary.annual_kwh) || 0) * panelRatio);
+  const adjustedCo2Saved = Math.round((Number(summary.co2_saved) || 0) * panelRatio);
   const adjustedMonthlyAvg = Math.round(adjustedAnnualKwh / 12);
 
   const handlePanelAdjustment = (change: number) => {

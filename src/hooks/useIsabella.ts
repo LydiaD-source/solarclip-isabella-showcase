@@ -115,7 +115,7 @@ export const useIsabella = (clientId: string = 'solarclip') => {
         throw error;
       }
 
-      console.log('Solar analysis response:', data);
+      console.log('Solar analysis response:', JSON.stringify(data, null, 2));
 
       // Verify we got valid data
       if (!data || !data.mapsUrl) {
