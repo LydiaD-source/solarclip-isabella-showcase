@@ -109,19 +109,16 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
           if (embed) {
             return (
               <div className="w-full h-full relative bg-muted">
-                {!embedImgError ? (
-                  <img
-                    src={embed}
-                    alt="Rooftop satellite view for solar analysis"
-                    className="w-full h-full object-cover"
-                    loading="eager"
-                    onError={() => setEmbedImgError(true)}
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
-                    Map could not be loaded
-                  </div>
-                )}
+                <img
+                  key={embed}
+                  src={embed}
+                  alt="Rooftop satellite view for solar analysis"
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                  onError={() => {
+                    console.error('Failed to load embed URL:', embed)
+                  }}
+                />
               </div>
             );
           }

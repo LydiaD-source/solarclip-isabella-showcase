@@ -18,7 +18,7 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
   const [solarData, setSolarData] = useState<SolarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [imgError, setImgError] = useState(false);
+  
   useEffect(() => {
     if (!address) {
       setSolarData(null);
@@ -66,41 +66,23 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
   const mapUrl = solarData?.mapsUrl ?? "";
   
   // Reset image error when URL changes
-  useEffect(() => {
-    setImgError(false);
-  }, [mapUrl]);
-  if (loading) {
-    return <div>Loading solar map...</div>;
-  }
-
-  // Show a graceful error but never crash the UI
-  if (error && !mapUrl) {
-    return <div>Error loading solar map: {error}</div>;
+  if (!mapUrl) {
+    return null;
   }
 
   return (
-    <div className="solar-map-container" style={{ width: "100%", height: "400px" }}>
-      {mapUrl && !imgError ? (
-        <img
-          src={mapUrl}
-          alt="Satellite view"
-          style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }}
-          onError={() => setImgError(true)}
-        />
-      ) : (
-        <div
-          style={{
-            width: "100%",
-            height: "100%",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          Map could not be loaded
-        </div>
-      )}
-      <div className="solar-info" style={{ marginTop: "1rem" }}>
+    <div className="solar-map-container" style={{ width: '100%', height: '400px' }}>
+      <img
+        key={mapUrl}
+        src={mapUrl}
+        alt="Solar map"
+        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }}
+        loading="eager"
+        onError={() => {
+          console.error('Failed to load mapsUrl:', mapUrl);
+        }}
+      />
+      <div className="solar-info" style={{ marginTop: '1rem' }}>
         <p>Estimated Panels: {panelCount}</p>
         <p>Capacity: {capacityKw} kW</p>
         <p>Rooftop Area: {rooftopArea} m²</p>

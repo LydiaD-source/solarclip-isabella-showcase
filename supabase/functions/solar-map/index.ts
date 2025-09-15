@@ -18,16 +18,15 @@ function validateCoordinates(lat: number, lng: number): boolean {
   )
 }
 
-function createSatelliteImageUrl(lat: number, lng: number): string {
+function createStaticImageUrl(lat: number, lng: number, maptype: 'satellite' | 'roadmap' = 'satellite'): string {
   const baseUrl = 'https://maps.googleapis.com/maps/api/staticmap'
   const params = new URLSearchParams({
     center: `${lat},${lng}`,
     zoom: '20',
     size: '640x640',
-    maptype: 'satellite',
+    maptype,
     key: GOOGLE_MAPS_API_KEY || ''
   })
-  
   return `${baseUrl}?${params.toString()}`
 }
 
@@ -130,19 +129,24 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Create satellite image URL
-    const mapsUrl = createSatelliteImageUrl(lat, lng)
-    
+// Create static image URL with fallback
+    let mapsUrl = ''
+    try {
+      mapsUrl = createStaticImageUrl(lat, lng, 'satellite')
+    } catch (e) {
+      console.warn('Failed to generate satellite mapsUrl, falling back to roadmap:', e)
+    }
+    if (!mapsUrl) {
+      mapsUrl = createStaticImageUrl(lat, lng, 'roadmap')
+      console.log('Fallback to roadmap mapsUrl:', mapsUrl)
+    }
+
     // Explicit debug logs
-    console.log('DEBUG: mapsUrl generated:', mapsUrl);
-    console.log('DEBUG: coordinates used:', { lat, lng });
-    
+    console.log('DEBUG: mapsUrl generated:', mapsUrl)
+    console.log('DEBUG: coordinates used:', { lat, lng })
+
     // Log request for debugging
-    console.log('Solar map request:', {
-      lat,
-      lng,
-      mapsUrl
-    })
+    console.log('Solar map request:', { lat, lng, mapsUrl })
 
     // Return response with safe defaults for solar fields
     const safeSolarData = {
