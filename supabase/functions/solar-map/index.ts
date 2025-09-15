@@ -291,7 +291,8 @@ serve(async (req) => {
         const res = await fetch(url, {
           method: "POST",
           headers: { 
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "Accept": "application/json"
           },
           body: JSON.stringify(body)
         });
@@ -451,7 +452,9 @@ serve(async (req) => {
       window.monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
       window.dataLayers = ${JSON.stringify(data_layers)};
       window.center = { lat: ${location.lat}, lng: ${location.lng} };
-      window.allowedOrigin = "${allowedOrigin}";
+      window.allowedOrigin = (function(){
+        try { return new URL(document.referrer).origin; } catch (e) { return "${allowedOrigin}"; }
+      })();
       window.hasDataLayers = !!(window.dataLayers && window.dataLayers.imagery && window.dataLayers.imagery.rasterUrlTemplate);
     
       // Potential-based seasonal color mapping using monthly flux
