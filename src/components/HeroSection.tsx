@@ -148,9 +148,9 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 {/* Desktop positioning - Final alignment adjustment */}
                 <div className="hidden lg:block absolute bottom-[-22px] -left-36 xl:-left-44 text-center">
                   <Button 
-                    className="meet-isabella-btn-animated text-base px-6 py-3"
+                    className="meet-isabella-btn-animated text-sm px-5 py-2"
                     onClick={handleMeetIsabella}
-                    style={{ transform: 'scale(0.92)' }}
+                    style={{ transform: 'scale(0.88)' }}
                   >
                     <Play className="mr-2 w-5 h-5" />
                     Start Assistant
@@ -161,9 +161,9 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 {/* Mobile positioning - Adjusted for better spacing */}
                 <div className="lg:hidden absolute -bottom-32 left-1/2 transform -translate-x-1/2 text-center">
                   <Button 
-                    className="meet-isabella-btn-animated text-base px-6 py-3"
+                    className="meet-isabella-btn-animated text-sm px-5 py-2"
                     onClick={handleMeetIsabella}
-                    style={{ transform: 'scale(0.92)' }}
+                    style={{ transform: 'scale(0.88)' }}
                   >
                     <Play className="mr-2 w-5 h-5" />
                     Start Assistant
@@ -173,17 +173,6 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
               </>
             )}
             
-            {/* Powered by Ovela AI - Bottom right corner */}
-            <div className="absolute -bottom-20 right-0 text-center">
-              <a 
-                href="https://ovelainteractive.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-gradient-blue-footer text-sm font-medium hover:opacity-80 transition-opacity caption-style"
-              >
-                Powered by Ovela AI
-              </a>
-            </div>
             
             {/* Hover Tooltip */}
             {!isExpanded && !showMeetButton && (
