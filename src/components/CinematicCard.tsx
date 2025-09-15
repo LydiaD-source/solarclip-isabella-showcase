@@ -15,63 +15,20 @@ interface CinematicCardProps {
   onAction?: (action: string, data?: any) => void;
 }
 
-// Import the new SolarOverlayMap component
-const SolarOverlayMap = React.lazy(() => import('./SolarOverlayMap'));
+// Import the new SolarMapContent component
+const SolarMapContent = React.lazy(() => import('./SolarMapContent').then(module => ({ default: module.SolarMapContent })));
 
 export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) => {
   const [isVisible, setIsVisible] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isExpandingToFullscreen, setIsExpandingToFullscreen] = useState(false);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
-  const [embedImgError, setEmbedImgError] = useState(false);
-  
-  // State for dynamic embed URL fallback
-  const [embedSrc, setEmbedSrc] = useState<string>('');
-  
-  // Update embed source when card content changes
-  useEffect(() => {
-    const content: any = (card as any)?.content ?? {};
-    const baseEmbed: string = String(
-      content.mapsUrl || content.embed_url || content.embedUrl || content.url || ''
-    );
-    const projectRef = 'mzikfyqzwepnubdsclfd';
-    let next = baseEmbed;
-
-    if (baseEmbed.includes('maps.googleapis.com/maps/api/staticmap')) {
-      try {
-        const u = new URL(baseEmbed);
-        const center = u.searchParams.get('center');
-        let proxied = `https://${projectRef}.supabase.co/functions/v1/solar-map-image`;
-        if (center) {
-          proxied += `?center=${encodeURIComponent(center)}`;
-        } else if (content?.coordinates?.lat && content?.coordinates?.lng) {
-          proxied += `?lat=${content.coordinates.lat}&lng=${content.coordinates.lng}`;
-        } else if (content?.summary?.address || content?.address) {
-          const addr = content.summary?.address || content.address;
-          proxied += `?address=${encodeURIComponent(addr)}`;
-        }
-        const zoom = u.searchParams.get('zoom');
-        const size = u.searchParams.get('size');
-        if (zoom) proxied += `&zoom=${zoom}`;
-        if (size) proxied += `&size=${encodeURIComponent(size)}`;
-        next = proxied;
-      } catch {}
-    }
-
-    setEmbedSrc(next);
-    setEmbedImgError(false);
-  }, [card]);
 
   useEffect(() => {
     // Trigger entrance animation
     const timer = setTimeout(() => setIsVisible(true), 100);
     return () => clearTimeout(timer);
   }, []);
-
-  // Reset embed image error when card/content changes
-  useEffect(() => {
-    setEmbedImgError(false);
-  }, [card]);
 
   useEffect(() => {
     // For google_solar cards, transition to fullscreen after swoosh settles
@@ -137,14 +94,28 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         );
 
       case 'google_solar':
-        {
-          const addr = (card as any)?.content?.address || (card as any)?.content?.summary?.address || '';
+        // Render fullscreen solar map interface directly
+        if ((card as any)?.content?.embed_url || (card as any)?.content?.url) {
+          const embed = (card as any).content.embed_url || (card as any).content.url;
           return (
-            <div className="w-full h-full relative bg-background">
-               <SolarOverlayMap address={addr} />
+            <div className="w-full h-full relative">
+              <iframe
+                src={embed}
+                className="w-full h-full border-0"
+                title="Interactive Solar Map"
+                loading="eager"
+                allow="geolocation"
+              />
             </div>
           );
         }
+        // Fallback to legacy internal renderer
+        return (
+          <SolarMapContent 
+            card={card} 
+            onAction={onAction}
+          />
+        );
 
       case 'lead_form':
         return (
@@ -227,21 +198,18 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
   const containerVariants = {
     hidden: { 
       opacity: 0,
-      scale: 0.96,
-      filter: "blur(8px)",
-      x: 120
+      scale: 0.95,
+      filter: "blur(8px)"
     },
     visible: { 
       opacity: 1,
       scale: 1,
-      filter: "blur(0px)",
-      x: 0
+      filter: "blur(0px)"
     },
     exit: {
       opacity: 0,
-      scale: 0.96,
-      filter: "blur(8px)",
-      x: -80
+      scale: 0.95,
+      filter: "blur(8px)"
     }
   };
 
@@ -259,7 +227,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
           {isDirectFullscreen ? (
             // Direct fullscreen solar map
             <motion.div
-              className="w-full h-full animate-card-float-in perspective-1200"
+              className="w-full h-full"
               variants={containerVariants}
               initial="hidden"
               animate={isClosing ? "exit" : "visible"}
@@ -290,7 +258,6 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
             // Regular card layout for other types
             <div className="flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16">
               <motion.div
-                className="animate-card-float-in perspective-1200"
                 variants={containerVariants}
                 initial="hidden"
                 animate={isClosing ? "exit" : "visible"}

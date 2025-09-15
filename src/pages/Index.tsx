@@ -11,7 +11,6 @@ const Index = () => {
         isExpanded={isIsabellaExpanded} 
         onChatToggle={() => setIsIsabellaExpanded(!isIsabellaExpanded)} 
       />
-
     </div>
   );
 };

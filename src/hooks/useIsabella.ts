@@ -27,7 +27,6 @@ export const useIsabella = (clientId: string = 'solarclip') => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [currentCard, setCurrentCard] = useState<IsabellaCard | null>(null);
-  const [awaitingAddress, setAwaitingAddress] = useState(false);
 
   const addMessage = useCallback((text: string, sender: 'user' | 'isabella', cards?: IsabellaCard[]) => {
     const message: ChatMessage = {
@@ -43,13 +42,6 @@ export const useIsabella = (clientId: string = 'solarclip') => {
 
   const sendMessage = useCallback(async (userMessage: string) => {
     if (!userMessage.trim() || isProcessing) return;
-
-    // If Isabella asked for an address, route this message directly to solar analysis
-    if (awaitingAddress) {
-      setAwaitingAddress(false);
-      await getSolarAnalysis(userMessage.trim());
-      return;
-    }
 
     setIsProcessing(true);
     
@@ -76,15 +68,11 @@ export const useIsabella = (clientId: string = 'solarclip') => {
       // Add Isabella's response
       const message = addMessage(response.text, 'isabella', response.cards);
 
-      // If Isabella is asking for an address, set flag for next user message
-      if (response.actions?.includes('request_address')) {
-        setAwaitingAddress(true);
-      }
-
       // Show cards if any
       if (response.cards && response.cards.length > 0) {
         setCurrentCard(response.cards[0]);
       }
+
     } catch (error) {
       console.error('Error communicating with Isabella:', error);
       addMessage(
@@ -94,7 +82,7 @@ export const useIsabella = (clientId: string = 'solarclip') => {
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, addMessage, clientId, sessionId, messages, awaitingAddress]);
+  }, [isProcessing, addMessage, clientId, sessionId, messages]);
 
   const getSolarAnalysis = useCallback(async (address: string) => {
     if (!address.trim()) return;
@@ -103,65 +91,31 @@ export const useIsabella = (clientId: string = 'solarclip') => {
     addMessage(`Analyzing solar potential for: ${address}`, 'user');
 
     try {
-      // Call the solar-map function with address
       const { data, error } = await supabase.functions.invoke('solar-map', {
         body: {
-          address: address.trim()
+          client_id: clientId,
+          address: address,
+          session_id: sessionId
         }
       });
 
-      if (error) {
-        console.error('Solar analysis error:', error);
-        throw error;
-      }
-
-      console.log('Solar analysis response:', JSON.stringify(data, null, 2));
-
-      // Verify we got valid data
-      if (!data || !data.mapsUrl) {
-        throw new Error('Invalid response from solar analysis service');
-      }
-
-      // Create a solar card with the imagery
-      const solarCard: IsabellaCard = {
-        type: 'google_solar',
-        title: `Solar Analysis for ${address}`,
-        content: {
-          summary: {
-            annual_kwh: 12000, // Default estimate
-            monthly_kwh: new Array(12).fill(1000), // 1000 kWh per month
-            co2_saved: 6, // tons per year
-            panel_count: 20, // Default panel count
-            roof_area: 150, // sq meters
-            max_panels: 40,
-            address: address
-          },
-          embed_url: data.mapsUrl, // Use the static satellite image as embed
-          interactive: false // Start with non-interactive view
-        },
-        animation: 'swoop-left'
-      };
+      if (error) throw error;
 
       addMessage(
-        `Great! I've analyzed the solar potential for ${address}. Here's the satellite imagery of your property:`,
-        'isabella',
-        [solarCard]
+        `Here's the solar analysis for ${address}. The results show great potential for solar installation!`,
+        'isabella'
       );
 
-      setCurrentCard(solarCard);
+      if (data.card) {
+        setCurrentCard(data.card);
+      }
 
     } catch (error) {
       console.error('Error getting solar analysis:', error);
-      
-      // Show specific error message based on the error
-      let errorMessage = "I couldn't retrieve solar data for that address.";
-      if (error.message?.includes('Address not found')) {
-        errorMessage = "Sorry, I couldn't locate that address. Please try another.";
-      } else if (error.message?.includes('geocode')) {
-        errorMessage = "I had trouble finding that address. Please check the spelling and try again.";
-      }
-      
-      addMessage(errorMessage, 'isabella');
+      addMessage(
+        "I couldn't retrieve solar data for that address. Please try a different address or contact us directly.",
+        'isabella'
+      );
     } finally {
       setIsProcessing(false);
     }

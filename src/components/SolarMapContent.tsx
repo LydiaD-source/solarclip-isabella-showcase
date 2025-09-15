@@ -1,118 +1,226 @@
-import React, { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-
-type SolarData = {
-  panel_count: number;
-  capacity_kw: number;
-  rooftop_area_m2: number;
-  mapsUrl: string;
-  coordinates: { lat: number; lng: number };
-  zoom: number;
-  size: string;
-};
+import React, { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { ExternalLink, Plus, Minus, Maximize2, ArrowLeft } from 'lucide-react';
 
 interface SolarMapContentProps {
-  address: string;
+  card: {
+    content: {
+      summary: {
+        annual_kwh: number;
+        monthly_kwh: number[];
+        monthly_flux?: number[];
+        co2_saved: number;
+        panel_count: number;
+        roof_area: number;
+        max_panels?: number;
+        address?: string;
+      };
+      embed_url: string;
+      interactive?: boolean;
+      roof_segments?: { id: string; polygon: [number, number][]; potential?: string }[];
+    };
+  };
+  onAction?: (action: string, data?: any) => void;
 }
 
-const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
-  const [solarData, setSolarData] = useState<SolarData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const projectRef = 'mzikfyqzwepnubdsclfd';
-  useEffect(() => {
-    if (!address) {
-      setSolarData(null);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-
-    (async () => {
-      try {
-        const { data, error: fnError } = await supabase.functions.invoke('solar-map', {
-          body: { address }
-        });
-        if (fnError) throw fnError;
-        console.log('Solar analysis response:', data);
-        setSolarData({
-          panel_count: data?.panel_count ?? 0,
-          capacity_kw: data?.capacity_kw ?? 0,
-          rooftop_area_m2: data?.rooftop_area_m2 ?? 0,
-          mapsUrl: data?.mapsUrl ?? "",
-          coordinates: data?.coordinates ?? { lat: 0, lng: 0 },
-          zoom: data?.zoom ?? 20,
-          size: data?.size ?? "640x640",
-        });
-      } catch (e: any) {
-        console.error("Solar API fetch error:", e);
-        setError(e?.message || "Error loading solar data");
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [address]);
-
-  const panelCount = solarData?.panel_count ?? 0;
-  const capacityKw = solarData?.capacity_kw ?? 0;
-  const rooftopArea = solarData?.rooftop_area_m2 ?? 0;
-  const mapUrl = solarData?.mapsUrl ?? "";
-
-  const [displayUrl, setDisplayUrl] = useState<string>("");
-  useEffect(() => {
-    const { coordinates, zoom, size } = solarData ?? {} as any;
-    let proxied = `https://${projectRef}.supabase.co/functions/v1/solar-map-image`;
-    if (coordinates?.lat && coordinates?.lng) {
-      proxied += `?lat=${coordinates.lat}&lng=${coordinates.lng}`;
-    } else if (address) {
-      proxied += `?address=${encodeURIComponent(address)}`;
-    }
-    if ((solarData as any)?.zoom) proxied += `&zoom=${(solarData as any).zoom}`;
-    if ((solarData as any)?.size) proxied += `&size=${encodeURIComponent((solarData as any).size)}`;
-    setDisplayUrl(proxied);
-  }, [mapUrl, address, solarData]);
-
-  if (!displayUrl) {
-    return null;
-  }
-
+export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
+  const [adjustedPanels, setAdjustedPanels] = useState(card.content.summary.panel_count);
+  const [showInteractiveMap, setShowInteractiveMap] = useState(false);
+  const originalPanels = card.content.summary.panel_count;
+  const maxPanels = card.content.summary.max_panels || originalPanels * 2;
   
+  // Calculate adjusted energy based on panel count
+  const panelRatio = adjustedPanels / originalPanels;
+  const adjustedAnnualKwh = Math.round(card.content.summary.annual_kwh * panelRatio);
+  const adjustedCo2Saved = Math.round(card.content.summary.co2_saved * panelRatio);
+  const adjustedMonthlyAvg = Math.round(adjustedAnnualKwh / 12);
+
+  const handlePanelAdjustment = (change: number) => {
+    const newCount = Math.max(1, Math.min(maxPanels, adjustedPanels + change));
+    setAdjustedPanels(newCount);
+    
+    // Trigger action for panel adjustment
+    onAction?.('adjust_panels', { 
+      panel_count: newCount, 
+      annual_kwh: Math.round(card.content.summary.annual_kwh * (newCount / originalPanels))
+    });
+  };
 
   return (
-    <div className="solar-map-container" style={{ width: '100%', height: '400px' }}>
-      <img
-        key={displayUrl}
-        src={displayUrl}
-        alt={`Satellite rooftop view ${address ? `for ${address}` : ''}`}
-        style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }}
-        loading="eager"
-        onError={() => {
-          if (!displayUrl.includes(`${projectRef}.supabase.co/functions/v1/solar-map-image`)) {
-            const lat = solarData?.coordinates?.lat
-            const lng = solarData?.coordinates?.lng
-            let proxied = `https://${projectRef}.supabase.co/functions/v1/solar-map-image`;
-            if (lat && lng) {
-              proxied += `?lat=${lat}&lng=${lng}`
-            } else if (address) {
-              proxied += `?address=${encodeURIComponent(address)}`
-            }
-            console.warn('Falling back to proxied image URL:', proxied)
-            setDisplayUrl(proxied)
-            return
-          }
-          console.error('Failed to load mapsUrl:', displayUrl);
-        }}
-      />
-      <div className="solar-info" style={{ marginTop: '1rem' }}>
-        <p>Estimated Panels: {panelCount}</p>
-        <p>Capacity: {capacityKw} kW</p>
-        <p>Rooftop Area: {rooftopArea} m²</p>
-      </div>
+    <div className="space-y-4">
+      {!showInteractiveMap ? (
+        <>
+          {/* Solar Statistics Grid */}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="space-y-2">
+              <p className="text-muted-foreground">
+                <strong className="text-foreground">Annual Generation:</strong><br />
+                {adjustedAnnualKwh.toLocaleString()} kWh
+              </p>
+              <p className="text-muted-foreground">
+                <strong className="text-foreground">CO₂ Saved:</strong><br />
+                {adjustedCo2Saved} tons/year
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-muted-foreground">
+                <strong className="text-foreground">Roof Area:</strong><br />
+                {card.content.summary.roof_area} m²
+              </p>
+              <p className="text-muted-foreground">
+                <strong className="text-foreground">Monthly Avg:</strong><br />
+                {adjustedMonthlyAvg.toLocaleString()} kWh
+              </p>
+            </div>
+          </div>
+
+          {/* Interactive Panel Adjustment */}
+          {card.content.interactive && (
+            <div className="border rounded-lg p-3 bg-muted/30">
+              <p className="text-sm font-medium mb-2">Adjust Solar Panels</p>
+              <div className="flex items-center justify-between">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handlePanelAdjustment(-1)}
+                  disabled={adjustedPanels <= 1}
+                >
+                  <Minus className="h-3 w-3" />
+                </Button>
+                <div className="text-center">
+                  <div className="text-lg font-bold">{adjustedPanels}</div>
+                  <div className="text-xs text-muted-foreground">panels</div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => handlePanelAdjustment(1)}
+                  disabled={adjustedPanels >= maxPanels}
+                >
+                  <Plus className="h-3 w-3" />
+                </Button>
+              </div>
+              <div className="text-xs text-muted-foreground text-center mt-1">
+                Max: {maxPanels} panels
+              </div>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="space-y-2">
+            <Button 
+              className="w-full gap-2"
+              onClick={() => setShowInteractiveMap(true)}
+            >
+              <Maximize2 className="h-4 w-4" />
+              View Interactive Roof Map
+            </Button>
+            
+            <Button 
+              variant="outline"
+              className="w-full"
+              onClick={() => onAction?.('request_quote', { 
+                panel_count: adjustedPanels, 
+                annual_kwh: adjustedAnnualKwh,
+                address: card.content.summary.address
+              })}
+            >
+              Get Quote for {adjustedPanels} Panels
+            </Button>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Interactive Map View */}
+          <div className="space-y-3">
+            {/* Header with back button */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-sm">Interactive Solar Map</h3>
+                <p className="text-xs text-muted-foreground">
+                  {card.content.summary.address || 'Your roof with solar panels'}
+                </p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowInteractiveMap(false)}
+              >
+                <ArrowLeft className="h-3 w-3 mr-1" />
+                Back
+              </Button>
+            </div>
+
+            {/* Embedded Google Solar Map */}
+            <div className="relative w-full h-64 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
+              <iframe
+                src={card.content.embed_url}
+                className="w-full h-full border-0"
+                title="Interactive Solar Roof Map"
+                loading="lazy"
+                allow="geolocation"
+                style={{ minHeight: '250px' }}
+              />
+              
+              {/* Overlay with current stats */}
+              <div className="absolute top-2 left-2 bg-white/95 dark:bg-black/95 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm">
+                <div className="text-xs font-medium">{adjustedPanels} panels</div>
+                <div className="text-xs text-muted-foreground">{adjustedAnnualKwh.toLocaleString()} kWh/yr</div>
+              </div>
+            </div>
+
+            {/* Quick adjustment controls below map */}
+            <div className="flex items-center justify-center gap-4 p-2 bg-muted/30 rounded-lg">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handlePanelAdjustment(-1)}
+                disabled={adjustedPanels <= 1}
+              >
+                <Minus className="h-3 w-3" />
+              </Button>
+              <div className="text-center min-w-[80px]">
+                <div className="text-sm font-bold">{adjustedPanels} panels</div>
+                <div className="text-xs text-muted-foreground">
+                  {adjustedAnnualKwh.toLocaleString()} kWh/yr
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => handlePanelAdjustment(1)}
+                disabled={adjustedPanels >= maxPanels}
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+
+            {/* External link and quote buttons */}
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="gap-1"
+                onClick={() => window.open(card.content.embed_url, '_blank')}
+              >
+                <ExternalLink className="h-3 w-3" />
+                Full Map
+              </Button>
+              
+              <Button 
+                size="sm"
+                onClick={() => onAction?.('request_quote', { 
+                  panel_count: adjustedPanels, 
+                  annual_kwh: adjustedAnnualKwh,
+                  address: card.content.summary.address
+                })}
+              >
+                Get Quote
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
-
-export default SolarMapContent;
-export { SolarMapContent };
