@@ -97,6 +97,20 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         // Render fullscreen solar map interface directly
         if ((card as any)?.content?.embed_url || (card as any)?.content?.embedUrl || (card as any)?.content?.url) {
           const embed = (card as any).content.embed_url || (card as any).content.embedUrl || (card as any).content.url;
+          const isStaticImage = typeof embed === 'string' && (embed.includes('staticmap') || /\.(png|jpg|jpeg|webp)(\?|$)/i.test(embed));
+          if (isStaticImage) {
+            return (
+              <div className="w-full h-full relative bg-muted">
+                <img
+                  src={embed}
+                  alt="Rooftop satellite view for solar analysis"
+                  className="w-full h-full object-cover"
+                  loading="eager"
+                  referrerPolicy="no-referrer"
+                />
+              </div>
+            );
+          }
           return (
             <div className="w-full h-full relative">
               <iframe

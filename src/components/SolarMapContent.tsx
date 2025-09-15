@@ -24,10 +24,19 @@ interface SolarMapContentProps {
 }
 
 export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
-  const [adjustedPanels, setAdjustedPanels] = useState(card.content.summary.panel_count);
+  const summary = card?.content?.summary ?? {
+    annual_kwh: 0,
+    monthly_kwh: new Array(12).fill(0),
+    co2_saved: 0,
+    panel_count: 1,
+    roof_area: 0,
+    max_panels: 1,
+    address: ''
+  };
+  const embedUrl = (card as any)?.content?.embed_url || (card as any)?.content?.mapsUrl || (card as any)?.content?.embedUrl || '';
+  const [adjustedPanels, setAdjustedPanels] = useState<number>(summary.panel_count);
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
   const [iframeError, setIframeError] = useState(false);
-  
   // Listen for messages from the embed (e.g., missing_bounding_box)
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -41,13 +50,13 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     return () => window.removeEventListener('message', onMessage);
   }, []);
   
-  const originalPanels = card.content.summary.panel_count;
-  const maxPanels = card.content.summary.max_panels || originalPanels * 2;
+  const originalPanels = summary.panel_count;
+  const maxPanels = summary.max_panels || originalPanels * 2;
   
   // Calculate adjusted energy based on panel count
   const panelRatio = adjustedPanels / originalPanels;
-  const adjustedAnnualKwh = Math.round(card.content.summary.annual_kwh * panelRatio);
-  const adjustedCo2Saved = Math.round(card.content.summary.co2_saved * panelRatio);
+  const adjustedAnnualKwh = Math.round(summary.annual_kwh * panelRatio);
+  const adjustedCo2Saved = Math.round(summary.co2_saved * panelRatio);
   const adjustedMonthlyAvg = Math.round(adjustedAnnualKwh / 12);
 
   const handlePanelAdjustment = (change: number) => {
@@ -57,7 +66,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     // Trigger action for panel adjustment
     onAction?.('adjust_panels', { 
       panel_count: newCount, 
-      annual_kwh: Math.round(card.content.summary.annual_kwh * (newCount / originalPanels))
+      annual_kwh: Math.round(summary.annual_kwh * (newCount / originalPanels))
     });
   };
 
@@ -80,7 +89,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             <div className="space-y-2">
               <p className="text-muted-foreground">
                 <strong className="text-foreground">Roof Area:</strong><br />
-                {card.content.summary.roof_area} m²
+                {summary.roof_area} m²
               </p>
               <p className="text-muted-foreground">
                 <strong className="text-foreground">Monthly Avg:</strong><br />
@@ -137,7 +146,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
               onClick={() => onAction?.('request_quote', { 
                 panel_count: adjustedPanels, 
                 annual_kwh: adjustedAnnualKwh,
-                address: card.content.summary.address
+                address: summary.address
               })}
             >
               Get Quote for {adjustedPanels} Panels
@@ -153,7 +162,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
               <div>
                 <h3 className="font-semibold text-sm">Interactive Solar Map</h3>
                 <p className="text-xs text-muted-foreground">
-                  {card.content.summary.address || 'Your roof with solar panels'}
+                  {summary.address || 'Your roof with solar panels'}
                 </p>
               </div>
               <Button 
@@ -169,7 +178,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             {/* Embedded Google Solar Map */}
             <div className="relative w-full h-80 md:h-96 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
               <iframe
-                src={card.content.embed_url}
+                src={embedUrl}
                 className="w-full h-full border-0"
                 title="Interactive Solar Roof Map"
                 loading="lazy"
@@ -226,7 +235,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                 variant="outline" 
                 size="sm"
                 className="gap-1"
-                onClick={() => window.open(card.content.embed_url, '_blank')}
+                onClick={() => window.open(embedUrl, '_blank')}
               >
                 <ExternalLink className="h-3 w-3" />
                 Full Map
@@ -237,7 +246,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                 onClick={() => onAction?.('request_quote', { 
                   panel_count: adjustedPanels, 
                   annual_kwh: adjustedAnnualKwh,
-                  address: card.content.summary.address
+                  address: summary.address
                 })}
               >
                 Get Quote
