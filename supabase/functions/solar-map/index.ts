@@ -274,7 +274,7 @@ serve(async (req) => {
       let radiusMeters = 100;
 
       async function fetchDataLayers(rad: number) {
-        const url = `https://maps.googleapis.com/maps/v1/solar/dataLayers:compute?key=${GOOGLE_SOLAR_KEY}`;
+        const url = `https://solar.googleapis.com/v1/dataLayers:compute?key=${GOOGLE_SOLAR_KEY}`;
         const body = {
           location: { 
             latitude: location.lat, 
