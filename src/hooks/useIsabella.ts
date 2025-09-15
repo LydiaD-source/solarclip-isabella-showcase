@@ -27,6 +27,7 @@ export const useIsabella = (clientId: string = 'solarclip') => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [currentCard, setCurrentCard] = useState<IsabellaCard | null>(null);
+  const [awaitingAddress, setAwaitingAddress] = useState(false);
 
   const addMessage = useCallback((text: string, sender: 'user' | 'isabella', cards?: IsabellaCard[]) => {
     const message: ChatMessage = {
@@ -42,6 +43,13 @@ export const useIsabella = (clientId: string = 'solarclip') => {
 
   const sendMessage = useCallback(async (userMessage: string) => {
     if (!userMessage.trim() || isProcessing) return;
+
+    // If Isabella asked for an address, route this message directly to solar analysis
+    if (awaitingAddress) {
+      setAwaitingAddress(false);
+      await getSolarAnalysis(userMessage.trim());
+      return;
+    }
 
     setIsProcessing(true);
     
@@ -68,11 +76,15 @@ export const useIsabella = (clientId: string = 'solarclip') => {
       // Add Isabella's response
       const message = addMessage(response.text, 'isabella', response.cards);
 
+      // If Isabella is asking for an address, set flag for next user message
+      if (response.actions?.includes('request_address')) {
+        setAwaitingAddress(true);
+      }
+
       // Show cards if any
       if (response.cards && response.cards.length > 0) {
         setCurrentCard(response.cards[0]);
       }
-
     } catch (error) {
       console.error('Error communicating with Isabella:', error);
       addMessage(
@@ -82,7 +94,7 @@ export const useIsabella = (clientId: string = 'solarclip') => {
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, addMessage, clientId, sessionId, messages]);
+  }, [isProcessing, addMessage, clientId, sessionId, messages, awaitingAddress]);
 
   const getSolarAnalysis = useCallback(async (address: string) => {
     if (!address.trim()) return;
