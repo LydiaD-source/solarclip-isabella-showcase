@@ -18,7 +18,7 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
   const [solarData, setSolarData] = useState<SolarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const [imgError, setImgError] = useState(false);
   useEffect(() => {
     if (!address) {
       setSolarData(null);
@@ -64,7 +64,11 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
   const capacityKw = solarData?.capacity_kw ?? 0;
   const rooftopArea = solarData?.rooftop_area_m2 ?? 0;
   const mapUrl = solarData?.mapsUrl ?? "";
-
+  
+  // Reset image error when URL changes
+  useEffect(() => {
+    setImgError(false);
+  }, [mapUrl]);
   if (loading) {
     return <div>Loading solar map...</div>;
   }
@@ -76,11 +80,12 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
 
   return (
     <div className="solar-map-container" style={{ width: "100%", height: "400px" }}>
-      {mapUrl ? (
+      {mapUrl && !imgError ? (
         <img
           src={mapUrl}
-          alt="Solar map"
+          alt="Satellite view"
           style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: 12 }}
+          onError={() => setImgError(true)}
         />
       ) : (
         <div
@@ -92,10 +97,9 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
             justifyContent: "center",
           }}
         >
-          Map unavailable
+          Map could not be loaded
         </div>
       )}
-
       <div className="solar-info" style={{ marginTop: "1rem" }}>
         <p>Estimated Panels: {panelCount}</p>
         <p>Capacity: {capacityKw} kW</p>
