@@ -4,69 +4,78 @@ import { ExternalLink, Plus, Minus, Maximize2, ArrowLeft } from 'lucide-react';
 
 interface SolarMapContentProps {
   card: {
-    content: {
-      summary: {
-        annual_kwh: number;
-        monthly_kwh: number[];
-        monthly_flux?: number[];
-        co2_saved: number;
-        panel_count: number;
-        roof_area: number;
-        max_panels?: number;
-        address?: string;
-      };
-      embed_url: string;
-      interactive?: boolean;
-      roof_segments?: { id: string; polygon: [number, number][]; potential?: string }[];
-    };
+    content?: any;
   };
   onAction?: (action: string, data?: any) => void;
 }
 
 export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
-  // 1) Safe defaults to guarantee stability
-  const initialSafe = {
+  // 1) Initialize state with safe defaults BEFORE any render
+  const safeSolarData = {
     panel_count: 0,
     capacity_kw: 0,
     rooftop_area_m2: 0,
-    mapsUrl: '',
+    mapsUrl: "",
     coordinates: { lat: 0, lng: 0 },
-    zoom: 20 as number,
-    size: '640x640',
+    zoom: 20,
+    size: "640x640",
+    summary: {
+      annual_kwh: 0,
+      monthly_kwh: new Array(12).fill(0),
+      co2_saved: 0,
+      panel_count: 0,
+      roof_area: 0,
+      max_panels: 20,
+      address: ""
+    },
+    interactive: false
   };
 
-  // 2) Local state – never read directly from props
-  const [solarData, setSolarData] = useState<typeof initialSafe>(initialSafe);
-  const [adjustedPanels, setAdjustedPanels] = useState<number>(0);
+  const [solarData, setSolarData] = useState(safeSolarData);
+  const [adjustedPanels, setAdjustedPanels] = useState(0);
   const [showInteractiveMap, setShowInteractiveMap] = useState(false);
   const [iframeError, setIframeError] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const backendContent = (card as any)?.content ?? {};
 
-  // 3) Merge backend response into safe defaults on mount/update
+  // 2) Merge API response safely in useEffect
   useEffect(() => {
-    const merged = {
-      ...initialSafe,
-      ...backendContent,
-      // Normalize field names
-      mapsUrl: backendContent.mapsUrl || backendContent.embed_url || backendContent.embedUrl || '',
-      coordinates: backendContent.coordinates ?? initialSafe.coordinates,
-    };
+    if (card?.content) {
+      setSolarData(prev => {
+        const merged = {
+          ...prev,
+          ...card.content,
+          // Normalize field names
+          mapsUrl: card.content.mapsUrl || card.content.embed_url || card.content.embedUrl || prev.mapsUrl,
+          panel_count: Number(card.content.panel_count ?? card.content.summary?.panel_count ?? prev.panel_count) || 0,
+          capacity_kw: Number(card.content.capacity_kw ?? prev.capacity_kw) || 0,
+          rooftop_area_m2: Number(card.content.rooftop_area_m2 ?? card.content.summary?.roof_area ?? prev.rooftop_area_m2) || 0,
+          coordinates: card.content.coordinates ?? prev.coordinates,
+          summary: {
+            ...prev.summary,
+            ...(card.content.summary ?? {}),
+            annual_kwh: Number(card.content.summary?.annual_kwh ?? prev.summary.annual_kwh) || 0,
+            co2_saved: Number(card.content.summary?.co2_saved ?? prev.summary.co2_saved) || 0,
+            panel_count: Number(card.content.summary?.panel_count ?? card.content.panel_count ?? prev.summary.panel_count) || 0,
+            roof_area: Number(card.content.summary?.roof_area ?? card.content.rooftop_area_m2 ?? prev.summary.roof_area) || 0,
+            max_panels: Number(card.content.summary?.max_panels ?? (card.content.panel_count || 10) * 2 ?? prev.summary.max_panels) || 20,
+            address: String(card.content.summary?.address ?? prev.summary.address)
+          },
+          interactive: Boolean(card.content.interactive ?? prev.interactive)
+        };
+        return merged;
+      });
+    }
+  }, [card?.content]);
 
-    // Ensure numeric fields are present
-    merged.panel_count = Number(backendContent.panel_count ?? backendContent.summary?.panel_count ?? 0) || 0;
-    merged.capacity_kw = Number(backendContent.capacity_kw ?? 0) || 0;
-    merged.rooftop_area_m2 = Number(backendContent.rooftop_area_m2 ?? backendContent.summary?.roof_area ?? 0) || 0;
+  // Update adjusted panels when solarData changes
+  useEffect(() => {
+    setAdjustedPanels(solarData.panel_count || solarData.summary.panel_count || 0);
+  }, [solarData.panel_count, solarData.summary.panel_count]);
 
-    setSolarData(merged);
-    setAdjustedPanels(merged.panel_count);
-
-    try {
-      console.log('Solar analysis response:', JSON.stringify(backendContent, null, 2));
-    } catch {}
-  }, [card]);
-  
-  const interactive = Boolean((solarData as any)?.interactive);
+  // 3) Log for debugging
+  useEffect(() => {
+    console.log("Solar data:", JSON.stringify(solarData, null, 2));
+  }, [solarData]);
 
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -79,48 +88,29 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, []);
-  
-  // Build a fully safe summary derived from state
-  const summary = {
-    annual_kwh: Number((solarData as any)?.summary?.annual_kwh ?? 0),
-    monthly_kwh: Array.isArray((solarData as any)?.summary?.monthly_kwh)
-      ? (solarData as any).summary.monthly_kwh
-      : new Array(12).fill(0),
-    co2_saved: Number((solarData as any)?.summary?.co2_saved ?? 0),
-    panel_count: Number(solarData.panel_count ?? (solarData as any)?.summary?.panel_count ?? 0) || 0,
-    roof_area: Number(solarData.rooftop_area_m2 ?? (solarData as any)?.summary?.roof_area ?? 0) || 0,
-    max_panels: Number((solarData as any)?.summary?.max_panels ?? ((Number(solarData.panel_count ?? 0) || 10) * 2)) || 20,
-    address: String((solarData as any)?.summary?.address ?? ''),
-  };
-  // Calculate adjusted energy based on panel count
-  const originalPanels = Math.max(1, Number(summary.panel_count) || 1); // prevent divide-by-zero
-  const maxPanels = Math.max(originalPanels, Number(summary.max_panels) || originalPanels * 2);
-  const panelRatio = originalPanels > 0 ? (Math.max(0, adjustedPanels) / originalPanels) : 0;
-  const adjustedAnnualKwh = Math.round((Number(summary.annual_kwh) || 0) * panelRatio);
-  const adjustedCo2Saved = Math.round((Number(summary.co2_saved) || 0) * panelRatio);
+
+  // 4) All calculations use solarData, never card.content
+  const originalPanels = Math.max(1, Number(solarData.panel_count || solarData.summary.panel_count) || 1);
+  const maxPanels = Math.max(originalPanels, Number(solarData.summary.max_panels) || originalPanels * 2);
+  const panelRatio = originalPanels > 0 ? Math.max(0, adjustedPanels) / originalPanels : 0;
+  const adjustedAnnualKwh = Math.round((Number(solarData.summary.annual_kwh) || 0) * panelRatio);
+  const adjustedCo2Saved = Math.round((Number(solarData.summary.co2_saved) || 0) * panelRatio);
   const adjustedMonthlyAvg = Math.round(adjustedAnnualKwh / 12);
 
   const handlePanelAdjustment = (change: number) => {
-    const next = Math.max(0, Math.min(maxPanels, (adjustedPanels || 0) + change));
+    const next = Math.max(0, Math.min(maxPanels, adjustedPanels + change));
     setAdjustedPanels(next);
     onAction?.('adjust_panels', {
       panel_count: next,
-      annual_kwh: Math.round((Number(summary.annual_kwh) || 0) * (originalPanels ? next / originalPanels : 0)),
+      annual_kwh: Math.round((Number(solarData.summary.annual_kwh) || 0) * (originalPanels ? next / originalPanels : 0)),
     });
   };
-
-  // Log merged state for debugging
-  useEffect(() => {
-    try {
-      console.log('SolarMapContent state:', JSON.stringify(solarData, null, 2));
-    } catch {}
-  }, [solarData]);
 
   return (
     <div className="space-y-4">
       {!showInteractiveMap ? (
         <>
-          {/* Solar Statistics Grid */}
+          {/* Solar Statistics Grid - ALWAYS use solarData */}
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="space-y-2">
               <p className="text-muted-foreground">
@@ -134,9 +124,24 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
             </div>
             <div className="space-y-2">
               <p className="text-muted-foreground">
-                <strong className="text-foreground">Roof Area:</strong><br />
-                {summary.roof_area} m²
+                <strong className="text-foreground">Panels:</strong><br />
+                {solarData.panel_count || solarData.summary.panel_count}
               </p>
+              <p className="text-muted-foreground">
+                <strong className="text-foreground">Capacity:</strong><br />
+                {solarData.capacity_kw} kW
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="space-y-2">
+              <p className="text-muted-foreground">
+                <strong className="text-foreground">Roof Area:</strong><br />
+                {solarData.rooftop_area_m2 || solarData.summary.roof_area} m²
+              </p>
+            </div>
+            <div className="space-y-2">
               <p className="text-muted-foreground">
                 <strong className="text-foreground">Monthly Avg:</strong><br />
                 {adjustedMonthlyAvg.toLocaleString()} kWh
@@ -145,7 +150,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
           </div>
 
           {/* Interactive Panel Adjustment */}
-          {interactive && (
+          {solarData.interactive && (
             <div className="border rounded-lg p-3 bg-muted/30">
               <p className="text-sm font-medium mb-2">Adjust Solar Panels</p>
               <div className="flex items-center justify-between">
@@ -192,7 +197,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
               onClick={() => onAction?.('request_quote', { 
                 panel_count: adjustedPanels, 
                 annual_kwh: adjustedAnnualKwh,
-                address: summary.address
+                address: solarData.summary.address
               })}
             >
               Get Quote for {adjustedPanels} Panels
@@ -208,7 +213,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
               <div>
                 <h3 className="font-semibold text-sm">Interactive Solar Map</h3>
                 <p className="text-xs text-muted-foreground">
-                  {summary.address || 'Your roof with solar panels'}
+                  {solarData.summary.address || 'Your roof with solar panels'}
                 </p>
               </div>
               <Button 
@@ -221,7 +226,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
               </Button>
             </div>
 
-            {/* Embedded Google Solar Map */}
+            {/* 5) Render map safely using solarData */}
             <div className="relative w-full h-80 md:h-96 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border">
               {solarData.mapsUrl ? (
                 /staticmap|\.(png|jpg|jpeg|webp)(\?|$)/i.test(solarData.mapsUrl) ? (
@@ -248,8 +253,11 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                   />
                 )
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                  No map available.
+                <div 
+                  style={{ width: '100%', height: '100%', backgroundColor: '#ccc' }}
+                  className="flex items-center justify-center text-xs text-muted-foreground"
+                >
+                  Loading map...
                 </div>
               )}
 
@@ -261,7 +269,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                 </div>
               )}
 
-              {/* Overlay with current stats */}
+              {/* Overlay with current stats - use solarData */}
               <div className="absolute top-2 left-2 bg-white/95 dark:bg-black/95 backdrop-blur-sm px-2 py-1 rounded-md shadow-sm">
                 <div className="text-xs font-medium">{adjustedPanels} panels</div>
                 <div className="text-xs text-muted-foreground">{adjustedAnnualKwh.toLocaleString()} kWh/yr</div>
@@ -312,7 +320,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                 onClick={() => onAction?.('request_quote', { 
                   panel_count: adjustedPanels, 
                   annual_kwh: adjustedAnnualKwh,
-                  address: summary.address
+                  address: solarData.summary.address
                 })}
               >
                 Get Quote
