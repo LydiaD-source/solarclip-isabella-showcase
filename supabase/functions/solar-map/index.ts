@@ -368,7 +368,7 @@ serve(async (req) => {
     }
 
     // 5) Build enhanced Google-only embed with roof visualization, Data Layers overlay, and seasonal animation
-    const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") || "*";
+    const allowedOrigin = Deno.env.get("ALLOWED_ORIGIN") || req.headers.get("origin") || "*";
     const embedHtml = `<!DOCTYPE html>
 <html>
   <head>
