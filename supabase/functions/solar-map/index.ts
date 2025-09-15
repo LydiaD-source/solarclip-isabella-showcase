@@ -298,7 +298,7 @@ serve(async (req) => {
 
         if (!res.ok) {
           const text = await res.text();
-          console.error("[solar-map] Google error:", res.status, "URL:", res.url, "Response:", text.slice(0, 500));
+          console.error("[solar-map] Google error:", res.status, "URL:", res.url, "Response:", text);
           return { ok: false, json: null };
         }
 
