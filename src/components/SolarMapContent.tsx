@@ -293,7 +293,8 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                 variant="outline" 
                 size="sm"
                 className="gap-1"
-                onClick={() => window.open(embedUrl, '_blank')}
+                onClick={() => solarData.mapsUrl && window.open(solarData.mapsUrl, '_blank')}
+                disabled={!solarData.mapsUrl}
               >
                 <ExternalLink className="h-3 w-3" />
                 Full Map
