@@ -541,11 +541,12 @@ serve(async (req) => {
       },
     };
 
-    // Add the safe segmentation data to the result 
-    result.content.panel_count = result.content.summary.panel_count;
-    result.content.capacity_kw = capacity_kw;
-    result.content.rooftop_area_m2 = rooftop_area_m2;
-    result.content.roof_segments = roof_segments;
+    // Augment summary with safe fields; avoid touching map imagery
+    result.card.content.summary.capacity_kw = capacity_kw;
+    result.card.content.summary.rooftop_area_m2 = rooftop_area_m2;
+    // Ensure roof segments are included on both content and summary for UI compatibility
+    result.card.content.roof_segments = roof_segments;
+    result.card.content.summary.roof_segments = roof_segments;
 
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
