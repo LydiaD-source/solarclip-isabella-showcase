@@ -266,11 +266,15 @@ serve(async (req) => {
           body: JSON.stringify(payload),
         });
         const raw = await res.text();
+        console.info('[solar-map] dataLayers:compute url:', res.url);
         console.info('[solar-map] dataLayers:compute status:', res.status);
-        console.info('[solar-map] dataLayers:compute raw:', raw.slice(0, 2000));
+        console.info('[solar-map] dataLayers:compute raw:', raw.slice(0, 200));
         let json: any = null;
-        try { json = JSON.parse(raw); } catch (e) {
-          console.error('[solar-map] Failed to parse dataLayers JSON:', e);
+        try {
+          json = JSON.parse(raw);
+        } catch (e) {
+          console.error('[solar-map] Google returned non-JSON', raw.slice(0, 200));
+          return { ok: false as boolean, json: null };
         }
         if (!res.ok) {
           // Log structured error payload when available
@@ -484,6 +488,7 @@ serve(async (req) => {
           const imagery = window.dataLayers && window.dataLayers.imagery;
           if (!imagery || !imagery.rasterUrlTemplate) {
             console.log('[Imagery] Not available');
+            try { if (window.parent) window.parent.postMessage({ type: 'solar_embed_error', reason: 'missing_imagery' }, window.allowedOrigin || '*'); } catch (e) { /* no-op */ }
             return;
           }
           const template = imagery.rasterUrlTemplate;
@@ -499,6 +504,7 @@ serve(async (req) => {
             }
           });
           map.overlayMapTypes.insertAt(0, overlay);
+          window.hasDataLayers = true;
 
           // Fit bounds to imagery bounding box if present
           const bb = imagery.boundingBox;
@@ -693,7 +699,15 @@ serve(async (req) => {
       card: {
         type: "google_solar",
         title: "Your Roof Solar Potential",
-        content: { embed_url: embedUrl, summary, roof_segments },
+        content: {
+          embed_url: embedUrl,
+          summary,
+          roof_segments,
+          has_data_layers: !!(data_layers && data_layers.imagery && data_layers.imagery.rasterUrlTemplate),
+          data_layers_error: !(data_layers && data_layers.imagery && data_layers.imagery.rasterUrlTemplate)
+            ? { error: "Data layers unavailable", address: formattedAddress }
+            : undefined
+        },
         animation: "swoop-left",
       },
     };
