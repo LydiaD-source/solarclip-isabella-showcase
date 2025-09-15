@@ -94,41 +94,43 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
         );
 
       case 'google_solar':
-        // Render fullscreen solar map interface directly
-        if ((card as any)?.content?.embed_url || (card as any)?.content?.embedUrl || (card as any)?.content?.url || (card as any)?.content?.mapsUrl) {
-          const embed = (card as any).content.embed_url 
-            || (card as any).content.embedUrl 
-            || (card as any).content.url 
-            || (card as any).content.mapsUrl;
-          const isStaticImage = typeof embed === 'string' && (embed.includes('staticmap') || /\.(png|jpg|jpeg|webp)(\?|$)/i.test(embed));
-          if (isStaticImage) {
+        // Prefer static image maps when available; guard content access
+        {
+          const content: any = (card as any)?.content ?? {};
+          const embed: string = String(
+            content.mapsUrl || content.embed_url || content.embedUrl || content.url || ''
+          );
+          if (embed) {
+            const isStaticImage = embed.includes('staticmap') || /\.(png|jpg|jpeg|webp)(\?|$)/i.test(embed);
+            if (isStaticImage) {
+              return (
+                <div className="w-full h-full relative bg-muted">
+                  <img
+                    src={embed}
+                    alt="Rooftop satellite view for solar analysis"
+                    className="w-full h-full object-cover"
+                    loading="eager"
+                    referrerPolicy="no-referrer"
+                  />
+                </div>
+              );
+            }
             return (
-              <div className="w-full h-full relative bg-muted">
-                <img
+              <div className="w-full h-full relative">
+                <iframe
                   src={embed}
-                  alt="Rooftop satellite view for solar analysis"
-                  className="w-full h-full object-cover"
+                  className="w-full h-full border-0"
+                  title="Interactive Solar Map"
                   loading="eager"
+                  allow="geolocation"
                   referrerPolicy="no-referrer"
+                  sandbox="allow-scripts allow-same-origin"
                 />
               </div>
             );
           }
-          return (
-            <div className="w-full h-full relative">
-              <iframe
-                src={embed}
-                className="w-full h-full border-0"
-                title="Interactive Solar Map"
-                loading="eager"
-                allow="geolocation"
-                referrerPolicy="no-referrer"
-                sandbox="allow-scripts allow-same-origin"
-              />
-            </div>
-          );
         }
-        // Fallback to legacy internal renderer
+        // Fallback to internal renderer with safe handling
         return (
           <SolarMapContent 
             card={card} 

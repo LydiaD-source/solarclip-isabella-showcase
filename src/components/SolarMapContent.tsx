@@ -66,7 +66,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
     } catch {}
   }, [card]);
   
-  const interactive = Boolean(backendContent?.interactive);
+  const interactive = Boolean((solarData as any)?.interactive);
 
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -82,17 +82,16 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
   
   // Build a fully safe summary derived from state
   const summary = {
-    annual_kwh: Number(backendContent?.summary?.annual_kwh ?? 0),
-    monthly_kwh: Array.isArray(backendContent?.summary?.monthly_kwh)
-      ? backendContent.summary.monthly_kwh
+    annual_kwh: Number((solarData as any)?.summary?.annual_kwh ?? 0),
+    monthly_kwh: Array.isArray((solarData as any)?.summary?.monthly_kwh)
+      ? (solarData as any).summary.monthly_kwh
       : new Array(12).fill(0),
-    co2_saved: Number(backendContent?.summary?.co2_saved ?? 0),
-    panel_count: Number(solarData.panel_count ?? 0) || 0,
-    roof_area: Number(backendContent?.summary?.roof_area ?? solarData.rooftop_area_m2 ?? 0) || 0,
-    max_panels: Number(backendContent?.summary?.max_panels ?? (solarData.panel_count || 10) * 2) || 20,
-    address: String(backendContent?.summary?.address ?? ''),
+    co2_saved: Number((solarData as any)?.summary?.co2_saved ?? 0),
+    panel_count: Number(solarData.panel_count ?? (solarData as any)?.summary?.panel_count ?? 0) || 0,
+    roof_area: Number(solarData.rooftop_area_m2 ?? (solarData as any)?.summary?.roof_area ?? 0) || 0,
+    max_panels: Number((solarData as any)?.summary?.max_panels ?? ((Number(solarData.panel_count ?? 0) || 10) * 2)) || 20,
+    address: String((solarData as any)?.summary?.address ?? ''),
   };
-
   // Calculate adjusted energy based on panel count
   const originalPanels = Math.max(1, Number(summary.panel_count) || 1); // prevent divide-by-zero
   const maxPanels = Math.max(originalPanels, Number(summary.max_panels) || originalPanels * 2);
@@ -109,6 +108,14 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
       annual_kwh: Math.round((Number(summary.annual_kwh) || 0) * (originalPanels ? next / originalPanels : 0)),
     });
   };
+
+  // Log merged state for debugging
+  useEffect(() => {
+    try {
+      console.log('SolarMapContent state:', JSON.stringify(solarData, null, 2));
+    } catch {}
+  }, [solarData]);
+
   return (
     <div className="space-y-4">
       {!showInteractiveMap ? (
@@ -146,7 +153,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                   variant="outline" 
                   size="sm"
                   onClick={() => handlePanelAdjustment(-1)}
-                  disabled={adjustedPanels <= 1}
+                  disabled={adjustedPanels <= 0}
                 >
                   <Minus className="h-3 w-3" />
                 </Button>
@@ -267,7 +274,7 @@ export const SolarMapContent = ({ card, onAction }: SolarMapContentProps) => {
                 variant="outline" 
                 size="sm"
                 onClick={() => handlePanelAdjustment(-1)}
-                disabled={adjustedPanels <= 1}
+                disabled={adjustedPanels <= 0}
               >
                 <Minus className="h-3 w-3" />
               </Button>
