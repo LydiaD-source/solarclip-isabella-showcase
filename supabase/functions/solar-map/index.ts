@@ -93,7 +93,7 @@ serve(async (req) => {
     }
 
     // 2) Google Solar API - Building Insights (closest)
-    const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&key=${googleApiKey}`;
+    const solarApiUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&key=${GOOGLE_SOLAR_KEY}`;
     const solarRes = await fetch(solarApiUrl, { headers: { Accept: "application/json" } });
     if (!solarRes.ok) throw new Error(`Solar API error: ${solarRes.status}`);
     const solarData = await solarRes.json();
@@ -274,7 +274,7 @@ serve(async (req) => {
       let radiusMeters = 100;
 
       async function fetchDataLayers(rad: number) {
-        const url = `https://solar.googleapis.com/v1/dataLayers:compute?key=${GOOGLE_SOLAR_KEY}`;
+        const url = `https://solarmaps.googleapis.com/v1/dataLayers:compute?key=${GOOGLE_SOLAR_KEY}`;
         const body = {
           location: { 
             latitude: location.lat, 
