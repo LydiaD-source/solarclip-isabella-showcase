@@ -1,6 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts'
 
 const GOOGLE_MAPS_API_KEY = Deno.env.get('GOOGLE_MAPS_API_KEY')
+const MAPBOX_PUBLIC_TOKEN = Deno.env.get('MAPBOX_PUBLIC_TOKEN')
 
 function validateCoordinates(lat: number, lng: number): boolean {
   return (
@@ -8,7 +9,7 @@ function validateCoordinates(lat: number, lng: number): boolean {
   )
 }
 
-function createStaticImageUrl(
+function createGoogleStaticImageUrl(
   lat: number,
   lng: number,
   maptype: 'satellite' | 'roadmap' = 'satellite',
@@ -24,6 +25,19 @@ function createStaticImageUrl(
     key: GOOGLE_MAPS_API_KEY || ''
   })
   return `${baseUrl}?${params.toString()}`
+}
+
+function createMapboxStaticImageUrl(
+  lat: number,
+  lng: number,
+  zoom: string = '20',
+  size: string = '640x640'
+): string {
+  const [w, h] = size.split('x').map((n) => parseInt(n, 10) || 640)
+  const clampedW = Math.min(Math.max(w, 1), 1280)
+  const clampedH = Math.min(Math.max(h, 1), 1280)
+  // Mapbox expects lng,lat order
+  return `https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/${lng},${lat},${zoom},0/${clampedW}x${clampedH}?access_token=${MAPBOX_PUBLIC_TOKEN || ''}`
 }
 
 Deno.serve(async (req) => {
@@ -44,6 +58,8 @@ Deno.serve(async (req) => {
     const lngParam = url.searchParams.get('lng')
     const centerParam = url.searchParams.get('center')
     const addressParam = url.searchParams.get('address')
+    const zoomParam = url.searchParams.get('zoom') || '20'
+    const sizeParam = url.searchParams.get('size') || '640x640'
 
     let lat: number | null = null
     let lng: number | null = null
@@ -76,14 +92,38 @@ Deno.serve(async (req) => {
       return new Response('Invalid coordinates', { status: 400, headers: corsHeaders })
     }
 
-    // Try satellite first, then roadmap
-    let mapsUrl = createStaticImageUrl(lat, lng, 'satellite')
-    console.log('IMG DEBUG satellite mapsUrl:', mapsUrl)
+    // Try Google satellite first, then Mapbox satellite, then Google roadmap
+    let mapsUrl = createGoogleStaticImageUrl(lat, lng, 'satellite', zoomParam, sizeParam)
+    console.log('IMG DEBUG Google satellite mapsUrl:', mapsUrl)
     let imgRes = await fetch(mapsUrl)
+
     if (!imgRes.ok) {
-      console.warn('IMG satellite fetch failed, falling back to roadmap', imgRes.status, imgRes.statusText)
-      mapsUrl = createStaticImageUrl(lat, lng, 'roadmap')
-      console.log('IMG DEBUG roadmap mapsUrl:', mapsUrl)
+      console.warn('IMG Google satellite fetch failed', imgRes.status, imgRes.statusText)
+
+      if (MAPBOX_PUBLIC_TOKEN) {
+        const mapboxUrl = createMapboxStaticImageUrl(lat, lng, zoomParam, sizeParam)
+        console.log('IMG DEBUG Mapbox satellite mapsUrl:', mapboxUrl)
+        const mapboxRes = await fetch(mapboxUrl)
+        if (mapboxRes.ok) {
+          const buf = await mapboxRes.arrayBuffer()
+          const contentType = mapboxRes.headers.get('content-type') || 'image/png'
+          console.log('IMG served via Mapbox for coords:', { lat, lng })
+          return new Response(buf, {
+            status: 200,
+            headers: {
+              ...corsHeaders,
+              'Content-Type': contentType,
+              'Cache-Control': 'public, max-age=300'
+            }
+          })
+        } else {
+          console.warn('IMG Mapbox satellite fetch failed', mapboxRes.status, mapboxRes.statusText)
+        }
+      }
+
+      // Fallback to Google roadmap
+      mapsUrl = createGoogleStaticImageUrl(lat, lng, 'roadmap', zoomParam, sizeParam)
+      console.log('IMG DEBUG Google roadmap mapsUrl:', mapsUrl)
       imgRes = await fetch(mapsUrl)
     }
 

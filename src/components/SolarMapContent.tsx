@@ -19,7 +19,7 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
   const [solarData, setSolarData] = useState<SolarData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  const projectRef = 'mzikfyqzwepnubdsclfd';
   useEffect(() => {
     if (!address) {
       setSolarData(null);
@@ -60,23 +60,32 @@ const SolarMapContent: React.FC<SolarMapContentProps> = ({ address }) => {
   const rooftopArea = solarData?.rooftop_area_m2 ?? 0;
   const mapUrl = solarData?.mapsUrl ?? "";
 
-  const [displayUrl, setDisplayUrl] = useState<string>(mapUrl);
+  const [displayUrl, setDisplayUrl] = useState<string>("");
   useEffect(() => {
-    setDisplayUrl(mapUrl);
-  }, [mapUrl]);
+    const { coordinates, zoom, size } = solarData ?? {} as any;
+    let proxied = `https://${projectRef}.supabase.co/functions/v1/solar-map-image`;
+    if (coordinates?.lat && coordinates?.lng) {
+      proxied += `?lat=${coordinates.lat}&lng=${coordinates.lng}`;
+    } else if (address) {
+      proxied += `?address=${encodeURIComponent(address)}`;
+    }
+    if ((solarData as any)?.zoom) proxied += `&zoom=${(solarData as any).zoom}`;
+    if ((solarData as any)?.size) proxied += `&size=${encodeURIComponent((solarData as any).size)}`;
+    setDisplayUrl(proxied);
+  }, [mapUrl, address, solarData]);
 
-  if (!mapUrl) {
+  if (!displayUrl) {
     return null;
   }
 
-  const projectRef = 'mzikfyqzwepnubdsclfd';
+  
 
   return (
     <div className="solar-map-container" style={{ width: '100%', height: '400px' }}>
       <img
         key={displayUrl}
         src={displayUrl}
-        alt="Solar map"
+        alt={`Satellite rooftop view ${address ? `for ${address}` : ''}`}
         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }}
         loading="eager"
         onError={() => {
