@@ -127,10 +127,17 @@ export const useIsabella = (clientId: string = 'solarclip') => {
         type: 'google_solar',
         title: `Solar Analysis for ${address}`,
         content: {
-          address,
-          mapsUrl: data.mapsUrl,
-          coordinates: data.coordinates || {},
-          message: `Here's the satellite view of your property. This shows your rooftop and surrounding area for solar potential analysis.`
+          summary: {
+            annual_kwh: 12000, // Default estimate
+            monthly_kwh: new Array(12).fill(1000), // 1000 kWh per month
+            co2_saved: 6, // tons per year
+            panel_count: 20, // Default panel count
+            roof_area: 150, // sq meters
+            max_panels: 40,
+            address: address
+          },
+          embed_url: data.mapsUrl, // Use the static satellite image as embed
+          interactive: false // Start with non-interactive view
         },
         animation: 'swoop-left'
       };
