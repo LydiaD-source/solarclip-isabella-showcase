@@ -23,12 +23,18 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
   const [isClosing, setIsClosing] = useState(false);
   const [isExpandingToFullscreen, setIsExpandingToFullscreen] = useState(false);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
+  const [embedImgError, setEmbedImgError] = useState(false);
 
   useEffect(() => {
     // Trigger entrance animation
     const timer = setTimeout(() => setIsVisible(true), 100);
     return () => clearTimeout(timer);
   }, []);
+
+  // Reset embed image error when card/content changes
+  useEffect(() => {
+    setEmbedImgError(false);
+  }, [card]);
 
   useEffect(() => {
     // For google_solar cards, transition to fullscreen after swoosh settles
@@ -103,13 +109,19 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
           if (embed) {
             return (
               <div className="w-full h-full relative bg-muted">
-                <img
-                  src={embed}
-                  alt="Rooftop satellite view for solar analysis"
-                  className="w-full h-full object-cover"
-                  loading="eager"
-                  referrerPolicy="no-referrer"
-                />
+                {!embedImgError ? (
+                  <img
+                    src={embed}
+                    alt="Rooftop satellite view for solar analysis"
+                    className="w-full h-full object-cover"
+                    loading="eager"
+                    onError={() => setEmbedImgError(true)}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+                    Map could not be loaded
+                  </div>
+                )}
               </div>
             );
           }
