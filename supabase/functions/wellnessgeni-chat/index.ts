@@ -34,13 +34,14 @@ serve(async (req) => {
     const WELLNESS_GENI_CLIENT_ID = Deno.env.get('WELLNESS_GENI_CLIENT_ID');
     const WELLNESS_GENI_PERSONA_ID = Deno.env.get('WELLNESS_GENI_PERSONA_ID');
 
-    // Override client_id from secret if present
-    if (WELLNESS_GENI_CLIENT_ID) client_id = WELLNESS_GENI_CLIENT_ID;
+    // Do NOT blindly override client_id with secret to avoid cross-client template mixups
+    // Prefer explicit client_id from request. As a fallback only (when none provided), use secret.
+    if (!reqClientId && WELLNESS_GENI_CLIENT_ID) client_id = WELLNESS_GENI_CLIENT_ID;
 
     // Log client selection
     console.log('Client selection:', {
       client_id,
-      usedSecretClient: !!WELLNESS_GENI_CLIENT_ID,
+      usedSecretClient: !reqClientId && !!WELLNESS_GENI_CLIENT_ID,
       hasGuide: !!SOLARCLIP_GUIDE,
     });
     
@@ -78,6 +79,8 @@ serve(async (req) => {
     const normalizedPersona = (reqPersona || '').toLowerCase();
     if (normalizedPersona === 'solarclip') {
       persona_id = WELLNESS_GENI_PERSONA_ID || undefined;
+      // Force correct client routing for SolarClip
+      client_id = 'SolarClip';
     } else if (reqPersona && reqPersona.trim().length > 0) {
       // Pass through any other provided persona ids for future clients
       persona_id = reqPersona;
@@ -132,6 +135,7 @@ serve(async (req) => {
       session_id,
       client_id,
       messages,
+      context: { ...(context || {}), client_id, persona_id }
     };
 
     // Helper to call upstream with a given persona_id
