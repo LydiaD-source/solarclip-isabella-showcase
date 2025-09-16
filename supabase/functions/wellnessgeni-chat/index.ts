@@ -29,6 +29,16 @@ serve(async (req) => {
     const WELLNESS_GENI_API_URL = Deno.env.get('WELLNESS_GENI_API_URL') || Deno.env.get('WELLNESSGENI_CHAT_URL') || '';
     const SOLARCLIP_GUIDE = Deno.env.get('SOLARCLIP_GUIDE');
     
+    // Log config presence (no secrets) for debugging
+    const urlHost = (() => { try { return new URL(WELLNESS_GENI_API_URL).host; } catch { return 'invalid-url'; } })();
+    console.log('WellnessGeni config check:', {
+      hasKey: !!WELLNESS_GENI_API_KEY,
+      hasUrl: !!WELLNESS_GENI_API_URL,
+      hasTemplate: !!SOLARCLIP_GUIDE,
+      templateLen: SOLARCLIP_GUIDE?.length || 0,
+      urlHost,
+    });
+    
     if (!WELLNESS_GENI_API_KEY) {
       throw new Error('WellnessGeni API key not configured');
     }
@@ -89,6 +99,7 @@ serve(async (req) => {
 
     // Determine content type and handle invalid persona fallback
     let contentType = response.headers.get('content-type') || '';
+    console.log('WellnessGeni upstream response meta:', { status: response.status, contentType });
     if (!response.ok) {
       const raw = contentType.includes('application/json')
         ? await response.json().catch(() => ({}))
