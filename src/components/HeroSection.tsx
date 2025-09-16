@@ -5,7 +5,6 @@ import { CinematicCard } from './CinematicCard';
 import { IsabellaAvatar } from './IsabellaAvatar';
 import { useIsabella } from '@/hooks/useIsabella';
 import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
-import { createSolarClipPersona } from '@/utils/createPersona';
 
 interface HeroSectionProps { 
   isExpanded?: boolean; 
@@ -68,12 +67,6 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
       e.preventDefault();
       handleSendMessage();
     }
-  };
-
-  const handleCreatePersona = async () => {
-    console.log('Creating SolarClip persona...');
-    const result = await createSolarClipPersona();
-    console.log('Persona creation result:', result);
   };
 
   return (
@@ -161,17 +154,6 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                  <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
                </div>
              )}
-             {/* Temporary Persona Creation Button - TODO: Remove after testing */}
-             <div className="absolute -bottom-16 left-1/2 transform -translate-x-1/2">
-               <Button 
-                 onClick={handleCreatePersona}
-                 variant="outline"
-                 size="sm"
-                 className="bg-red-500 text-white border-red-500 hover:bg-red-600"
-               >
-                 Create Persona (Test)
-               </Button>
-             </div>
            </div>
          </div>
 

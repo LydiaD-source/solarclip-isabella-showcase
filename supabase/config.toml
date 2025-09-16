@@ -20,6 +20,3 @@ verify_jwt = false
 
 [functions.isabella-orchestrator]
 verify_jwt = false
-
-[functions.create-wellnessgeni-persona]
-verify_jwt = false
