@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { Play, Send, Mic, Volume2, VolumeX } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CinematicCard } from './CinematicCard';
 import { IsabellaAvatar } from './IsabellaAvatar';
 import { useIsabella } from '@/hooks/useIsabella';
@@ -30,12 +30,20 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     isMicEnabled, 
     isListening,
     sendMessage, 
+    sendGreeting,
     startListening,
     toggleSpeaker, 
     toggleMicrophone 
   } = useWellnessGeniChat();
   
   const languages = ['EN', 'FR', 'DE', 'LB'];
+
+  // Auto-greet once when chat opens
+  useEffect(() => {
+    if (isExpanded && messages.length === 0 && !isProcessing) {
+      sendGreeting();
+    }
+  }, [isExpanded, messages.length, isProcessing, sendGreeting]);
 
   const handleMeetIsabella = () => {
     setShowMeetButton(false);
@@ -132,7 +140,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         {/* Right Column - Isabella Avatar */}
         <div className="flex justify-center lg:justify-end items-center relative -mt-5">
           <div className="relative">
-            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} />
+            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={false} />
             {showMeetButton && (
               <div className="hidden lg:block absolute bottom-[-22px] -left-36 xl:-left-44 text-center">
                 <Button 

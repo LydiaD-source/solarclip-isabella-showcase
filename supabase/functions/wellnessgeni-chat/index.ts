@@ -22,8 +22,10 @@ serve(async (req) => {
 
     console.log('WellnessGeni chat request:', { message, client_id, session_id });
 
-    // Call WellnessGeni API at the actual deployed site
-    const response = await fetch('https://isabela-soul-connect.lovable.app/api/chat', {
+    // Build WellnessGeni chat URL from secret or fallback
+    const CHAT_URL = Deno.env.get('WELLNESSGENI_CHAT_URL') || 'https://isabela-soul-connect.lovable.app/api/chat';
+
+    const response = await fetch(CHAT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -41,13 +43,24 @@ serve(async (req) => {
       }),
     });
 
+    const contentType = response.headers.get('content-type') || '';
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('WellnessGeni API error:', response.status, errorText);
+      const errorBody = contentType.includes('application/json')
+        ? await response.json().catch(() => ({}))
+        : await response.text();
+      console.error('WellnessGeni API error:', response.status, errorBody);
       throw new Error(`WellnessGeni API error: ${response.status}`);
     }
 
-    const data = await response.json();
+    let data: any = {};
+    if (contentType.includes('application/json')) {
+      data = await response.json();
+    } else {
+      const textBody = await response.text();
+      console.error('Unexpected non-JSON response from WellnessGeni:', textBody?.slice(0, 200));
+      throw new Error('Invalid response from WellnessGeni (non-JSON). Check WELLNESSGENI_CHAT_URL');
+    }
+
     console.log('WellnessGeni response:', data);
 
     return new Response(JSON.stringify(data), {

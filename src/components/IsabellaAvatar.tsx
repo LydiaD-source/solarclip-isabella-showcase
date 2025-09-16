@@ -79,7 +79,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     <div className="relative mx-auto lg:mx-0 z-50">
       {/* Avatar - Enlarged and centered without cropping */}
       <div 
-        className={`isabella-avatar w-[65vw] h-[80vw] sm:w-[60vw] sm:h-[76vw] lg:w-[22rem] lg:h-[28rem] xl:w-[26rem] xl:h-[32rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 ${isPlaying ? 'animate-pulse border-accent-glow shadow-accent/30' : 'shadow-black/20 hover:shadow-accent/20'}`}
+        className={`isabella-avatar w-[65vw] h-[80vw] sm:w-[60vw] sm:h-[76vw] lg:w-[22rem] lg:h-[28rem] xl:w-[26rem] xl:h-[32rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 shadow-black/20 hover:shadow-accent/20`}
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Image */}
@@ -88,10 +88,6 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
           alt="Isabella Navia - AI Solar Ambassador" 
           className="w-full h-full object-contain rounded-full p-2"
         />
-        {/* Status indicators */}
-        {isPlaying && (
-          <div className="absolute bottom-2 right-2 w-4 h-4 bg-accent rounded-full animate-pulse"></div>
-        )}
       </div>
 
       {/* Animated Tooltip - Click to Chat Hint */}
