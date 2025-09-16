@@ -21,7 +21,7 @@ serve(async (req) => {
     // Get API credentials from environment variables 
     const WELLNESS_GENI_API_KEY = Deno.env.get('WELLNESS_GENI_API_KEY');
     const WELLNESS_GENI_API_URL = Deno.env.get('WELLNESS_GENI_API_URL') || Deno.env.get('WELLNESSGENI_CHAT_URL') || '';
-    const ISABELLA_PERSONA_TEMPLATE = Deno.env.get('ISABELLA_PERSONA_TEMPLATE');
+    const SOLARCLIP_GUIDE = Deno.env.get('SOLARCLIP_GUIDE');
     
     if (!WELLNESS_GENI_API_KEY) {
       throw new Error('WellnessGeni API key not configured');
@@ -58,7 +58,7 @@ serve(async (req) => {
       max_response_duration: '15_seconds',
       tone: 'polite_professional_enthusiastic_concise',
       focus: 'SolarClip_products_solutions_lead_generation',
-      persona_template: ISABELLA_PERSONA_TEMPLATE || '',
+      persona_template: SOLARCLIP_GUIDE || '',
     };
 
     const initialPayload: any = {
