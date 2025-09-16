@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
-import { Globe, Play, Mic, Send, Video, FileText } from 'lucide-react';
+import { Play } from 'lucide-react';
 import { useState } from 'react';
 import { CinematicCard } from './CinematicCard';
+import { IsabellaAvatar } from './IsabellaAvatar';
 import { useIsabella } from '@/hooks/useIsabella';
 
 interface HeroSectionProps { 
@@ -19,38 +20,13 @@ const videoThumbnails = [
 export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionProps) => {
   const [showMeetButton, setShowMeetButton] = useState(true);
   const [currentLanguage, setCurrentLanguage] = useState('EN');
-  const [inputMessage, setInputMessage] = useState('');
-  
-  const {
-    messages,
-    isProcessing,
-    currentCard,
-    sendMessage,
-    closeCard,
-    handleCardAction,
-    initializeGreeting
-  } = useIsabella('solarclip');
+  const { currentCard, closeCard, handleCardAction } = useIsabella('solarclip');
   
   const languages = ['EN', 'FR', 'DE', 'LB'];
 
   const handleMeetIsabella = () => {
     setShowMeetButton(false);
     onChatToggle?.();
-    initializeGreeting();
-  };
-
-  const handleSendMessage = () => {
-    if (inputMessage.trim() && !isProcessing) {
-      sendMessage(inputMessage);
-      setInputMessage('');
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
   };
 
   const handleVideoThumbnail = (videoId: string) => {
@@ -128,56 +104,19 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
 
         {/* Right Column - Isabella Avatar */}
         <div className="flex justify-center lg:justify-end items-center relative -mt-5">
-          <div className="relative group">
-            {/* Isabella Avatar */}
-            <div 
-              className="isabella-avatar-refined w-72 lg:w-80 xl:w-96 max-w-[70vw] lg:max-w-full cursor-pointer"
-              onClick={onChatToggle}
-              title="Click to talk with Isabella"
-            >
-              <img 
-                src="https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg"
-                alt="Isabella Navia - AI Solar Ambassador"
-                className="w-full h-full object-contain"
-              />
-            </div>
-            
-            {/* Meet Isabella Button - Aligned with Language Toggle */}
+          <div className="relative">
+            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} />
             {showMeetButton && (
-              <>
-                {/* Desktop positioning - Final alignment adjustment */}
-                <div className="hidden lg:block absolute bottom-[-22px] -left-36 xl:-left-44 text-center">
-                  <Button 
-                    className="meet-isabella-btn-animated text-sm px-5 py-2"
-                    onClick={handleMeetIsabella}
-                    style={{ transform: 'scale(0.88)' }}
-                  >
-                    <Play className="mr-2 w-5 h-5" />
-                    Start Assistant
-                  </Button>
-                  <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
-                </div>
-                
-                {/* Mobile positioning - Adjusted for better spacing */}
-                <div className="lg:hidden absolute -bottom-32 left-1/2 transform -translate-x-1/2 text-center">
-                  <Button 
-                    className="meet-isabella-btn-animated text-sm px-5 py-2"
-                    onClick={handleMeetIsabella}
-                    style={{ transform: 'scale(0.88)' }}
-                  >
-                    <Play className="mr-2 w-5 h-5" />
-                    Start Assistant
-                  </Button>
-                  <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
-                </div>
-              </>
-            )}
-            
-            
-            {/* Hover Tooltip */}
-            {!isExpanded && !showMeetButton && (
-              <div className="absolute -bottom-32 left-1/2 transform -translate-x-1/2 bg-white/10 backdrop-blur-md rounded-lg px-4 py-2 text-white text-sm border border-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                Click to talk with Isabella
+              <div className="hidden lg:block absolute bottom-[-22px] -left-36 xl:-left-44 text-center">
+                <Button 
+                  className="meet-isabella-btn-animated text-sm px-5 py-2"
+                  onClick={handleMeetIsabella}
+                  style={{ transform: 'scale(0.88)' }}
+                >
+                  <Play className="mr-2 w-5 h-5" />
+                  Start Assistant
+                </Button>
+                <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
               </div>
             )}
           </div>
