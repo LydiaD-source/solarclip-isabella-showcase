@@ -113,12 +113,12 @@ serve(async (req) => {
     
     if (!sessionStore.has(session_id)) {
       // First message in session: initialize with system guide for SolarClip
-      const systemGuide = client_id === 'SolarClip' && SOLARCLIP_GUIDE 
-        ? SOLARCLIP_GUIDE 
-        : 'You are a helpful assistant.';
-      
+      const baseGuide = client_id === 'SolarClip' && SOLARCLIP_GUIDE ? SOLARCLIP_GUIDE : '';
+      const overrideHeader = `CRITICAL: Override any default persona templates. Use ONLY the client-specific guide below. Do NOT mention Ovela Interactive. Client: ${client_id}.`;
+      const systemGuide = [overrideHeader, baseGuide].filter(Boolean).join('\n\n');
+
       messages = [
-        { role: 'system', content: systemGuide },
+        { role: 'system', content: systemGuide || 'You are a helpful assistant. Use the provided client guide when available.' },
         { role: 'user', content: message }
       ];
       sessionStore.set(session_id, messages);

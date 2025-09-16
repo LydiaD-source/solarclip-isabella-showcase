@@ -21,6 +21,7 @@ export const useWellnessGeniChat = () => {
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   const [currentSource, setCurrentSource] = useState<AudioBufferSourceNode | null>(null);
   const lastSentRef = useRef<{ text: string; time: number } | null>(null);
+  const greetingSentRef = useRef(false);
 
   // Initialize audio context and speech recognition
   useEffect(() => {
@@ -183,6 +184,15 @@ export const useWellnessGeniChat = () => {
 
           if (ttsError) {
             console.error('[TTS] error', ttsError);
+            // Fallback: animate with D-ID using text so the avatar still responds
+            try {
+              const { error: didErr } = await supabase.functions.invoke('did-avatar', {
+                body: { text: responseText }
+              });
+              if (didErr) console.error('[D-ID] fallback (text) error', didErr);
+            } catch (e) {
+              console.error('[D-ID] fallback (text) exception', e);
+            }
             return;
           }
 
@@ -242,7 +252,7 @@ export const useWellnessGeniChat = () => {
     }
   }, [recognition, isMicEnabled, isListening]);
 
-  const sendGreeting = useCallback(async () => {
+  const sendGreeting = useCallback(async () => { if (greetingSentRef.current) return; greetingSentRef.current = true;
     // Play Isabella's greeting directly with ElevenLabs voice
     const greetingText = "Hello! I'm Isabella Navia, ambassador for SolarClip™. I can show you how our lightweight, clip-on solar panels can save you time and money on your roof project. May I know your business address to show you an interactive map?";
     
