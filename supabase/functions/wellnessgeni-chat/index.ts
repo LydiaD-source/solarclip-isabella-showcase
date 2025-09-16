@@ -21,13 +21,28 @@ serve(async (req) => {
       return v.toLowerCase() === 'solarclip' ? 'SolarClip' : v;
     };
 
-    const client_id = normalizeId(reqClientId);
-    const persona_id = normalizeId(reqPersona); // Ensure correct case
-    
+    // Base from request, normalized
+    let client_id = normalizeId(reqClientId);
+    let persona_id = normalizeId(reqPersona); // Ensure correct case
+
     // Get API credentials from environment variables 
     const WELLNESS_GENI_API_KEY = Deno.env.get('WELLNESS_GENI_API_KEY');
     const WELLNESS_GENI_API_URL = Deno.env.get('WELLNESS_GENI_API_URL') || Deno.env.get('WELLNESSGENI_CHAT_URL') || '';
     const SOLARCLIP_GUIDE = Deno.env.get('SOLARCLIP_GUIDE');
+    const WELLNESS_GENI_PERSONA_ID = Deno.env.get('WELLNESS_GENI_PERSONA_ID');
+    const WELLNESS_GENI_CLIENT_ID = Deno.env.get('WELLNESS_GENI_CLIENT_ID');
+
+    // Override from secrets if present
+    if (WELLNESS_GENI_PERSONA_ID) persona_id = WELLNESS_GENI_PERSONA_ID;
+    if (WELLNESS_GENI_CLIENT_ID) client_id = WELLNESS_GENI_CLIENT_ID;
+
+    // Log selected ids (no secret values leaked)
+    console.log('Persona/Client selection:', {
+      persona_id,
+      client_id,
+      usedSecretPersona: !!WELLNESS_GENI_PERSONA_ID,
+      usedSecretClient: !!WELLNESS_GENI_CLIENT_ID,
+    });
     
     // Log config presence (no secrets) for debugging
     const urlHost = (() => { try { return new URL(WELLNESS_GENI_API_URL).host; } catch { return 'invalid-url'; } })();
