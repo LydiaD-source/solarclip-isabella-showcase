@@ -20,7 +20,7 @@ serve(async (req) => {
     
     // Get API credentials from environment variables 
     const WELLNESS_GENI_API_KEY = Deno.env.get('WELLNESS_GENI_API_KEY');
-    const WELLNESS_GENI_API_URL = Deno.env.get('WELLNESS_GENI_API_URL');
+    const WELLNESS_GENI_API_URL = Deno.env.get('WELLNESS_GENI_API_URL') || Deno.env.get('WELLNESSGENI_CHAT_URL') || '';
     const ISABELLA_PERSONA_TEMPLATE = Deno.env.get('ISABELLA_PERSONA_TEMPLATE');
     
     if (!WELLNESS_GENI_API_KEY) {
@@ -49,7 +49,27 @@ serve(async (req) => {
       api_url: WELLNESS_GENI_API_URL 
     });
 
-    const response = await fetch(WELLNESS_GENI_API_URL, {
+    const contextPayload = {
+      ...context,
+      product: 'SolarClip',
+      company: 'ClearNanoTech',
+      persona_name: 'Isabella Navia',
+      persona_role: 'ClearNanoTech Ambassador & SolarClip Product Promoter',
+      max_response_duration: '15_seconds',
+      tone: 'polite_professional_enthusiastic_concise',
+      focus: 'SolarClip_products_solutions_lead_generation',
+      persona_template: ISABELLA_PERSONA_TEMPLATE || '',
+    };
+
+    const initialPayload: any = {
+      message,
+      session_id,
+      client_id,
+      persona_id, // attempt with explicit persona first
+      context: contextPayload,
+    };
+
+    let response = await fetch(WELLNESS_GENI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,39 +78,62 @@ serve(async (req) => {
         'apikey': `${WELLNESS_GENI_API_KEY}`,
         'x-api-key': `${WELLNESS_GENI_API_KEY}`,
       },
-      body: JSON.stringify({
-        message,
-        persona_id,
-        session_id,
-        client_id,
-        context: {
-          ...context,
-          product: 'SolarClip',
-          company: 'ClearNanoTech',
-          persona_name: 'Isabella Navia',
-          persona_role: 'ClearNanoTech Ambassador & SolarClip Product Promoter',
-          max_response_duration: '15_seconds',
-          tone: 'polite_professional_enthusiastic_concise',
-          focus: 'SolarClip_products_solutions_lead_generation',
-          persona_template: ISABELLA_PERSONA_TEMPLATE || '',
-        }
-      }),
+      body: JSON.stringify(initialPayload),
     });
 
-    const contentType = response.headers.get('content-type') || '';
+    // Determine content type and handle invalid persona fallback
+    let contentType = response.headers.get('content-type') || '';
     if (!response.ok) {
-      const errorBody = contentType.includes('application/json')
+      const raw = contentType.includes('application/json')
         ? await response.json().catch(() => ({}))
         : await response.text();
+      const errorBody: any = typeof raw === 'string' ? { error: raw } : raw;
       console.error('WellnessGeni API error:', response.status, errorBody);
-      return new Response(JSON.stringify({
-        error: 'Upstream WellnessGeni error',
-        status: response.status,
-        details: errorBody,
-      }), {
-        status: response.status,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+
+      const invalidPersona = response.status === 400 && JSON.stringify(errorBody).toLowerCase().includes('invalid persona_id');
+      if (invalidPersona) {
+        console.warn('Persona id invalid. Retrying without persona_id using template context');
+        const retryPayload = {
+          message,
+          session_id,
+          client_id,
+          context: contextPayload,
+        };
+        response = await fetch(WELLNESS_GENI_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
+            'apikey': `${WELLNESS_GENI_API_KEY}`,
+            'x-api-key': `${WELLNESS_GENI_API_KEY}`,
+          },
+          body: JSON.stringify(retryPayload),
+        });
+        contentType = response.headers.get('content-type') || '';
+        if (!response.ok) {
+          const retryError = contentType.includes('application/json')
+            ? await response.json().catch(() => ({}))
+            : await response.text();
+          console.error('Retry without persona_id failed:', response.status, retryError);
+          return new Response(JSON.stringify({
+            error: 'Upstream WellnessGeni error after retry',
+            status: response.status,
+            details: retryError,
+          }), {
+            status: response.status,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      } else {
+        return new Response(JSON.stringify({
+          error: 'Upstream WellnessGeni error',
+          status: response.status,
+          details: errorBody,
+        }), {
+          status: response.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     let data: any = {};
