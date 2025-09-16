@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface ChatMessage {
@@ -19,6 +19,8 @@ export const useWellnessGeniChat = () => {
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [currentSource, setCurrentSource] = useState<AudioBufferSourceNode | null>(null);
+  const lastSentRef = useRef<{ text: string; time: number } | null>(null);
 
   // Initialize audio context and speech recognition
   useEffect(() => {
@@ -67,7 +69,6 @@ export const useWellnessGeniChat = () => {
 
   const playAudio = useCallback(async (base64Audio: string) => {
     if (!isSpeakerEnabled) return;
-    
     const ctx = await initializeAudio();
     if (!ctx) return;
 
@@ -79,17 +80,39 @@ export const useWellnessGeniChat = () => {
       }
 
       const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+      // Stop any currently playing source before starting a new one
+      if (currentSource) {
+        try { currentSource.stop(); } catch {}
+      }
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(ctx.destination);
+      source.onended = () => {
+        setCurrentSource(null);
+      };
+      setCurrentSource(source);
       source.start(0);
     } catch (error) {
       console.error('Error playing audio:', error);
     }
-  }, [isSpeakerEnabled, initializeAudio]);
+  }, [isSpeakerEnabled, initializeAudio, currentSource]);
+
+  const stopAudio = useCallback(() => {
+    if (currentSource) {
+      try { currentSource.stop(); } catch {}
+      setCurrentSource(null);
+    }
+  }, [currentSource]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isProcessing) return;
+
+    const now = Date.now();
+    const trimmed = text.trim();
+    if (lastSentRef.current && lastSentRef.current.text === trimmed && now - lastSentRef.current.time < 30000) {
+      console.log('Deduped repeated message');
+      return;
+    }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -100,6 +123,7 @@ export const useWellnessGeniChat = () => {
 
     setMessages(prev => [...prev, userMessage]);
     setIsProcessing(true);
+    lastSentRef.current = { text: trimmed, time: now };
 
     try {
       // Send to WellnessGeni via Supabase edge function with Isabella Navia persona
@@ -133,19 +157,20 @@ export const useWellnessGeniChat = () => {
 
       if (chatError) throw chatError;
 
-      const responseText = chatData.text || "I'm here to help with SolarClip questions.";
+      const responseText = typeof chatData?.text === 'string' ? chatData.text : '';
       
-      const isabellaMessage: ChatMessage = {
-        id: Date.now().toString() + '_isabella',
-        text: responseText,
-        sender: 'isabella',
-        timestamp: new Date(),
-      };
+      if (responseText.trim()) {
+        const isabellaMessage: ChatMessage = {
+          id: Date.now().toString() + '_isabella',
+          text: responseText,
+          sender: 'isabella',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, isabellaMessage]);
+      }
 
-      setMessages(prev => [...prev, isabellaMessage]);
-
-      // Generate speech with ElevenLabs + D-ID avatar animation
-      if (isSpeakerEnabled) {
+      // Generate speech with ElevenLabs only (disable D-ID until audio_url pipeline is ready)
+      if (isSpeakerEnabled && responseText.trim()) {
         try {
           console.log('[TTS] request → elevenlabs-tts');
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
@@ -161,23 +186,8 @@ export const useWellnessGeniChat = () => {
           }
 
           if (ttsData?.audio) {
-            console.log('[TTS] audio received, sending to D-ID avatar');
-            
-            // Send audio to D-ID for avatar animation
-            const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-              body: {
-                audio_base64: ttsData.audio
-              }
-            });
-
-            if (didError) {
-              console.error('[D-ID] error', didError);
-              // Fallback to regular audio playback
-              await playAudio(ttsData.audio);
-            } else if (didData?.talk_id) {
-              console.log('[D-ID] avatar animation started:', didData.talk_id);
-              // Avatar animation handles audio playback
-            }
+            console.log('[TTS] playing audio');
+            await playAudio(ttsData.audio);
           }
         } catch (error) {
           console.error('Speech synthesis error:', error);
@@ -213,8 +223,15 @@ export const useWellnessGeniChat = () => {
   }, [sendMessage]);
 
   const toggleSpeaker = useCallback(() => {
-    setIsSpeakerEnabled(prev => !prev);
-  }, []);
+    setIsSpeakerEnabled(prev => {
+      const next = !prev;
+      if (!next) {
+        // Stop any ongoing audio immediately when disabling speaker
+        stopAudio();
+      }
+      return next;
+    });
+  }, [stopAudio]);
 
   const toggleMicrophone = useCallback(async () => {
     if (!isMicEnabled) {
