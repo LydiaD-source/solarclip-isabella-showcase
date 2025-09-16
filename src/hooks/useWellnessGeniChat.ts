@@ -101,14 +101,20 @@ export const useWellnessGeniChat = () => {
     setIsProcessing(true);
 
     try {
-      // Send to WellnessGeni via Supabase edge function (uses WELLNESS_GENI_API_URL + KEY on server)
+      // Send to WellnessGeni via Supabase edge function with Isabella Navia persona
       const payload = {
         message: text,
+        persona_id: 'solarclip', // Isabella Navia - ClearNanoTech Ambassador
         client_id: 'solarclip',
         session_id: `session_${Date.now()}`,
         context: {
           product: 'SolarClip',
           company: 'ClearNanoTech',
+          persona_name: 'Isabella Navia',
+          persona_role: 'ClearNanoTech Ambassador & SolarClip Product Promoter',
+          max_response_duration: '15_seconds',
+          tone: 'polite_professional_enthusiastic_concise',
+          focus: 'SolarClip_products_solutions_lead_generation',
         },
       };
 
@@ -185,7 +191,8 @@ export const useWellnessGeniChat = () => {
   }, [recognition, isMicEnabled, isListening]);
 
   const sendGreeting = useCallback(async () => {
-    await sendMessage("Hello! I just landed on the SolarClip page.");
+    // Send Isabella Navia's personalized SolarClip greeting
+    await sendMessage("Hello! I'm Isabella Navia, ambassador for SolarClip™. I can show you how our lightweight, clip-on solar panels can save you time and money on your roof project. May I know your business address to show you an interactive map?");
   }, [sendMessage]);
 
   const toggleSpeaker = useCallback(() => {

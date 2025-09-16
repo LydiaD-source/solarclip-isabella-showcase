@@ -158,7 +158,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
               {messages.length === 0 && (
                 <div className="bg-secondary/50 rounded-lg p-3">
                   <p className="text-sm text-foreground">
-                    Hello! I'm Isabella Navia, ClearNanoTech's ambassador for SolarClip™. I'm here to answer any questions about our company and our product. Let's explore the future of solar together.
+                    Hello! I'm Isabella Navia, ambassador for SolarClip™. I can show you how our lightweight, clip-on solar panels can save you time and money on your roof project. May I know your business address to show you an interactive map?
                   </p>
                 </div>
               )}
