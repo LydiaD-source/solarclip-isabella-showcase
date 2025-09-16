@@ -72,19 +72,22 @@ serve(async (req) => {
       message: String(message).slice(0, 120), 
       client_id, 
       session_id, 
-      api_url: WELLNESS_GENI_API_URL 
+      api_url: WELLNESS_GENI_API_URL,
+      persona_intent: reqPersona,
+      usingMessagesArray: true
     });
 
-    const contextPayload = {
-      persona_template: SOLARCLIP_GUIDE || '',
-    };
+    // Build messages array: system guide + user message
+    const messages = [
+      { role: 'system', content: SOLARCLIP_GUIDE || '' },
+      { role: 'user', content: message }
+    ];
 
-    // Build payload without persona_id - use SOLARCLIP_GUIDE as system prompt instead
+    // Do not forward persona_id; rely on internal mapping and guide
     const payload = {
-      message,
       session_id,
       client_id,
-      context: contextPayload,
+      messages,
     };
 
     const response = await fetch(WELLNESS_GENI_API_URL, {
