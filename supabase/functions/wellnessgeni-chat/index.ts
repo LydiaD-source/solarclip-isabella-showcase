@@ -13,7 +13,10 @@ serve(async (req) => {
   }
 
   try {
-    const { message, client_id = 'solarclip', session_id, context } = await req.json();
+    const { message, session_id, client_id: reqClientId, context = {}, persona_id: reqPersona } = await req.json();
+
+    const client_id = reqClientId || 'solarclip';
+    const persona_id = reqPersona || 'solarclip';
     
     // Get API credentials from environment variables 
     const WELLNESS_GENI_API_KEY = Deno.env.get('WELLNESS_GENI_API_KEY');
@@ -27,7 +30,23 @@ serve(async (req) => {
       throw new Error('WellnessGeni API URL not configured');
     }
 
-    console.log('WellnessGeni chat request:', { message, client_id, session_id, api_url: WELLNESS_GENI_API_URL });
+    if (!message || typeof message !== 'string' || message.trim().length === 0) {
+      console.error('Invalid request: missing message');
+      return new Response(JSON.stringify({ 
+        error: 'Missing required field: message' 
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('WellnessGeni chat request:', { 
+      message: String(message).slice(0, 120), 
+      client_id, 
+      persona_id,
+      session_id, 
+      api_url: WELLNESS_GENI_API_URL 
+    });
 
     const response = await fetch(WELLNESS_GENI_API_URL, {
       method: 'POST',
@@ -40,8 +59,9 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         message,
-        client_id,
+        persona_id,
         session_id,
+        client_id,
         context: {
           ...context,
           product: 'SolarClip',
@@ -56,7 +76,14 @@ serve(async (req) => {
         ? await response.json().catch(() => ({}))
         : await response.text();
       console.error('WellnessGeni API error:', response.status, errorBody);
-      throw new Error(`WellnessGeni API error: ${response.status}`);
+      return new Response(JSON.stringify({
+        error: 'Upstream WellnessGeni error',
+        status: response.status,
+        details: errorBody,
+      }), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     let data: any = {};
