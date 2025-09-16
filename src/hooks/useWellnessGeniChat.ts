@@ -18,6 +18,7 @@ export const useWellnessGeniChat = () => {
   const [isListening, setIsListening] = useState(false);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
 
   // Initialize audio context and speech recognition
   useEffect(() => {
@@ -106,7 +107,7 @@ export const useWellnessGeniChat = () => {
         message: text,
         persona_id: 'solarclip', // Maps to Isabella Navia - ClearNanoTech Ambassador
         client_id: 'SolarClip',
-        session_id: `session_${Date.now()}`,
+        session_id: sessionId,
         context: {
           product: 'SolarClip',
           company: 'ClearNanoTech',
@@ -143,7 +144,7 @@ export const useWellnessGeniChat = () => {
 
       setMessages(prev => [...prev, isabellaMessage]);
 
-      // Generate speech if speaker is enabled
+      // Generate speech with ElevenLabs + D-ID avatar animation
       if (isSpeakerEnabled) {
         try {
           console.log('[TTS] request → elevenlabs-tts');
@@ -156,14 +157,30 @@ export const useWellnessGeniChat = () => {
 
           if (ttsError) {
             console.error('[TTS] error', ttsError);
+            return;
           }
 
           if (ttsData?.audio) {
-            console.log('[TTS] playing audio');
-            await playAudio(ttsData.audio);
+            console.log('[TTS] audio received, sending to D-ID avatar');
+            
+            // Send audio to D-ID for avatar animation
+            const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+              body: {
+                audio_base64: ttsData.audio
+              }
+            });
+
+            if (didError) {
+              console.error('[D-ID] error', didError);
+              // Fallback to regular audio playback
+              await playAudio(ttsData.audio);
+            } else if (didData?.talk_id) {
+              console.log('[D-ID] avatar animation started:', didData.talk_id);
+              // Avatar animation handles audio playback
+            }
           }
-        } catch (ttsError) {
-          console.error('TTS error:', ttsError);
+        } catch (error) {
+          console.error('Speech synthesis error:', error);
         }
       }
 

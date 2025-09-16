@@ -6,6 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// In-memory session storage for conversation history
+const sessionStore = new Map<string, any[]>();
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -102,11 +105,21 @@ serve(async (req) => {
       usingMessagesArray: true
     });
 
-    // Build messages array: system guide + user message
-    const messages = [
-      { role: 'system', content: SOLARCLIP_GUIDE || '' },
-      { role: 'user', content: message }
-    ];
+    // Handle session-based conversation history
+    let messages: any[];
+    
+    if (!sessionStore.has(session_id)) {
+      // First message in session: initialize with system guide
+      messages = [
+        { role: 'system', content: SOLARCLIP_GUIDE || '' },
+        { role: 'user', content: message }
+      ];
+      console.log('New session initialized:', session_id);
+    } else {
+      // Existing session: append only new user message
+      messages = [...sessionStore.get(session_id)!, { role: 'user', content: message }];
+      console.log('Continuing session:', session_id, 'message count:', messages.length);
+    }
 
     // Build a base payload; persona_id will be injected (and retried with variants if needed)
     const payloadBase = {
@@ -183,6 +196,14 @@ serve(async (req) => {
     }
 
     console.log('WellnessGeni response:', data);
+
+    // Update session store with conversation history
+    if (data.response || data.text) {
+      const assistantResponse = data.response || data.text;
+      const updatedMessages = [...messages, { role: 'assistant', content: assistantResponse }];
+      sessionStore.set(session_id, updatedMessages);
+      console.log('Session updated:', session_id, 'total messages:', updatedMessages.length);
+    }
 
     return new Response(JSON.stringify(data), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
