@@ -278,6 +278,15 @@ export const useWellnessGeniChat = () => {
 
         if (ttsError) {
           console.error('[TTS] error', ttsError);
+          // Fallback: animate with D-ID using text so the avatar still responds
+          try {
+            const { error: didErr } = await supabase.functions.invoke('did-avatar', {
+              body: { text: greetingText }
+            });
+            if (didErr) console.error('[D-ID] greeting fallback (text) error', didErr);
+          } catch (e) {
+            console.error('[D-ID] greeting fallback (text) exception', e);
+          }
           return;
         }
 

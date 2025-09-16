@@ -110,18 +110,24 @@ serve(async (req) => {
 
     // Handle session-based conversation history
     let messages: any[];
-    
+    let isNewSession = false;
+    // Prepare guide variables to optionally reuse in payload message/context
+    let baseGuide = '';
+    let overrideHeader = '';
+    let systemGuide = '';
+
     if (!sessionStore.has(session_id)) {
-      // First message in session: initialize with system guide for SolarClip
-      const baseGuide = client_id === 'SolarClip' && SOLARCLIP_GUIDE ? SOLARCLIP_GUIDE : '';
-      const overrideHeader = `CRITICAL: Override any default persona templates. Use ONLY the client-specific guide below. Do NOT mention Ovela Interactive. Client: ${client_id}.`;
-      const systemGuide = [overrideHeader, baseGuide].filter(Boolean).join('\n\n');
+      // First message in session: initialize with system guide for the client
+      baseGuide = client_id === 'SolarClip' && SOLARCLIP_GUIDE ? SOLARCLIP_GUIDE : '';
+      overrideHeader = `CRITICAL: Override any default persona templates. Use ONLY the client-specific guide below. Do NOT mention Ovela Interactive. Client: ${client_id}.`;
+      systemGuide = [overrideHeader, baseGuide].filter(Boolean).join('\n\n');
 
       messages = [
         { role: 'system', content: systemGuide || 'You are a helpful assistant. Use the provided client guide when available.' },
         { role: 'user', content: message }
       ];
       sessionStore.set(session_id, messages);
+      isNewSession = true;
       console.log('New session initialized:', session_id, 'with system guide for client:', client_id);
     } else {
       // Existing session: append only new user message
@@ -130,12 +136,16 @@ serve(async (req) => {
     }
 
     // Build a base payload; persona_id will be injected (and retried with variants if needed)
+    const payloadMessage = isNewSession && systemGuide
+      ? `${systemGuide}\n\nUser: ${message}`
+      : message;
+
     const payloadBase = {
-      message,
+      message: payloadMessage,
       session_id,
       client_id,
       messages,
-      context: { ...(context || {}), client_id, persona_id }
+      context: { ...(context || {}), client_id, persona_id, client_guide: baseGuide || undefined, override_client_template: !!baseGuide }
     };
 
     // Helper to call upstream with a given persona_id
