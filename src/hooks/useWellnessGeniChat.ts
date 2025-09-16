@@ -22,6 +22,7 @@ export const useWellnessGeniChat = () => {
   const [currentSource, setCurrentSource] = useState<AudioBufferSourceNode | null>(null);
   const lastSentRef = useRef<{ text: string; time: number } | null>(null);
   const greetingSentRef = useRef(false);
+  const [didVideoUrl, setDidVideoUrl] = useState<string | null>(null);
 
   // Initialize audio context and speech recognition
   useEffect(() => {
@@ -97,6 +98,36 @@ export const useWellnessGeniChat = () => {
       console.error('Error playing audio:', error);
     }
   }, [isSpeakerEnabled, initializeAudio, currentSource]);
+
+  const pollDidTalk = useCallback(async (talkId: string) => {
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+    for (let i = 0; i < 30; i++) {
+      try {
+        const { data, error } = await supabase.functions.invoke('did-avatar', {
+          body: { talk_id: talkId }
+        });
+        if (error) {
+          console.error('[D-ID] poll error', error);
+          await delay(1000);
+          continue;
+        }
+        if (data?.result_url) {
+          setDidVideoUrl(data.result_url);
+          // Auto-hide after 15s
+          setTimeout(() => setDidVideoUrl(null), 15000);
+          break;
+        }
+        if (data?.status === 'error') {
+          console.error('[D-ID] poll status error', data);
+          break;
+        }
+        await delay(1000);
+      } catch (e) {
+        console.error('[D-ID] poll exception', e);
+        await delay(1000);
+      }
+    }
+  }, []);
 
   const stopAudio = useCallback(() => {
     if (currentSource) {
@@ -217,6 +248,9 @@ export const useWellnessGeniChat = () => {
               }
 
               console.log('[D-ID] animation created:', didData);
+              if (didData?.talk_id) {
+                try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
+              }
               // Play the ElevenLabs audio directly while D-ID handles animation
               await playAudio(ttsData.audio);
               
@@ -316,6 +350,9 @@ export const useWellnessGeniChat = () => {
               console.error('[D-ID] greeting error', didError);
             } else {
               console.log('[D-ID] greeting animation created:', didData);
+              if (didData?.talk_id) {
+                try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
+              }
             }
           } catch (didError) {
             console.error('D-ID greeting animation error:', didError);
@@ -365,6 +402,7 @@ export const useWellnessGeniChat = () => {
     isSpeakerEnabled,
     isMicEnabled,
     isListening,
+    didVideoUrl,
     sendMessage,
     sendGreeting,
     startListening,

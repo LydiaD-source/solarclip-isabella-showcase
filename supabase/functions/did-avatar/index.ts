@@ -13,14 +13,38 @@ serve(async (req) => {
   }
 
   try {
-    const { text, audio_base64 } = await req.json();
+    const body = await req.json();
+    const { text, audio_base64, talk_id } = body || {};
     
     const DID_API_KEY = Deno.env.get('DID_API_KEY');
     if (!DID_API_KEY) {
       throw new Error('D-ID API key not configured');
     }
 
-    console.log('D-ID avatar animation request');
+    console.log('D-ID avatar request', { hasText: !!text, hasAudio: !!audio_base64, poll: !!talk_id });
+
+    // Poll status for an existing talk
+    if (talk_id) {
+      const pollRes = await fetch(`https://api.d-id.com/talks/${talk_id}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${DID_API_KEY}`,
+        },
+      });
+
+      if (!pollRes.ok) {
+        const errText = await pollRes.text();
+        console.error('D-ID poll error:', pollRes.status, errText);
+        throw new Error(`D-ID poll error: ${pollRes.status}`);
+      }
+
+      const pollData = await pollRes.json();
+      return new Response(JSON.stringify(pollData), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // Create talk with D-ID API
     const response = await fetch('https://api.d-id.com/talks', {
@@ -35,7 +59,7 @@ serve(async (req) => {
         script: {
           type: audio_base64 ? 'audio' : 'text',
           input: audio_base64 ? `data:audio/mp3;base64,${audio_base64}` : text,
-          provider: {
+          provider: audio_base64 ? undefined : {
             type: 'elevenlabs',
             voice_id: 't0IcnDolatli2xhqgLgn',
           }
