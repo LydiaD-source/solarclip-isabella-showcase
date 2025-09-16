@@ -66,14 +66,6 @@ serve(async (req) => {
     });
 
     const contextPayload = {
-      ...context,
-      product: 'SolarClip',
-      company: 'ClearNanoTech',
-      persona_name: 'Isabella Navia',
-      persona_role: 'ClearNanoTech Ambassador & SolarClip Product Promoter',
-      max_response_duration: '15_seconds',
-      tone: 'polite_professional_enthusiastic_concise',
-      focus: 'SolarClip_products_solutions_lead_generation',
       persona_template: SOLARCLIP_GUIDE || '',
     };
 
@@ -109,34 +101,37 @@ serve(async (req) => {
 
       const invalidPersona = response.status === 400 && JSON.stringify(errorBody).toLowerCase().includes('invalid persona_id');
       if (invalidPersona) {
-        console.warn('Persona id invalid. Retrying with corrected persona_id "SolarClip"');
-        const retryPayload = {
-          message,
-          session_id,
-          client_id: 'SolarClip',
-          persona_id: 'SolarClip',
-          context: contextPayload,
-        };
-        response = await fetch(WELLNESS_GENI_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
-            'apikey': `${WELLNESS_GENI_API_KEY}`,
-            'x-api-key': `${WELLNESS_GENI_API_KEY}`,
-          },
-          body: JSON.stringify(retryPayload),
-        });
-        contentType = response.headers.get('content-type') || '';
+        const attempted: string[] = [];
+        const variants = ['SolarClip', 'solarclip'];
+        for (const alt of variants) {
+          if (alt === persona_id) continue;
+          attempted.push(alt);
+          console.warn(`Persona id invalid. Retrying with variant persona_id "${alt}"`);
+          const retryPayload = { message, session_id, client_id: alt, persona_id: alt, context: contextPayload };
+          response = await fetch(WELLNESS_GENI_API_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
+              'apikey': `${WELLNESS_GENI_API_KEY}`,
+              'x-api-key': `${WELLNESS_GENI_API_KEY}`,
+            },
+            body: JSON.stringify(retryPayload),
+          });
+          contentType = response.headers.get('content-type') || '';
+          console.log('Retry upstream response meta:', { status: response.status, contentType, alt });
+          if (response.ok) break;
+        }
         if (!response.ok) {
           const retryError = contentType.includes('application/json')
             ? await response.json().catch(() => ({}))
             : await response.text();
-          console.error('Retry with corrected persona_id failed:', response.status, retryError);
+          console.error('All persona_id retries failed:', response.status, retryError, { attempted });
           return new Response(JSON.stringify({
-            error: 'Upstream WellnessGeni error after retry with corrected persona_id',
+            error: 'Upstream WellnessGeni error after persona_id retries',
             status: response.status,
             details: retryError,
+            attempted_persona_ids: [persona_id, ...attempted],
           }), {
             status: response.status,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
