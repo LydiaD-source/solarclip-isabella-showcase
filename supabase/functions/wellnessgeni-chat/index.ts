@@ -15,21 +15,25 @@ serve(async (req) => {
   try {
     const { message, client_id = 'solarclip', session_id, context } = await req.json();
     
-    const WELLNESSGENI_API_KEY = Deno.env.get('WELLNESSGENI_API_KEY');
-    if (!WELLNESSGENI_API_KEY) {
+    // Get API credentials from environment variables 
+    const WELLNESS_GENI_API_KEY = Deno.env.get('WELLNESS_GENI_API_KEY');
+    const WELLNESS_GENI_API_URL = Deno.env.get('WELLNESS_GENI_API_URL');
+    
+    if (!WELLNESS_GENI_API_KEY) {
       throw new Error('WellnessGeni API key not configured');
     }
 
-    console.log('WellnessGeni chat request:', { message, client_id, session_id });
+    if (!WELLNESS_GENI_API_URL) {
+      throw new Error('WellnessGeni API URL not configured');
+    }
 
-    // Build WellnessGeni chat URL from secret or fallback
-    const CHAT_URL = Deno.env.get('WELLNESSGENI_CHAT_URL') || 'https://isabela-soul-connect.lovable.app/api/chat';
+    console.log('WellnessGeni chat request:', { message, client_id, session_id, api_url: WELLNESS_GENI_API_URL });
 
-    const response = await fetch(CHAT_URL, {
+    const response = await fetch(WELLNESS_GENI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${WELLNESSGENI_API_KEY}`,
+        'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
       },
       body: JSON.stringify({
         message,
