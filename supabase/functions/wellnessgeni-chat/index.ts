@@ -80,8 +80,15 @@ serve(async (req) => {
       persona_id = reqPersona;
     }
 
+    // Hard fail early if we expected to map 'solarclip' but the secret is missing
     if (normalizedPersona === 'solarclip' && !persona_id) {
       console.error('Missing WELLNESS_GENI_PERSONA_ID: cannot resolve built-in Isabella persona.');
+      return new Response(JSON.stringify({
+        error: 'Server configuration error: WELLNESS_GENI_PERSONA_ID is not set',
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     console.log('WellnessGeni chat request:', { 
@@ -91,6 +98,7 @@ serve(async (req) => {
       api_url: WELLNESS_GENI_API_URL,
       persona_intent: reqPersona,
       resolvedPersona: !!persona_id,
+      resolvedPersonaId: persona_id,
       usingMessagesArray: true
     });
 
