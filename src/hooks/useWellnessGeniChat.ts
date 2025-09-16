@@ -157,7 +157,8 @@ export const useWellnessGeniChat = () => {
 
       if (chatError) throw chatError;
 
-      const responseText = typeof chatData?.text === 'string' ? chatData.text : '';
+      const responseText = typeof chatData?.response === 'string' ? chatData.response : 
+                          typeof chatData?.text === 'string' ? chatData.text : '';
       
       if (responseText.trim()) {
         const isabellaMessage: ChatMessage = {
@@ -218,9 +219,43 @@ export const useWellnessGeniChat = () => {
   }, [recognition, isMicEnabled, isListening]);
 
   const sendGreeting = useCallback(async () => {
-    // Send Isabella Navia's personalized SolarClip greeting
-    await sendMessage("Hello! I'm Isabella Navia, ambassador for SolarClip™. I can show you how our lightweight, clip-on solar panels can save you time and money on your roof project. May I know your business address to show you an interactive map?");
-  }, [sendMessage]);
+    // Play Isabella's greeting directly with ElevenLabs voice
+    const greetingText = "Hello! I'm Isabella Navia, ambassador for SolarClip™. I can show you how our lightweight, clip-on solar panels can save you time and money on your roof project. May I know your business address to show you an interactive map?";
+    
+    // Add greeting message to UI
+    const isabellaMessage: ChatMessage = {
+      id: Date.now().toString() + '_greeting',
+      text: greetingText,
+      sender: 'isabella',
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, isabellaMessage]);
+
+    // Generate speech with ElevenLabs immediately
+    if (isSpeakerEnabled) {
+      try {
+        console.log('[TTS] request → elevenlabs-tts (greeting)');
+        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
+          body: {
+            text: greetingText,
+            voice_id: '9BWtsMINqrJLrRacOk9x' // Aria voice
+          }
+        });
+
+        if (ttsError) {
+          console.error('[TTS] error', ttsError);
+          return;
+        }
+
+        if (ttsData?.audio) {
+          console.log('[TTS] playing greeting audio');
+          await playAudio(ttsData.audio);
+        }
+      } catch (error) {
+        console.error('Greeting speech synthesis error:', error);
+      }
+    }
+  }, [isSpeakerEnabled, playAudio, setMessages]);
 
   const toggleSpeaker = useCallback(() => {
     setIsSpeakerEnabled(prev => {
