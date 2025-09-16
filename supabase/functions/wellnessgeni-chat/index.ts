@@ -108,40 +108,65 @@ serve(async (req) => {
       { role: 'user', content: message }
     ];
 
-    // Forward resolved persona_id and include both message and messages for compatibility
-    const payload = {
+    // Build a base payload; persona_id will be injected (and retried with variants if needed)
+    const payloadBase = {
       message,
       session_id,
       client_id,
-      persona_id,
       messages,
     };
 
-    const response = await fetch(WELLNESS_GENI_API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
-        'apikey': `${WELLNESS_GENI_API_KEY}`,
-        'x-api-key': `${WELLNESS_GENI_API_KEY}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    // Helper to call upstream with a given persona_id
+    const callUpstreamWithPersona = async (pid: string) => {
+      const response = await fetch(WELLNESS_GENI_API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
+          'apikey': `${WELLNESS_GENI_API_KEY}`,
+          'x-api-key': `${WELLNESS_GENI_API_KEY}`,
+        },
+        body: JSON.stringify({ ...payloadBase, persona_id: pid }),
+      });
+      const contentType = response.headers.get('content-type') || '';
+      console.log('WellnessGeni upstream response:', { status: response.status, contentType, persona_id: pid });
 
-    const contentType = response.headers.get('content-type') || '';
-    console.log('WellnessGeni upstream response:', { status: response.status, contentType });
-    
+      let parsedError: any = null;
+      if (!response.ok) {
+        const raw = contentType.includes('application/json')
+          ? await response.json().catch(() => ({}))
+          : await response.text();
+        parsedError = typeof raw === 'string' ? { error: raw } : raw;
+        console.error('WellnessGeni API error:', response.status, parsedError, { persona_id: pid });
+      }
+
+      return { response, contentType, parsedError };
+    };
+
+    // First attempt with provided/mapped persona_id
+    let pidToUse = persona_id as string;
+    let { response, contentType, parsedError } = await callUpstreamWithPersona(pidToUse);
+
+    // If invalid persona id, try alternate hyphen/underscore variant once
+    if (!response.ok && (parsedError?.error || '').toString().toLowerCase().includes('invalid persona')) {
+      const altPid = pidToUse.includes('-') ? pidToUse.replace(/-/g, '_') : pidToUse.replace(/_/g, '-');
+      if (altPid !== pidToUse) {
+        console.warn('Retrying WellnessGeni with alternate persona_id variant', { original: pidToUse, alternate: altPid });
+        const retry = await callUpstreamWithPersona(altPid);
+        response = retry.response;
+        contentType = retry.contentType;
+        parsedError = retry.parsedError;
+        if (response.ok) {
+          console.log('Alternate persona_id variant succeeded');
+        }
+      }
+    }
+
     if (!response.ok) {
-      const raw = contentType.includes('application/json')
-        ? await response.json().catch(() => ({}))
-        : await response.text();
-      const errorBody: any = typeof raw === 'string' ? { error: raw } : raw;
-      console.error('WellnessGeni API error:', response.status, errorBody);
-
       return new Response(JSON.stringify({
         error: 'Upstream WellnessGeni error',
         status: response.status,
-        details: errorBody,
+        details: parsedError || { error: 'Unknown error' },
       }), {
         status: response.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
