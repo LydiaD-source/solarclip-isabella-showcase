@@ -29,6 +29,7 @@ serve(async (req) => {
     const WELLNESS_GENI_API_URL = Deno.env.get('WELLNESS_GENI_API_URL') || Deno.env.get('WELLNESSGENI_CHAT_URL') || '';
     const SOLARCLIP_GUIDE = Deno.env.get('SOLARCLIP_GUIDE');
     const WELLNESS_GENI_CLIENT_ID = Deno.env.get('WELLNESS_GENI_CLIENT_ID');
+    const WELLNESS_GENI_PERSONA_ID = Deno.env.get('WELLNESS_GENI_PERSONA_ID');
 
     // Override client_id from secret if present
     if (WELLNESS_GENI_CLIENT_ID) client_id = WELLNESS_GENI_CLIENT_ID;
@@ -46,6 +47,7 @@ serve(async (req) => {
       hasKey: !!WELLNESS_GENI_API_KEY,
       hasUrl: !!WELLNESS_GENI_API_URL,
       hasTemplate: !!SOLARCLIP_GUIDE,
+      hasPersonaId: !!WELLNESS_GENI_PERSONA_ID,
       templateLen: SOLARCLIP_GUIDE?.length || 0,
       urlHost,
     });
@@ -68,12 +70,27 @@ serve(async (req) => {
       });
     }
 
+    // Resolve persona_id mapping: map local 'solarclip' to built-in Isabella promoter
+    let persona_id: string | undefined;
+    const normalizedPersona = (reqPersona || '').toLowerCase();
+    if (normalizedPersona === 'solarclip') {
+      persona_id = WELLNESS_GENI_PERSONA_ID || undefined;
+    } else if (reqPersona && reqPersona.trim().length > 0) {
+      // Pass through any other provided persona ids for future clients
+      persona_id = reqPersona;
+    }
+
+    if (normalizedPersona === 'solarclip' && !persona_id) {
+      console.error('Missing WELLNESS_GENI_PERSONA_ID: cannot resolve built-in Isabella persona.');
+    }
+
     console.log('WellnessGeni chat request:', { 
       message: String(message).slice(0, 120), 
       client_id, 
       session_id, 
       api_url: WELLNESS_GENI_API_URL,
       persona_intent: reqPersona,
+      resolvedPersona: !!persona_id,
       usingMessagesArray: true
     });
 
@@ -83,10 +100,12 @@ serve(async (req) => {
       { role: 'user', content: message }
     ];
 
-    // Do not forward persona_id; rely on internal mapping and guide
+    // Forward resolved persona_id and include both message and messages for compatibility
     const payload = {
+      message,
       session_id,
       client_id,
+      persona_id,
       messages,
     };
 
