@@ -101,18 +101,28 @@ export const useWellnessGeniChat = () => {
     setIsProcessing(true);
 
     try {
-      // Send to WellnessGeni
+      // Send to WellnessGeni via Supabase edge function (uses WELLNESS_GENI_API_URL + KEY on server)
+      const payload = {
+        message: text,
+        client_id: 'solarclip',
+        session_id: `session_${Date.now()}`,
+        context: {
+          product: 'SolarClip',
+          company: 'ClearNanoTech',
+        },
+      };
+
+      console.log('[WellnessGeni] request → wellnessgeni-chat', payload);
       const { data: chatData, error: chatError } = await supabase.functions.invoke('wellnessgeni-chat', {
-        body: {
-          message: text,
-          client_id: 'solarclip',
-          session_id: `session_${Date.now()}`,
-          context: {
-            product: 'SolarClip',
-            company: 'ClearNanoTech',
-          }
-        }
+        body: payload,
       });
+
+      if (chatError) {
+        console.error('[WellnessGeni] error', chatError);
+        throw chatError;
+      }
+
+      console.log('[WellnessGeni] response', chatData);
 
       if (chatError) throw chatError;
 
@@ -130,6 +140,7 @@ export const useWellnessGeniChat = () => {
       // Generate speech if speaker is enabled
       if (isSpeakerEnabled) {
         try {
+          console.log('[TTS] request → elevenlabs-tts');
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
             body: {
               text: responseText,
@@ -137,7 +148,12 @@ export const useWellnessGeniChat = () => {
             }
           });
 
-          if (!ttsError && ttsData.audio) {
+          if (ttsError) {
+            console.error('[TTS] error', ttsError);
+          }
+
+          if (ttsData?.audio) {
+            console.log('[TTS] playing audio');
             await playAudio(ttsData.audio);
           }
         } catch (ttsError) {
