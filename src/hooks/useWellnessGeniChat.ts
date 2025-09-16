@@ -162,7 +162,7 @@ export const useWellnessGeniChat = () => {
                           typeof chatData?.text === 'string' ? chatData.text : '';
       
       if (!responseText || !responseText.trim()) {
-        responseText = "Hi — I’m Isabella Navia, ClearNanoTech ambassador for SolarClip™. Ask me anything about SolarClip’s clip-on solar panels, installation, pricing, or roof suitability.";
+        responseText = "SolarClip™ is a lightweight, clip-on solar panel system that installs without roof penetrations. It lowers labor time and protects roofing while delivering clean energy. Ask me about pricing, installation time, or roof compatibility.";
       }
       
       const isabellaMessage: ChatMessage = {
