@@ -21,6 +21,7 @@ serve(async (req) => {
     // Get API credentials from environment variables 
     const WELLNESS_GENI_API_KEY = Deno.env.get('WELLNESS_GENI_API_KEY');
     const WELLNESS_GENI_API_URL = Deno.env.get('WELLNESS_GENI_API_URL');
+    const ISABELLA_PERSONA_TEMPLATE = Deno.env.get('ISABELLA_PERSONA_TEMPLATE');
     
     if (!WELLNESS_GENI_API_KEY) {
       throw new Error('WellnessGeni API key not configured');
@@ -66,6 +67,12 @@ serve(async (req) => {
           ...context,
           product: 'SolarClip',
           company: 'ClearNanoTech',
+          persona_name: 'Isabella Navia',
+          persona_role: 'ClearNanoTech Ambassador & SolarClip Product Promoter',
+          max_response_duration: '15_seconds',
+          tone: 'polite_professional_enthusiastic_concise',
+          focus: 'SolarClip_products_solutions_lead_generation',
+          persona_template: ISABELLA_PERSONA_TEMPLATE || '',
         }
       }),
     });
