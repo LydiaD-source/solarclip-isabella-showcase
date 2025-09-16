@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button';
-import { Play } from 'lucide-react';
+import { Play, Send, Mic, Volume2, VolumeX } from 'lucide-react';
 import { useState } from 'react';
 import { CinematicCard } from './CinematicCard';
 import { IsabellaAvatar } from './IsabellaAvatar';
 import { useIsabella } from '@/hooks/useIsabella';
+import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
 
 interface HeroSectionProps { 
   isExpanded?: boolean; 
@@ -20,7 +21,19 @@ const videoThumbnails = [
 export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionProps) => {
   const [showMeetButton, setShowMeetButton] = useState(true);
   const [currentLanguage, setCurrentLanguage] = useState('EN');
+  const [inputMessage, setInputMessage] = useState('');
   const { currentCard, closeCard, handleCardAction } = useIsabella('solarclip');
+  const { 
+    messages, 
+    isProcessing, 
+    isSpeakerEnabled, 
+    isMicEnabled, 
+    isListening,
+    sendMessage, 
+    startListening,
+    toggleSpeaker, 
+    toggleMicrophone 
+  } = useWellnessGeniChat();
   
   const languages = ['EN', 'FR', 'DE', 'LB'];
 
@@ -32,6 +45,20 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   const handleVideoThumbnail = (videoId: string) => {
     console.log(`Playing video: ${videoId}`);
     // TODO: Implement video modal with sliding card animation
+  };
+
+  const handleSendMessage = () => {
+    if (inputMessage.trim() && !isProcessing) {
+      sendMessage(inputMessage.trim());
+      setInputMessage('');
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
   };
 
   return (
@@ -125,20 +152,27 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         {/* Enhanced Chatbox Panel - Positioned with proper spacing from Isabella */}
         {isExpanded && (
           <div className="static lg:absolute lg:top-1/2 lg:left-[55%] xl:left-[57%] 2xl:left-[58%] transform lg:-translate-x-1/2 lg:-translate-y-[40%] w-[88vw] max-w-[340px] sm:w-[320px] lg:w-[320px] h-[460px] sm:h-[480px] mx-auto lg:mx-0 mt-4 lg:mt-0 bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
-            {/* Chat Header with Clear Button */}
+            {/* Chat Header with Voice Controls */}
             <div className="flex justify-between items-center p-4 border-b border-accent/20">
               <h3 className="text-white font-medium">Isabella AI Assistant</h3>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => {
-                  // Clear conversation logic
-                  console.log('Clearing conversation');
-                }}
-                className="text-white/60 hover:text-white hover:bg-white/10 p-2"
-              >
-                ↻
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={toggleSpeaker}
+                  className={`text-white/60 hover:text-white hover:bg-white/10 p-2 ${isSpeakerEnabled ? 'text-white' : 'text-white/40'}`}
+                >
+                  {isSpeakerEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={toggleMicrophone}
+                  className={`text-white/60 hover:text-white hover:bg-white/10 p-2 ${isMicEnabled ? 'text-white' : 'text-white/40'} ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
+                >
+                  <Mic className="w-4 h-4" />
+                </Button>
+              </div>
             </div>
             
             {/* Chat Messages Area - Enhanced scrolling */}
@@ -221,16 +255,16 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 </Button>
               </div>
               
-              {/* Voice/Text Interface - Integrated into chatbox */}
-              <div className="flex gap-2 mt-3 pt-2 border-accent/10">
+              {/* Voice Interface */}
+              <div className="flex gap-2 mt-3 pt-2 border-t border-accent/20">
                 <Button 
                   size="sm" 
-                  className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1"
-                  onClick={() => sendMessage("I want to schedule a consultation")}
-                  disabled={isProcessing}
+                  className={`bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1 ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
+                  onClick={startListening}
+                  disabled={!isMicEnabled || isListening || isProcessing}
                 >
                   <Mic className="w-4 h-4 mr-2" />
-                  Get Quote
+                  {isListening ? 'Listening...' : 'Voice Input'}
                 </Button>
                 <Button 
                   size="sm" 
