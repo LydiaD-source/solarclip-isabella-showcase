@@ -180,7 +180,7 @@ export const useWellnessGeniChat = () => {
           const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
             body: {
               text: responseText,
-              voice_id: '9BWtsMINqrJLrRacOk9x' // Aria voice
+              voice_id: 't0IcnDolatli2xhqgLgn' // Isabella Navia voice
             }
           });
 
@@ -283,7 +283,7 @@ export const useWellnessGeniChat = () => {
         const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
           body: {
             text: greetingText,
-            voice_id: '9BWtsMINqrJLrRacOk9x' // Aria voice
+            voice_id: 't0IcnDolatli2xhqgLgn' // Isabella Navia voice
           }
         });
 

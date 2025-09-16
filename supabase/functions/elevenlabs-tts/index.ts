@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { text, voice_id = "9BWtsMINqrJLrRacOk9x" } = await req.json(); // Aria voice by default
+    const { text, voice_id = "t0IcnDolatli2xhqgLgn" } = await req.json(); // Isabella Navia voice by default
     
     if (!text) {
       throw new Error('Text is required');

@@ -37,7 +37,7 @@ serve(async (req) => {
           input: audio_base64 ? `data:audio/mp3;base64,${audio_base64}` : text,
           provider: {
             type: 'elevenlabs',
-            voice_id: '9BWtsMINqrJLrRacOk9x',
+            voice_id: 't0IcnDolatli2xhqgLgn',
           }
         },
         config: {
