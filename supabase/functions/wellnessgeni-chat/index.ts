@@ -16,7 +16,7 @@ serve(async (req) => {
     const { message, session_id, client_id: reqClientId, context = {}, persona_id: reqPersona } = await req.json();
 
     const client_id = reqClientId || 'solarclip';
-    const persona_id = reqPersona || 'solarclip client'; // Try exact client name format
+    const persona_id = reqPersona || 'solarclip'; // Use the exact persona_id name that matches client
     
     // Get API credentials from environment variables 
     const WELLNESS_GENI_API_KEY = Deno.env.get('WELLNESS_GENI_API_KEY');
