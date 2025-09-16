@@ -5,3 +5,21 @@ verify_jwt = false
 
 [functions.solar-segmentation]
 verify_jwt = false
+
+[functions.wellnessgeni-chat]
+verify_jwt = false
+
+[functions.submit-lead]
+verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.did-avatar]
+verify_jwt = false
+
+[functions.isabella-orchestrator]
+verify_jwt = false
+
+[functions.create-wellnessgeni-persona]
+verify_jwt = false
