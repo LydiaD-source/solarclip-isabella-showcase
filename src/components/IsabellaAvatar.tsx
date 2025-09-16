@@ -43,9 +43,12 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
       setShowTooltip(true);
     }, 12000);
 
-    // Send auto-greeting after page load
+    // Send auto-greeting after page load (guarded to avoid duplicates)
     const greetingTimer = setTimeout(() => {
-      sendGreeting();
+      const w = (typeof window !== 'undefined' ? (window as any) : {}) as any;
+      if (!w.__ISABELLA_GREETING_SENT) {
+        sendGreeting();
+      }
     }, 2000);
 
     return () => {

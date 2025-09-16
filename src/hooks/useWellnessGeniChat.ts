@@ -158,18 +158,20 @@ export const useWellnessGeniChat = () => {
 
       if (chatError) throw chatError;
 
-      const responseText = typeof chatData?.response === 'string' ? chatData.response : 
+      let responseText = typeof chatData?.response === 'string' ? chatData.response : 
                           typeof chatData?.text === 'string' ? chatData.text : '';
       
-      if (responseText.trim()) {
-        const isabellaMessage: ChatMessage = {
-          id: Date.now().toString() + '_isabella',
-          text: responseText,
-          sender: 'isabella',
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, isabellaMessage]);
+      if (!responseText || !responseText.trim()) {
+        responseText = "Hi — I’m Isabella Navia, ClearNanoTech ambassador for SolarClip™. Ask me anything about SolarClip’s clip-on solar panels, installation, pricing, or roof suitability.";
       }
+      
+      const isabellaMessage: ChatMessage = {
+        id: Date.now().toString() + '_isabella',
+        text: responseText,
+        sender: 'isabella',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, isabellaMessage]);
 
       // Generate speech with ElevenLabs + D-ID animation
       if (isSpeakerEnabled && responseText.trim()) {
@@ -252,7 +254,16 @@ export const useWellnessGeniChat = () => {
     }
   }, [recognition, isMicEnabled, isListening]);
 
-  const sendGreeting = useCallback(async () => { if (greetingSentRef.current) return; greetingSentRef.current = true;
+  const sendGreeting = useCallback(async () => {
+    // Global guard to avoid duplicate greetings (React StrictMode mounts, route remounts)
+    if (typeof window !== 'undefined') {
+      const w = window as any;
+      if (w.__ISABELLA_GREETING_SENT) return; // already sent this page load
+      w.__ISABELLA_GREETING_SENT = true;
+    }
+    if (greetingSentRef.current) return;
+    greetingSentRef.current = true;
+    
     // Play Isabella's greeting directly with ElevenLabs voice
     const greetingText = "Hello! I'm Isabella Navia, ambassador for SolarClip™. I can show you how our lightweight, clip-on solar panels can save you time and money on your roof project. May I know your business address to show you an interactive map?";
     
