@@ -34,6 +34,9 @@ serve(async (req) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
+        // Add common alternative header names to maximize compatibility
+        'apikey': `${WELLNESS_GENI_API_KEY}`,
+        'x-api-key': `${WELLNESS_GENI_API_KEY}`,
       },
       body: JSON.stringify({
         message,
