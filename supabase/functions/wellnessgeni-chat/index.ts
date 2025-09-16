@@ -109,12 +109,17 @@ serve(async (req) => {
     let messages: any[];
     
     if (!sessionStore.has(session_id)) {
-      // First message in session: initialize with system guide
+      // First message in session: initialize with system guide for SolarClip
+      const systemGuide = client_id === 'SolarClip' && SOLARCLIP_GUIDE 
+        ? SOLARCLIP_GUIDE 
+        : 'You are a helpful assistant.';
+      
       messages = [
-        { role: 'system', content: SOLARCLIP_GUIDE || '' },
+        { role: 'system', content: systemGuide },
         { role: 'user', content: message }
       ];
-      console.log('New session initialized:', session_id);
+      sessionStore.set(session_id, messages);
+      console.log('New session initialized:', session_id, 'with system guide for client:', client_id);
     } else {
       // Existing session: append only new user message
       messages = [...sessionStore.get(session_id)!, { role: 'user', content: message }];

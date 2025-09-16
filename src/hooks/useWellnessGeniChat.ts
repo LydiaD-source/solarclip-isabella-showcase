@@ -170,7 +170,7 @@ export const useWellnessGeniChat = () => {
         setMessages(prev => [...prev, isabellaMessage]);
       }
 
-      // Generate speech with ElevenLabs only (disable D-ID until audio_url pipeline is ready)
+      // Generate speech with ElevenLabs + D-ID animation
       if (isSpeakerEnabled && responseText.trim()) {
         try {
           console.log('[TTS] request → elevenlabs-tts');
@@ -187,8 +187,32 @@ export const useWellnessGeniChat = () => {
           }
 
           if (ttsData?.audio) {
-            console.log('[TTS] playing audio');
-            await playAudio(ttsData.audio);
+            console.log('[TTS] got audio, sending to D-ID for animation');
+            
+            // Send audio to D-ID for avatar animation
+            try {
+              const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                body: {
+                  audio_base64: ttsData.audio
+                }
+              });
+
+              if (didError) {
+                console.error('[D-ID] error', didError);
+                // Fallback to just playing audio without animation
+                await playAudio(ttsData.audio);
+                return;
+              }
+
+              console.log('[D-ID] animation created:', didData);
+              // Play the ElevenLabs audio directly while D-ID handles animation
+              await playAudio(ttsData.audio);
+              
+            } catch (didError) {
+              console.error('D-ID animation error:', didError);
+              // Fallback to just playing audio
+              await playAudio(ttsData.audio);
+            }
           }
         } catch (error) {
           console.error('Speech synthesis error:', error);
@@ -248,6 +272,26 @@ export const useWellnessGeniChat = () => {
         }
 
         if (ttsData?.audio) {
+          console.log('[TTS] got greeting audio, sending to D-ID for animation');
+          
+          // Send audio to D-ID for avatar animation
+          try {
+            const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+              body: {
+                audio_base64: ttsData.audio
+              }
+            });
+
+            if (didError) {
+              console.error('[D-ID] greeting error', didError);
+            } else {
+              console.log('[D-ID] greeting animation created:', didData);
+            }
+          } catch (didError) {
+            console.error('D-ID greeting animation error:', didError);
+          }
+
+          // Play the ElevenLabs audio directly
           console.log('[TTS] playing greeting audio');
           await playAudio(ttsData.audio);
         }
