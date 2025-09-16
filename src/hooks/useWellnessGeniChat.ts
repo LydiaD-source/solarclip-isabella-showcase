@@ -104,8 +104,8 @@ export const useWellnessGeniChat = () => {
       // Send to WellnessGeni via Supabase edge function with Isabella Navia persona
       const payload = {
         message: text,
-        persona_id: 'solarclip', // Isabella Navia - ClearNanoTech Ambassador
-        client_id: 'solarclip',
+        persona_id: 'SolarClip', // Isabella Navia - ClearNanoTech Ambassador
+        client_id: 'SolarClip',
         session_id: `session_${Date.now()}`,
         context: {
           product: 'SolarClip',

@@ -15,8 +15,14 @@ serve(async (req) => {
   try {
     const { message, session_id, client_id: reqClientId, context = {}, persona_id: reqPersona } = await req.json();
 
-    const client_id = reqClientId || 'SolarClip';
-    const persona_id = reqPersona || 'SolarClip'; // Use the exact persona_id name that matches client
+    // Normalize to match WellnessGeni admin (case sensitive)
+    const normalizeId = (v?: string) => {
+      if (!v) return 'SolarClip';
+      return v.toLowerCase() === 'solarclip' ? 'SolarClip' : v;
+    };
+
+    const client_id = normalizeId(reqClientId);
+    const persona_id = normalizeId(reqPersona); // Ensure correct case
     
     // Get API credentials from environment variables 
     const WELLNESS_GENI_API_KEY = Deno.env.get('WELLNESS_GENI_API_KEY');
@@ -92,11 +98,12 @@ serve(async (req) => {
 
       const invalidPersona = response.status === 400 && JSON.stringify(errorBody).toLowerCase().includes('invalid persona_id');
       if (invalidPersona) {
-        console.warn('Persona id invalid. Retrying without persona_id using template context');
+        console.warn('Persona id invalid. Retrying with corrected persona_id "SolarClip"');
         const retryPayload = {
           message,
           session_id,
-          client_id,
+          client_id: 'SolarClip',
+          persona_id: 'SolarClip',
           context: contextPayload,
         };
         response = await fetch(WELLNESS_GENI_API_URL, {
@@ -114,9 +121,9 @@ serve(async (req) => {
           const retryError = contentType.includes('application/json')
             ? await response.json().catch(() => ({}))
             : await response.text();
-          console.error('Retry without persona_id failed:', response.status, retryError);
+          console.error('Retry with corrected persona_id failed:', response.status, retryError);
           return new Response(JSON.stringify({
-            error: 'Upstream WellnessGeni error after retry',
+            error: 'Upstream WellnessGeni error after retry with corrected persona_id',
             status: response.status,
             details: retryError,
           }), {
