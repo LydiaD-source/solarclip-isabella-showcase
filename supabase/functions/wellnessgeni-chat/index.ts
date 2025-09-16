@@ -15,34 +15,29 @@ serve(async (req) => {
   try {
     const { message, session_id, client_id: reqClientId, context = {}, persona_id: reqPersona } = await req.json();
 
-    // Normalize to match WellnessGeni admin (case sensitive)
+    // Normalize client_id to match WellnessGeni admin (case sensitive)
     const normalizeId = (v?: string) => {
       if (!v) return 'SolarClip';
       return v.toLowerCase() === 'solarclip' ? 'SolarClip' : v;
     };
 
-    // Base from request, normalized
+    // Get client_id from request or use default
     let client_id = normalizeId(reqClientId);
-    let persona_id = normalizeId(reqPersona); // Ensure correct case
-
+    
     // Get API credentials from environment variables 
     const WELLNESS_GENI_API_KEY = Deno.env.get('WELLNESS_GENI_API_KEY');
     const WELLNESS_GENI_API_URL = Deno.env.get('WELLNESS_GENI_API_URL') || Deno.env.get('WELLNESSGENI_CHAT_URL') || '';
     const SOLARCLIP_GUIDE = Deno.env.get('SOLARCLIP_GUIDE');
-    const WELLNESS_GENI_PERSONA_ID = Deno.env.get('WELLNESS_GENI_PERSONA_ID');
     const WELLNESS_GENI_CLIENT_ID = Deno.env.get('WELLNESS_GENI_CLIENT_ID');
 
-    // Override from secrets if present
-    if (WELLNESS_GENI_PERSONA_ID) persona_id = WELLNESS_GENI_PERSONA_ID;
+    // Override client_id from secret if present
     if (WELLNESS_GENI_CLIENT_ID) client_id = WELLNESS_GENI_CLIENT_ID;
 
-    // Log selected ids (avoid leaking secret values)
-    console.log('Persona/Client selection:', {
+    // Log client selection
+    console.log('Client selection:', {
       client_id,
-      personaIdLen: persona_id?.length || 0,
-      personaLooksGuid: !!persona_id && /^[0-9a-fA-F-]{8,}$/.test(persona_id),
-      usedSecretPersona: !!WELLNESS_GENI_PERSONA_ID,
       usedSecretClient: !!WELLNESS_GENI_CLIENT_ID,
+      hasGuide: !!SOLARCLIP_GUIDE,
     });
     
     // Log config presence (no secrets) for debugging
@@ -76,7 +71,6 @@ serve(async (req) => {
     console.log('WellnessGeni chat request:', { 
       message: String(message).slice(0, 120), 
       client_id, 
-      persona_id,
       session_id, 
       api_url: WELLNESS_GENI_API_URL 
     });
@@ -85,32 +79,28 @@ serve(async (req) => {
       persona_template: SOLARCLIP_GUIDE || '',
     };
 
-    // Build payload; include persona_id only if present
-    let initialPayload: any = {
+    // Build payload without persona_id - use SOLARCLIP_GUIDE as system prompt instead
+    const payload = {
       message,
       session_id,
       client_id,
       context: contextPayload,
     };
-    if (persona_id) {
-      initialPayload.persona_id = persona_id; // attempt with explicit persona first
-    }
 
-    let response = await fetch(WELLNESS_GENI_API_URL, {
+    const response = await fetch(WELLNESS_GENI_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
-        // Add common alternative header names to maximize compatibility
         'apikey': `${WELLNESS_GENI_API_KEY}`,
         'x-api-key': `${WELLNESS_GENI_API_KEY}`,
       },
-      body: JSON.stringify(initialPayload),
+      body: JSON.stringify(payload),
     });
 
-    // Determine content type and handle invalid persona fallback
-    let contentType = response.headers.get('content-type') || '';
-    console.log('WellnessGeni upstream response meta:', { status: response.status, contentType });
+    const contentType = response.headers.get('content-type') || '';
+    console.log('WellnessGeni upstream response:', { status: response.status, contentType });
+    
     if (!response.ok) {
       const raw = contentType.includes('application/json')
         ? await response.json().catch(() => ({}))
@@ -118,80 +108,14 @@ serve(async (req) => {
       const errorBody: any = typeof raw === 'string' ? { error: raw } : raw;
       console.error('WellnessGeni API error:', response.status, errorBody);
 
-      const invalidPersona = response.status === 400 && JSON.stringify(errorBody).toLowerCase().includes('invalid persona_id');
-      if (invalidPersona) {
-        const attempted: string[] = [];
-        // 1) Retry without persona_id (use persona_template only)
-        if (initialPayload.persona_id) {
-          const withoutPersona = { ...initialPayload };
-          delete (withoutPersona as any).persona_id;
-          console.warn('Persona id invalid. Retrying WITHOUT persona_id (template-only).');
-          response = await fetch(WELLNESS_GENI_API_URL, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
-              'apikey': `${WELLNESS_GENI_API_KEY}`,
-              'x-api-key': `${WELLNESS_GENI_API_KEY}`,
-            },
-            body: JSON.stringify(withoutPersona),
-          });
-          contentType = response.headers.get('content-type') || '';
-          console.log('Retry (no persona_id) upstream response meta:', { status: response.status, contentType });
-          if (response.ok) {
-            // proceed to success handling
-          } else {
-            // 2) Try fallback variants for persona_id while keeping client_id unchanged
-            const variants = ['SolarClip', 'solarclip'];
-            for (const alt of variants) {
-              if (alt === persona_id) continue;
-              attempted.push(alt);
-              console.warn(`Persona id invalid. Retrying with variant persona_id "${alt}" (client_id unchanged: "${client_id}")`);
-              const retryPayload = { ...initialPayload, persona_id: alt };
-              response = await fetch(WELLNESS_GENI_API_URL, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
-                  'apikey': `${WELLNESS_GENI_API_KEY}`,
-                  'x-api-key': `${WELLNESS_GENI_API_KEY}`,
-                },
-                body: JSON.stringify(retryPayload),
-              });
-              contentType = response.headers.get('content-type') || '';
-              console.log('Retry upstream response meta:', { status: response.status, contentType, alt });
-              if (response.ok) break;
-            }
-            if (!response.ok) {
-              const retryError = contentType.includes('application/json')
-                ? await response.json().catch(() => ({}))
-                : await response.text();
-              console.error('All persona_id retries failed:', response.status, retryError, { attempted });
-              return new Response(JSON.stringify({
-                error: 'Upstream WellnessGeni error after persona_id retries',
-                status: response.status,
-                details: retryError,
-                attempted_persona_ids: [String(persona_id), ...attempted],
-                tried_without_persona_id: true,
-              }), {
-                status: response.status,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
-            }
-          }
-        } else {
-          // If no persona_id was included initially, nothing else to do here.
-        }
-      } else {
-        return new Response(JSON.stringify({
-          error: 'Upstream WellnessGeni error',
-          status: response.status,
-          details: errorBody,
-        }), {
-          status: response.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
+      return new Response(JSON.stringify({
+        error: 'Upstream WellnessGeni error',
+        status: response.status,
+        details: errorBody,
+      }), {
+        status: response.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     let data: any = {};
