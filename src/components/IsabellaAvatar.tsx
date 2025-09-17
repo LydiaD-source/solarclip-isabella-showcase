@@ -105,9 +105,9 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
         </div>
       )}
 
-      {/* Expanded Chat Panel */}
+      {/* Expanded Chat Panel - Larger, Fluid Design */}
       {isExpanded && (
-        <Card className="absolute top-64 lg:top-96 xl:top-112 right-0 w-80 sm:w-96 h-[500px] card-premium animate-fade-in-up">
+        <Card className="absolute top-48 lg:top-72 xl:top-80 right-0 w-[90vw] sm:w-[26rem] lg:w-[28rem] xl:w-[32rem] h-[70vh] max-h-[600px] card-premium animate-fade-in-up border-0 shadow-xl bg-gradient-to-br from-card/95 to-secondary/90 backdrop-blur-lg">
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="isabella-avatar w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-purple-100 to-blue-100">
@@ -158,8 +158,8 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
               </div>
             </div>
 
-            {/* Messages */}
-            <div className="flex-1 space-y-3 max-h-60 overflow-y-auto">
+            {/* Messages - Larger scrollable area */}
+            <div className="flex-1 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent">
               {/* Messages will show here when Isabella responds */}
               
               {messages.map((message) => (
@@ -183,22 +183,23 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
             </div>
           </div>
 
-          <div className="p-4 border-t border-border">
+          <div className="p-4 border-t border-border/50 bg-gradient-to-r from-secondary/30 to-accent/10">
             <div className="flex gap-2">
               <input 
                 type="text" 
-                placeholder="Ask me about SolarClip™..." 
-                className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background"
+                placeholder="Ask me about SolarClip™ installation, pricing, benefits..." 
+                className="flex-1 px-4 py-3 text-sm border border-border/50 rounded-xl bg-background/80 backdrop-blur-sm transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:bg-background"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={isProcessing}
               />
               <Button 
-                size="sm" 
+                size="default" 
                 variant="default" 
                 onClick={handleSendMessage}
                 disabled={isProcessing || !inputText.trim()}
+                className="px-4 py-3 rounded-xl bg-gradient-to-r from-accent to-accent-light hover:from-accent-light hover:to-accent transition-all duration-200 shadow-lg hover:shadow-accent/20"
               >
                 <Send className="w-4 h-4" />
               </Button>
