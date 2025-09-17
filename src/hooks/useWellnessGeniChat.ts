@@ -288,7 +288,7 @@ export const useWellnessGeniChat = () => {
     try {
       setIsListening(true);
       
-      // Get microphone access with optimized settings
+      // Enhanced microphone access with better error handling
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 16000,
@@ -299,26 +299,43 @@ export const useWellnessGeniChat = () => {
         }
       });
 
+      console.log('Microphone access granted successfully');
+      
       // Reset audio chunks
       audioChunksRef.current = [];
 
-      // Create MediaRecorder for better browser compatibility
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
-        ? 'audio/webm;codecs=opus' 
-        : MediaRecorder.isTypeSupported('audio/webm') 
-        ? 'audio/webm' 
-        : 'audio/mp4';
+      // Enhanced MediaRecorder with better format detection
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm;codecs=pcm', 
+        'audio/webm',
+        'audio/mp4',
+        'audio/wav'
+      ];
+      
+      let mimeType = 'audio/webm';
+      for (const type of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          break;
+        }
+      }
 
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      const mediaRecorder = new MediaRecorder(stream, { 
+        mimeType,
+        audioBitsPerSecond: 128000
+      });
       mediaRecorderRef.current = mediaRecorder;
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
           audioChunksRef.current.push(event.data);
+          console.log(`Audio chunk received: ${event.data.size} bytes`);
         }
       };
 
       mediaRecorder.onstop = async () => {
+        console.log('MediaRecorder stopped, processing audio...');
         setIsListening(false);
         
         // Stop all tracks to release microphone
@@ -326,16 +343,25 @@ export const useWellnessGeniChat = () => {
         
         if (audioChunksRef.current.length > 0) {
           await processAudioToText();
+        } else {
+          console.warn('No audio chunks recorded');
         }
       };
 
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        setIsListening(false);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
       // Start recording
-      mediaRecorder.start();
+      mediaRecorder.start(1000); // Collect data every second
       console.log('Started voice recording with mime type:', mimeType);
 
       // Auto-stop after 10 seconds
       setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          console.log('Auto-stopping recording after 10 seconds');
           mediaRecorderRef.current.stop();
         }
       }, 10000);
@@ -344,10 +370,19 @@ export const useWellnessGeniChat = () => {
       console.error('Error starting voice input:', error);
       setIsListening(false);
       
-      // Add error message to chat
+      // Enhanced error message with specific guidance
+      let errorText = 'Sorry, I couldn\'t access your microphone. ';
+      if (error.name === 'NotAllowedError') {
+        errorText += 'Please allow microphone access and try again.';
+      } else if (error.name === 'NotFoundError') {
+        errorText += 'No microphone found. Please check your device.';
+      } else {
+        errorText += 'Please check your browser permissions and try again.';
+      }
+      
       const errorMessage: ChatMessage = {
         id: Date.now().toString() + '_mic_error',
-        text: 'Sorry, I couldn\'t access your microphone. Please check your browser permissions and try again.',
+        text: errorText,
         sender: 'isabella',
         timestamp: new Date(),
       };
@@ -364,25 +399,50 @@ export const useWellnessGeniChat = () => {
   const processAudioToText = useCallback(async () => {
     try {
       console.log('Processing audio chunks:', audioChunksRef.current.length);
+      
+      if (audioChunksRef.current.length === 0) {
+        console.warn('No audio chunks to process');
+        return;
+      }
+      
       const audioBlob = new Blob(audioChunksRef.current, { 
         type: audioChunksRef.current[0]?.type || 'audio/webm' 
       });
       
-      // Convert blob to base64 for transmission
+      console.log('Audio blob created:', {
+        size: audioBlob.size,
+        type: audioBlob.type
+      });
+      
+      // Enhanced base64 conversion with better memory management
       const arrayBuffer = await audioBlob.arrayBuffer();
       const uint8Array = new Uint8Array(arrayBuffer);
-      let binary = '';
-      const chunkSize = 0x8000; // 32KB chunks to prevent call stack overflow
+      
+      // Convert to base64 in smaller chunks to prevent memory issues
+      let base64Audio = '';
+      const chunkSize = 32768; // 32KB chunks
       
       for (let i = 0; i < uint8Array.length; i += chunkSize) {
         const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-        binary += String.fromCharCode.apply(null, Array.from(chunk));
+        let binary = '';
+        for (let j = 0; j < chunk.length; j++) {
+          binary += String.fromCharCode(chunk[j]);
+        }
+        base64Audio += btoa(binary);
       }
       
-      const base64Audio = btoa(binary);
       console.log('Converted audio to base64, size:', base64Audio.length);
 
-      // Send to speech-to-text function
+      // Add processing message to UI
+      const processingMessage: ChatMessage = {
+        id: Date.now().toString() + '_processing',
+        text: '🎤 Processing your voice...',
+        sender: 'isabella',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, processingMessage]);
+
+      // Send to enhanced speech-to-text function
       const { data, error } = await supabase.functions.invoke('speech-to-text', {
         body: { audio: base64Audio }
       });
@@ -394,11 +454,23 @@ export const useWellnessGeniChat = () => {
 
       console.log('Speech-to-text result:', data);
 
+      // Remove processing message
+      setMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
+
       if (data?.text && data.text.trim()) {
         const transcribedText = data.text.trim();
         console.log('Transcribed text:', transcribedText);
         
-        // Send transcribed text as a message (this will add to chat and get response)
+        // Add transcription to chat first
+        const transcriptionMessage: ChatMessage = {
+          id: Date.now().toString() + '_transcription',
+          text: `🎤 "${transcribedText}"`,
+          sender: 'user',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, transcriptionMessage]);
+        
+        // Send transcribed text as a message (this will get Isabella's response)
         await sendMessage(transcribedText);
       } else {
         const noSpeechMessage: ChatMessage = {

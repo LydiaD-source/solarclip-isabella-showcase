@@ -504,4 +504,18 @@ Cinematic gradients with solar energy themes
   }
   .animate-card-float-in { animation: card-float-in 4s ease-in-out forwards; }
   .animate-card-float-out { animation: card-float-out 4s ease-in-out forwards; }
+
+  /* Custom scrollbar for chat */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .scrollbar-thumb-accent\/20::-webkit-scrollbar-thumb {
+    background: hsl(var(--accent) / 0.2);
+    border-radius: 0.375rem;
+  }
+  
+  .scrollbar-track-transparent::-webkit-scrollbar-track {
+    background: transparent;
+  }
 }
