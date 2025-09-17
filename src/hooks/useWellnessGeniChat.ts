@@ -23,6 +23,8 @@ export const useWellnessGeniChat = () => {
   const lastSentRef = useRef<{ text: string; time: number } | null>(null);
   const greetingSentRef = useRef(false);
   const [didVideoUrl, setDidVideoUrl] = useState<string | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Initialize audio context and speech recognition
   useEffect(() => {
@@ -281,12 +283,146 @@ export const useWellnessGeniChat = () => {
     }
   }, [isProcessing, isSpeakerEnabled, playAudio]);
 
-  const startListening = useCallback(() => {
-    if (recognition && isMicEnabled && !isListening) {
+  const startListening = useCallback(async () => {
+    if (!isMicEnabled || isListening) return;
+    
+    try {
       setIsListening(true);
-      recognition.start();
+      
+      // Get microphone access with optimized settings
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      // Reset audio chunks
+      audioChunksRef.current = [];
+
+      // Create MediaRecorder for better browser compatibility
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : MediaRecorder.isTypeSupported('audio/webm') 
+        ? 'audio/webm' 
+        : 'audio/mp4';
+
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        setIsListening(false);
+        
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (audioChunksRef.current.length > 0) {
+          await processAudioToText();
+        }
+      };
+
+      // Start recording
+      mediaRecorder.start();
+      console.log('Started voice recording with mime type:', mimeType);
+
+      // Auto-stop after 10 seconds
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+      }, 10000);
+
+    } catch (error) {
+      console.error('Error starting voice input:', error);
+      setIsListening(false);
+      
+      // Add error message to chat
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString() + '_mic_error',
+        text: 'Sorry, I couldn\'t access your microphone. Please check your browser permissions and try again.',
+        sender: 'isabella',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
     }
-  }, [recognition, isMicEnabled, isListening]);
+  }, [isMicEnabled, isListening]);
+
+  const stopListening = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+  }, []);
+
+  const processAudioToText = useCallback(async () => {
+    try {
+      console.log('Processing audio chunks:', audioChunksRef.current.length);
+      const audioBlob = new Blob(audioChunksRef.current, { 
+        type: audioChunksRef.current[0]?.type || 'audio/webm' 
+      });
+      
+      // Convert blob to base64 for transmission
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      let binary = '';
+      const chunkSize = 0x8000; // 32KB chunks to prevent call stack overflow
+      
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+        binary += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      
+      const base64Audio = btoa(binary);
+      console.log('Converted audio to base64, size:', base64Audio.length);
+
+      // Send to speech-to-text function
+      const { data, error } = await supabase.functions.invoke('speech-to-text', {
+        body: { audio: base64Audio }
+      });
+
+      if (error) {
+        console.error('Speech-to-text error:', error);
+        throw error;
+      }
+
+      console.log('Speech-to-text result:', data);
+
+      if (data?.text && data.text.trim()) {
+        const transcribedText = data.text.trim();
+        console.log('Transcribed text:', transcribedText);
+        
+        // Send transcribed text as a message (this will add to chat and get response)
+        await sendMessage(transcribedText);
+      } else {
+        const noSpeechMessage: ChatMessage = {
+          id: Date.now().toString() + '_no_speech',
+          text: 'I couldn\'t understand what you said. Please try speaking clearly or use the text input.',
+          sender: 'isabella',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, noSpeechMessage]);
+      }
+
+    } catch (error) {
+      console.error('Error processing speech to text:', error);
+      
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString() + '_speech_error',
+        text: 'Sorry, I had trouble processing your voice input. Please try speaking again or use the text input.',
+        sender: 'isabella',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  }, [sendMessage]);
 
   const sendGreeting = useCallback(async () => {
     // Global guard to avoid duplicate greetings (React StrictMode mounts, route remounts)
@@ -429,6 +565,7 @@ export const useWellnessGeniChat = () => {
     sendMessage,
     sendGreeting,
     startListening,
+    stopListening,
     toggleSpeaker,
     toggleMicrophone,
     initializeAudio,

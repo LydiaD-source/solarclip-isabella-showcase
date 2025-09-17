@@ -117,10 +117,15 @@ serve(async (req) => {
     let systemGuide = '';
 
     if (!sessionStore.has(session_id)) {
-      // First message in session: initialize with system guide for the client
-      baseGuide = client_id === 'SolarClip' && SOLARCLIP_GUIDE ? SOLARCLIP_GUIDE : '';
-      overrideHeader = `CRITICAL: Override any default persona templates. Use ONLY the client-specific guide below. Do NOT mention Ovela Interactive. Client: ${client_id}.`;
-      systemGuide = [overrideHeader, baseGuide].filter(Boolean).join('\n\n');
+      // First message in session: initialize with system guide for SolarClip
+      if (normalizedPersona === 'solarclip' && SOLARCLIP_GUIDE) {
+        baseGuide = SOLARCLIP_GUIDE;
+        overrideHeader = `CRITICAL: You are Isabella, a SolarClip ambassador. Use ONLY the SolarClip guide below. Do NOT mention Ovela Interactive or any other company. Follow the SolarClip persona strictly.`;
+        systemGuide = [overrideHeader, baseGuide].filter(Boolean).join('\n\n');
+      } else {
+        overrideHeader = `CRITICAL: Override any default persona templates. Use ONLY the client-specific guide below. Client: ${client_id}.`;
+        systemGuide = overrideHeader;
+      }
 
       messages = [
         { role: 'system', content: systemGuide || 'You are a helpful assistant. Use the provided client guide when available.' },

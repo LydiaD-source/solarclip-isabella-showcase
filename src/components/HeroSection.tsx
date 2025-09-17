@@ -33,6 +33,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     sendMessage, 
     sendGreeting,
     startListening,
+    stopListening,
     toggleSpeaker, 
     toggleMicrophone,
     narrate
@@ -272,11 +273,11 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 <Button 
                   size="sm" 
                   className={`bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1 ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
-                  onClick={startListening}
-                  disabled={!isMicEnabled || isListening || isProcessing}
+                  onClick={isListening ? stopListening : startListening}
+                  disabled={!isMicEnabled || isProcessing}
                 >
                   <Mic className="w-4 h-4 mr-2" />
-                  {isListening ? 'Listening...' : 'Voice Input'}
+                  {isListening ? 'Stop' : 'Voice Input'}
                 </Button>
                 <Button 
                   size="sm" 
