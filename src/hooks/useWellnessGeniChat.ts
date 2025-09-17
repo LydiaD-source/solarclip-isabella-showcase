@@ -522,9 +522,9 @@ export const useWellnessGeniChat = () => {
         return updated;
       });
 
-      // Send to enhanced speech-to-text function
+      // Send to enhanced speech-to-text function including mimeType
       const { data, error } = await supabase.functions.invoke('speech-to-text', {
-        body: { audio: base64Audio }
+        body: { audio: base64Audio, mimeType: audioBlob.type || 'audio/webm' }
       });
 
       if (error) {

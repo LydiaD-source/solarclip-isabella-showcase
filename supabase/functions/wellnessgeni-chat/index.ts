@@ -33,6 +33,7 @@ serve(async (req) => {
     const SOLARCLIP_GUIDE = Deno.env.get('SOLARCLIP_GUIDE');
     const WELLNESS_GENI_CLIENT_ID = Deno.env.get('WELLNESS_GENI_CLIENT_ID');
     const WELLNESS_GENI_PERSONA_ID = Deno.env.get('WELLNESS_GENI_PERSONA_ID');
+    const SOLARCLIP_SYSTEM_INSTRUCTIONS = Deno.env.get('SOLARCLIP_SYSTEM_INSTRUCTIONS') || Deno.env.get('SYSTEM_INSTRUCTIONS');
 
     // Do NOT blindly override client_id with secret to avoid cross-client template mixups
     // Prefer explicit client_id from request. As a fallback only (when none provided), use secret.
@@ -52,7 +53,9 @@ serve(async (req) => {
       hasUrl: !!WELLNESS_GENI_API_URL,
       hasTemplate: !!SOLARCLIP_GUIDE,
       hasPersonaId: !!WELLNESS_GENI_PERSONA_ID,
+      hasSystemInstructions: !!SOLARCLIP_SYSTEM_INSTRUCTIONS,
       templateLen: SOLARCLIP_GUIDE?.length || 0,
+      sysInstrLen: SOLARCLIP_SYSTEM_INSTRUCTIONS?.length || 0,
       urlHost,
     });
     
@@ -172,8 +175,18 @@ serve(async (req) => {
       // Build system guide: override header + client-specific guide (if any)
       systemGuide = [overrideHeader, baseGuide].filter(Boolean).join('\n\n');
 
+      // Prepare SolarClip-specific system instructions (Step 2) as highest-priority system message
+      const systemInstructions = (client_id.toLowerCase() === 'solarclip' ? (SOLARCLIP_SYSTEM_INSTRUCTIONS || '') : '');
+      const systemMessages: any[] = [];
+      if (systemInstructions) {
+        systemMessages.push({ role: 'system', content: systemInstructions });
+      }
+
+      const fallbackSystem = systemGuide || 'You are a helpful assistant. Use the provided client guide when available.';
+
       messages = [
-        { role: 'system', content: systemGuide || 'You are a helpful assistant. Use the provided client guide when available.' },
+        ...systemMessages,
+        { role: 'system', content: fallbackSystem },
         { role: 'user', content: message }
       ];
       sessionStore.set(session_id, messages);
@@ -187,6 +200,7 @@ serve(async (req) => {
         hasGuide: !!baseGuide,
         guideLength: baseGuide?.length || 0,
         systemGuideLength: systemGuide?.length || 0,
+        systemInstructionsLength: systemInstructions?.length || 0,
         persona_id: persona_id || 'none'
       });
     } else {

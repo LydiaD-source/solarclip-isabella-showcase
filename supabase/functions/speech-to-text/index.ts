@@ -42,7 +42,7 @@ serve(async (req) => {
   }
 
   try {
-    const { audio } = await req.json();
+    const { audio, mimeType } = await req.json();
     
     if (!audio) {
       throw new Error('No audio data provided');
@@ -57,9 +57,10 @@ serve(async (req) => {
     const binaryAudio = processBase64Chunks(audio);
     
     // Prepare form data
-    const formData = new FormData();
-    const blob = new Blob([binaryAudio], { type: 'audio/webm' });
-    formData.append('file', blob, 'audio.webm');
+    const contentType = typeof mimeType === 'string' && mimeType.length > 0 ? mimeType : 'audio/webm';
+    const fileExt = contentType.includes('mp4') ? 'mp4' : contentType.includes('wav') ? 'wav' : 'webm';
+    const blob = new Blob([binaryAudio], { type: contentType });
+    formData.append('file', blob, `audio.${fileExt}`);
     formData.append('model', 'whisper-1');
 
     // Send to OpenAI
