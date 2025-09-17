@@ -161,11 +161,18 @@ export const useWellnessGeniChat = () => {
 
     try {
       // Send to WellnessGeni via Supabase edge function with Isabella Navia persona
+      // Include prior chat history so upstream has full context
+      const history = messages.map(m => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }));
+
       const payload = {
         message: text,
         persona_id: 'solarclip', // Maps to Isabella Navia - ClearNanoTech Ambassador
         client_id: 'SolarClip',
         session_id: sessionId,
+        messages: history,
         context: {
           product: 'SolarClip',
           company: 'ClearNanoTech',
@@ -192,12 +199,12 @@ export const useWellnessGeniChat = () => {
       if (chatError) throw chatError;
 
       let responseText = typeof chatData?.response === 'string' ? chatData.response : 
-                          typeof chatData?.text === 'string' ? chatData.text : '';
+                         typeof chatData?.text === 'string' ? chatData.text : '';
       
       if (!responseText || !responseText.trim()) {
-        responseText = "SolarClip™ is a lightweight, clip-on solar panel system that installs without roof penetrations. It lowers labor time and protects roofing while delivering clean energy. Ask me about pricing, installation time, or roof compatibility.";
+        throw new Error('Empty response from chat API');
       }
-      
+
       const isabellaMessage: ChatMessage = {
         id: Date.now().toString() + '_isabella',
         text: responseText,
@@ -281,7 +288,7 @@ export const useWellnessGeniChat = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [isProcessing, isSpeakerEnabled, playAudio]);
+  }, [isProcessing, isSpeakerEnabled, playAudio, messages, sessionId]);
 
   const startListening = useCallback(async () => {
     if (!isMicEnabled || isListening) return;
