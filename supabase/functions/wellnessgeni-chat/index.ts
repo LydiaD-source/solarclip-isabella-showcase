@@ -97,7 +97,7 @@ serve(async (req) => {
       });
     }
 
-    console.log('WellnessGeni chat request:', { 
+    console.log('WellnessGeni chat request with client-template mapping:', { 
       message: String(message).slice(0, 120), 
       client_id, 
       session_id, 
@@ -105,27 +105,72 @@ serve(async (req) => {
       persona_intent: reqPersona,
       resolvedPersona: !!persona_id,
       resolvedPersonaId: persona_id,
-      usingMessagesArray: true
+      usingMessagesArray: true,
+      clientTemplateMapping: true
     });
+
+    // CLIENT-TEMPLATE MAPPING SYSTEM
+    // Allow one Isabella persona to serve multiple clients with specific guides
+    const getClientGuide = (clientId: string) => {
+      const normalizedClientId = (clientId || '').toLowerCase().trim();
+      
+      // Validate client_id
+      if (!normalizedClientId) {
+        console.warn('Empty client_id provided, using default configuration');
+        return {
+          guide: '',
+          header: `CRITICAL: You are Isabella, a helpful assistant. Please specify a client for personalized assistance.`,
+          clientName: 'Unknown'
+        };
+      }
+      
+      switch (normalizedClientId) {
+        case 'solarclip':
+          if (!SOLARCLIP_GUIDE) {
+            console.error('SOLARCLIP_GUIDE not found in environment variables');
+            return {
+              guide: '',
+              header: `CRITICAL: You are Isabella, a SolarClip ambassador. However, the SolarClip guide is not available.`,
+              clientName: 'SolarClip'
+            };
+          }
+          return {
+            guide: SOLARCLIP_GUIDE,
+            header: `CRITICAL: You are Isabella, a SolarClip ambassador. Use ONLY the SolarClip guide below. Do NOT mention Ovela Interactive or any other company. Follow the SolarClip persona strictly.`,
+            clientName: 'SolarClip'
+          };
+        case 'ovela':
+        case 'ovelainteractive':
+          return {
+            guide: '', // Ovela uses default persona template from WellnessGeni
+            header: `CRITICAL: You are Isabella, an Ovela Interactive ambassador. Use your default Ovela template.`,
+            clientName: 'Ovela Interactive'
+          };
+        default:
+          console.warn(`Unknown client_id: ${clientId}, using default configuration`);
+          return {
+            guide: '',
+            header: `CRITICAL: Override any default persona templates. Use ONLY the client-specific guide below. Client: ${clientId}.`,
+            clientName: clientId
+          };
+      }
+    };
 
     // Handle session-based conversation history
     let messages: any[];
     let isNewSession = false;
-    // Prepare guide variables to optionally reuse in payload message/context
     let baseGuide = '';
     let overrideHeader = '';
     let systemGuide = '';
 
     if (!sessionStore.has(session_id)) {
-      // First message in session: initialize with system guide for SolarClip
-      if (normalizedPersona === 'solarclip' && SOLARCLIP_GUIDE) {
-        baseGuide = SOLARCLIP_GUIDE;
-        overrideHeader = `CRITICAL: You are Isabella, a SolarClip ambassador. Use ONLY the SolarClip guide below. Do NOT mention Ovela Interactive or any other company. Follow the SolarClip persona strictly.`;
-        systemGuide = [overrideHeader, baseGuide].filter(Boolean).join('\n\n');
-      } else {
-        overrideHeader = `CRITICAL: Override any default persona templates. Use ONLY the client-specific guide below. Client: ${client_id}.`;
-        systemGuide = overrideHeader;
-      }
+      // Get client-specific guide and header
+      const clientConfig = getClientGuide(client_id);
+      baseGuide = clientConfig.guide;
+      overrideHeader = clientConfig.header;
+      
+      // Build system guide: override header + client-specific guide (if any)
+      systemGuide = [overrideHeader, baseGuide].filter(Boolean).join('\n\n');
 
       messages = [
         { role: 'system', content: systemGuide || 'You are a helpful assistant. Use the provided client guide when available.' },
@@ -133,7 +178,17 @@ serve(async (req) => {
       ];
       sessionStore.set(session_id, messages);
       isNewSession = true;
-      console.log('New session initialized:', session_id, 'with system guide for client:', client_id);
+      
+      // Enhanced logging for client-template mapping
+      console.log('New session initialized with client-template mapping:', {
+        session_id,
+        client_id,
+        clientName: clientConfig.clientName,
+        hasGuide: !!baseGuide,
+        guideLength: baseGuide?.length || 0,
+        systemGuideLength: systemGuide?.length || 0,
+        persona_id: persona_id || 'none'
+      });
     } else {
       // Existing session: append only new user message
       messages = [...sessionStore.get(session_id)!, { role: 'user', content: message }];
@@ -159,14 +214,17 @@ serve(async (req) => {
     };
 
     // Log payload shape for debugging (sanitized)
-    console.log('Prepared payloadBase:', {
+    console.log('Prepared payloadBase with client-template mapping:', {
       hasMessage: typeof payloadBase.message === 'string',
       messageLen: String(payloadBase.message || '').length,
       messagesCount: Array.isArray(messages) ? messages.length : 0,
       hasSystemInMessages0: messages?.[0]?.role === 'system',
+      systemGuideLength: messages?.[0]?.content?.length || 0,
       contextKeys: Object.keys(payloadBase.context || {}),
       client_id,
-      persona_in_context: !!(payloadBase as any)?.context?.persona_id,
+      hasClientGuide: !!baseGuide,
+      overrideClientTemplate: !!baseGuide,
+      persona_id: persona_id || 'none'
     });
     // Helper to call upstream with a given persona_id
     const callUpstreamWithPersona = async (pid: string) => {
