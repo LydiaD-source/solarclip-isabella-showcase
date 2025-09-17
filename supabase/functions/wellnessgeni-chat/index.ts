@@ -226,6 +226,10 @@ serve(async (req) => {
       overrideClientTemplate: !!baseGuide,
       persona_id: persona_id || 'none'
     });
+
+    // Determine optional template_key for upstream to force client guide precedence
+    const template_key = (client_id || '').toLowerCase() === 'solarclip' ? 'SOLARCLIP_GUIDE' : undefined;
+
     // Helper to call upstream with a given persona_id
     const callUpstreamWithPersona = async (pid: string) => {
       const response = await fetch(WELLNESS_GENI_API_URL, {
@@ -236,7 +240,7 @@ serve(async (req) => {
           'apikey': `${WELLNESS_GENI_API_KEY}`,
           'x-api-key': `${WELLNESS_GENI_API_KEY}`,
         },
-        body: JSON.stringify({ ...payloadBase, persona_id: pid }),
+        body: JSON.stringify({ ...payloadBase, message: undefined, template_key, persona_id: pid }),
       });
       const contentType = response.headers.get('content-type') || '';
       console.log('WellnessGeni upstream response:', { status: response.status, contentType, persona_id: pid });
@@ -272,7 +276,9 @@ serve(async (req) => {
       }
     }
 
-    if (!response.ok) {
+    // Treat 'empty content' upstream errors as retryable
+    const isEmptyContentError = !response.ok && ((parsedError?.error || '').toString().toLowerCase().includes('empty content'));
+    if (!response.ok && !isEmptyContentError) {
       return new Response(JSON.stringify({
         error: 'Upstream WellnessGeni error',
         status: response.status,
@@ -284,18 +290,24 @@ serve(async (req) => {
     }
 
     let data: any = {};
-    if (contentType.includes('application/json')) {
-      data = await response.json();
+    let shouldRetry = false;
+    if (response.ok) {
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const textBody = await response.text();
+        console.error('Unexpected non-JSON response from WellnessGeni:', textBody?.slice(0, 200));
+        throw new Error('Invalid response from WellnessGeni (non-JSON). Check WELLNESSGENI_CHAT_URL');
+      }
+      console.log('WellnessGeni response:', data);
+      shouldRetry = (typeof data?.response === 'string' && data.response.trim() === '') || (!data?.response && !data?.text);
     } else {
-      const textBody = await response.text();
-      console.error('Unexpected non-JSON response from WellnessGeni:', textBody?.slice(0, 200));
-      throw new Error('Invalid response from WellnessGeni (non-JSON). Check WELLNESSGENI_CHAT_URL');
+      //  Non-2xx with 'empty content' → trigger retry path
+      shouldRetry = true;
     }
 
-    console.log('WellnessGeni response:', data);
-
     // If upstream returned empty response, retry with a messages-only payload (no top-level message)
-    if ((typeof data?.response === 'string' && data.response.trim() === '') || (!data?.response && !data?.text)) {
+    if (shouldRetry) {
       console.warn('Empty response detected. Retrying with messages-only payload...');
 
       // Attempt 1: messages-only (keep persona_id)
@@ -303,6 +315,7 @@ serve(async (req) => {
         session_id,
         client_id,
         persona_id: pidToUse,
+        template_key,
         messages,
         context: payloadBase.context,
       } as const;
@@ -339,6 +352,7 @@ serve(async (req) => {
         const altBody2 = {
           session_id,
           client_id,
+          template_key,
           messages,
           context: payloadBase.context,
         } as const;
@@ -376,6 +390,7 @@ serve(async (req) => {
           session_id,
           client_id,
           persona_id: pidToUse,
+          template_key,
           context: payloadBase.context,
         } as const;
         console.log('Retry #3 WellnessGeni with top-level message only', {
