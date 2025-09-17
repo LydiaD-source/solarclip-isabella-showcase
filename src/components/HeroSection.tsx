@@ -41,12 +41,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   
   const languages = ['EN', 'FR', 'DE', 'LB'];
 
-  useEffect(() => {
-    if (isExpanded && messages.length === 0 && !isProcessing) {
-      // Keep auto-greeting behavior
-      sendGreeting();
-    }
-  }, [isExpanded, messages.length, isProcessing, sendGreeting]);
+  // Remove duplicate greeting - Isabella handles her own greeting
 
   const handleMeetIsabella = () => {
     setShowMeetButton(false);

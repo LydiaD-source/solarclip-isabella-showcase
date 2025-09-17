@@ -170,13 +170,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
 
             {/* Messages */}
             <div className="flex-1 space-y-3 max-h-60 overflow-y-auto">
-              {messages.length === 0 && (
-                <div className="bg-secondary/50 rounded-lg p-3">
-                  <p className="text-sm text-foreground">
-                    Hello! I'm Isabella Navia, ambassador for SolarClip™. I can show you how our lightweight, clip-on solar panels can save you time and money on your roof project. May I know your business address to show you an interactive map?
-                  </p>
-                </div>
-              )}
+              {/* Messages will show here when Isabella responds */}
               
               {messages.map((message) => (
                 <div

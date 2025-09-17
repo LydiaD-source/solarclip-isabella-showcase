@@ -298,8 +298,8 @@ export const useWellnessGeniChat = () => {
     if (greetingSentRef.current) return;
     greetingSentRef.current = true;
     
-    // Play Isabella's greeting directly with ElevenLabs voice
-    const greetingText = "Hello! I'm Isabella Navia, ambassador for SolarClip™. I can show you how our lightweight, clip-on solar panels can save you time and money on your roof project. May I know your business address to show you an interactive map?";
+    // Use the structured journey greeting text
+    const greetingText = "Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly and I will do the same.";
     
     // Add greeting message to UI
     const isabellaMessage: ChatMessage = {
