@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/components/ui/use-toast';
 
 export interface ChatMessage {
   id: string;
@@ -11,6 +12,7 @@ export interface ChatMessage {
 }
 
 export const useWellnessGeniChat = () => {
+  const { toast } = useToast();
   // Initialize messages from sessionStorage to prevent conversation resets
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
     if (typeof window !== 'undefined') {
@@ -484,24 +486,7 @@ export const useWellnessGeniChat = () => {
         type: audioBlob.type
       });
       
-      // Enhanced base64 conversion with better memory management
-      const arrayBuffer = await audioBlob.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      
-      // Convert to base64 in smaller chunks to prevent memory issues
-      let base64Audio = '';
-      const chunkSize = 32768; // 32KB chunks
-      
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-        let binary = '';
-        for (let j = 0; j < chunk.length; j++) {
-          binary += String.fromCharCode(chunk[j]);
-        }
-        base64Audio += btoa(binary);
-      }
-      
-      console.log('Converted audio to base64, size:', base64Audio.length);
+      // Using direct FormData upload to edge function; base64 conversion removed
 
       // Add processing message to UI
       const processingMessage: ChatMessage = {
@@ -522,15 +507,23 @@ export const useWellnessGeniChat = () => {
         return updated;
       });
 
-      // Send to enhanced speech-to-text function including mimeType
-      const { data, error } = await supabase.functions.invoke('speech-to-text', {
-        body: { audio: base64Audio, mimeType: audioBlob.type || 'audio/webm' }
+      // Send audio blob as multipart/form-data to Supabase Edge Function
+      const formData = new FormData();
+      const ext = audioBlob.type.includes('mp4') ? 'mp4' : audioBlob.type.includes('wav') ? 'wav' : 'webm';
+      formData.append('file', audioBlob, `voice-input.${ext}`);
+
+      const resp = await fetch('https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/speech-to-text', {
+        method: 'POST',
+        body: formData,
       });
 
-      if (error) {
-        console.error('Speech-to-text error:', error);
-        throw error;
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error('Speech-to-text HTTP error:', resp.status, errText);
+        throw new Error(errText || `HTTP ${resp.status}`);
       }
+
+      const data = await resp.json();
 
       console.log('Speech-to-text result:', data);
 

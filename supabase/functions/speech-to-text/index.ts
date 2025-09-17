@@ -4,6 +4,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 // Process base64 in chunks to prevent memory issues
@@ -42,26 +43,39 @@ serve(async (req) => {
   }
 
   try {
-    const { audio, mimeType } = await req.json();
-    
-    if (!audio) {
-      throw new Error('No audio data provided');
-    }
+    const contentType = req.headers.get('content-type') || '';
 
     const openAIKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIKey) {
       throw new Error('OpenAI API key not configured');
     }
 
-    // Process audio in chunks
-    const binaryAudio = processBase64Chunks(audio);
-    
-    // Prepare form data
-    const contentType = typeof mimeType === 'string' && mimeType.length > 0 ? mimeType : 'audio/webm';
-    const fileExt = contentType.includes('mp4') ? 'mp4' : contentType.includes('wav') ? 'wav' : 'webm';
-    const blob = new Blob([binaryAudio], { type: contentType });
-    formData.append('file', blob, `audio.${fileExt}`);
-    formData.append('model', 'whisper-1');
+    // Build form-data for OpenAI depending on incoming request type
+    const oaiForm = new FormData();
+
+    if (contentType.includes('multipart/form-data')) {
+      // Frontend sent a direct file upload
+      const incoming = await req.formData();
+      const file = incoming.get('file');
+      if (!file || !(file instanceof Blob)) {
+        throw new Error('No audio file provided in form-data under key "file"');
+      }
+      const fileName = (file as any).name || 'audio.webm';
+      oaiForm.append('file', file, fileName);
+      oaiForm.append('model', 'whisper-1');
+    } else {
+      // Backward compatibility: JSON body with base64 audio
+      const { audio, mimeType } = await req.json();
+      if (!audio) {
+        throw new Error('No audio data provided');
+      }
+      const binaryAudio = processBase64Chunks(audio);
+      const inferredType = typeof mimeType === 'string' && mimeType.length > 0 ? mimeType : 'audio/webm';
+      const ext = inferredType.includes('mp4') ? 'mp4' : inferredType.includes('wav') ? 'wav' : 'webm';
+      const blob = new Blob([binaryAudio], { type: inferredType });
+      oaiForm.append('file', blob, `audio.${ext}`);
+      oaiForm.append('model', 'whisper-1');
+    }
 
     // Send to OpenAI
     const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -69,7 +83,7 @@ serve(async (req) => {
       headers: {
         'Authorization': `Bearer ${openAIKey}`,
       },
-      body: formData,
+      body: oaiForm,
     });
 
     if (!response.ok) {
