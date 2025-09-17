@@ -396,6 +396,29 @@ export const useWellnessGeniChat = () => {
     }
   }, [isMicEnabled, isListening, recognition]);
 
+  // Fallback narrate to ensure journey can always speak
+  const narrate = useCallback(async (text: string) => {
+    const isabellaMessage: ChatMessage = {
+      id: Date.now().toString() + '_narrate_min',
+      text,
+      sender: 'isabella',
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, isabellaMessage]);
+
+    if (!isSpeakerEnabled || !text.trim()) return;
+    try {
+      const { data } = await supabase.functions.invoke('elevenlabs-tts', {
+        body: { text, voice_id: 't0IcnDolatli2xhqgLgn' }
+      });
+      if (data?.audio) {
+        await playAudio(data.audio);
+      }
+    } catch (e) {
+      console.error('[TTS] narrate fallback error', e);
+    }
+  }, [isSpeakerEnabled, playAudio]);
+
   return {
     messages,
     isProcessing,
@@ -409,5 +432,6 @@ export const useWellnessGeniChat = () => {
     toggleSpeaker,
     toggleMicrophone,
     initializeAudio,
+    narrate,
   };
 };

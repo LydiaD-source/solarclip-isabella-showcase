@@ -29,6 +29,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     toggleSpeaker,
     toggleMicrophone,
     initializeAudio,
+    narrate,
   } = useWellnessGeniChat();
 
   useEffect(() => {

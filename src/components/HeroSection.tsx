@@ -5,6 +5,7 @@ import { CinematicCard } from './CinematicCard';
 import { IsabellaAvatar } from './IsabellaAvatar';
 import { useIsabella } from '@/hooks/useIsabella';
 import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
+import { useIsabellaJourney } from '@/hooks/useIsabellaJourney';
 
 interface HeroSectionProps { 
   isExpanded?: boolean; 
@@ -22,7 +23,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   const [showMeetButton, setShowMeetButton] = useState(true);
   const [currentLanguage, setCurrentLanguage] = useState('EN');
   const [inputMessage, setInputMessage] = useState('');
-  const { currentCard, closeCard, handleCardAction } = useIsabella('solarclip');
+  const { currentCard, closeCard, handleCardAction, getSolarAnalysis, showCard } = useIsabella('solarclip');
   const { 
     messages, 
     isProcessing, 
@@ -33,20 +34,23 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     sendGreeting,
     startListening,
     toggleSpeaker, 
-    toggleMicrophone 
+    toggleMicrophone,
+    narrate
   } = useWellnessGeniChat();
+  const journey = useIsabellaJourney({ narrate, showCard, getSolarAnalysis });
   
   const languages = ['EN', 'FR', 'DE', 'LB'];
 
-  // Auto-greet once when chat opens
   useEffect(() => {
     if (isExpanded && messages.length === 0 && !isProcessing) {
+      // Keep auto-greeting behavior
       sendGreeting();
     }
   }, [isExpanded, messages.length, isProcessing, sendGreeting]);
 
   const handleMeetIsabella = () => {
     setShowMeetButton(false);
+    journey.start();
     onChatToggle?.();
   };
 
@@ -56,10 +60,14 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   };
 
   const handleSendMessage = () => {
-    if (inputMessage.trim() && !isProcessing) {
-      sendMessage(inputMessage.trim());
+    if (!inputMessage.trim() || isProcessing) return;
+    // Let journey intercept when appropriate
+    if (journey.handleUserInput(inputMessage.trim())) {
       setInputMessage('');
+      return;
     }
+    sendMessage(inputMessage.trim());
+    setInputMessage('');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -310,7 +318,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         <CinematicCard
           card={currentCard}
           onClose={closeCard}
-          onAction={handleCardAction}
+          onAction={(action, data) => { handleCardAction(action, data); journey.onCardAction(action, data); }}
         />
       )}
 

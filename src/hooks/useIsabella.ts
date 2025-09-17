@@ -165,6 +165,10 @@ export const useIsabella = (clientId: string = 'solarclip') => {
     setCurrentCard(null);
   }, []);
 
+  const showCard = useCallback((card: IsabellaCard) => {
+    setCurrentCard(card);
+  }, []);
+
   const handleCardAction = useCallback(async (action: string, data?: any) => {
     switch (action) {
       case 'play_video':
@@ -217,6 +221,7 @@ export const useIsabella = (clientId: string = 'solarclip') => {
     getSolarAnalysis,
     submitLead,
     closeCard,
+    showCard,
     handleCardAction,
     initializeGreeting,
     sessionId

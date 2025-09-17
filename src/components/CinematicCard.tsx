@@ -84,7 +84,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
                 muted
                 controls
                 playsInline
-                src="https://res.cloudinary.com/di5gj4nyp/video/upload/v1757341336/VIDEO-2025-04-11-11-30-14_1_xywu7x.mp4"
+                src={(card as any)?.content?.url || "https://res.cloudinary.com/di5gj4nyp/video/upload/v1757341336/VIDEO-2025-04-11-11-30-14_1_xywu7x.mp4"}
                 onEnded={() => handleAutoExit('video_ended')}
               >
                 Your browser does not support the video tag.
