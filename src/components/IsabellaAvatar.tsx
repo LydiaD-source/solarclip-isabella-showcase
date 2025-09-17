@@ -25,6 +25,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     didVideoUrl,
     sendMessage,
     startListening,
+    stopListening,
     toggleSpeaker,
     toggleMicrophone,
     initializeAudio,

@@ -338,6 +338,16 @@ export const useWellnessGeniChat = () => {
     try {
       setIsListening(true);
       
+      // Try starting SpeechRecognition for quicker transcript
+      if (recognition) {
+        try {
+          recognition.start();
+          console.log('SpeechRecognition started');
+        } catch (e) {
+          console.warn('SpeechRecognition start failed:', e);
+        }
+      }
+      
       // Enhanced microphone access with better error handling
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -448,7 +458,7 @@ export const useWellnessGeniChat = () => {
         return updated;
       });
     }
-  }, [isMicEnabled, isListening]);
+  }, [isMicEnabled, isListening, recognition]);
 
   const stopListening = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
@@ -699,20 +709,24 @@ export const useWellnessGeniChat = () => {
 
   const toggleMicrophone = useCallback(async () => {
     if (!isMicEnabled) {
-      // Request microphone permission
+      // Request microphone permission and immediately start listening
       try {
         await navigator.mediaDevices.getUserMedia({ audio: true });
         setIsMicEnabled(true);
+        await startListening();
       } catch (error) {
         console.error('Microphone permission denied:', error);
       }
     } else {
       setIsMicEnabled(false);
-      if (isListening && recognition) {
-        recognition.stop();
+      if (isListening) {
+        stopListening();
+      }
+      if (recognition) {
+        try { recognition.stop(); } catch {}
       }
     }
-  }, [isMicEnabled, isListening, recognition]);
+  }, [isMicEnabled, isListening, recognition, startListening, stopListening]);
 
   // Fallback narrate to ensure journey can always speak
   const narrate = useCallback(async (text: string) => {
