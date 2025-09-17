@@ -276,9 +276,8 @@ serve(async (req) => {
       }
     }
 
-    // Treat 'empty content' upstream errors as retryable
-    const isEmptyContentError = !response.ok && ((parsedError?.error || '').toString().toLowerCase().includes('empty content'));
-    if (!response.ok && !isEmptyContentError) {
+    // Handle upstream errors (but WellnessGeni now returns 200 with empty response instead of 502)
+    if (!response.ok) {
       return new Response(JSON.stringify({
         error: 'Upstream WellnessGeni error',
         status: response.status,
@@ -289,139 +288,25 @@ serve(async (req) => {
       });
     }
 
+    // Parse response from WellnessGeni
     let data: any = {};
-    let shouldRetry = false;
-    if (response.ok) {
-      if (contentType.includes('application/json')) {
-        data = await response.json();
-      } else {
-        const textBody = await response.text();
-        console.error('Unexpected non-JSON response from WellnessGeni:', textBody?.slice(0, 200));
-        throw new Error('Invalid response from WellnessGeni (non-JSON). Check WELLNESSGENI_CHAT_URL');
-      }
-      console.log('WellnessGeni response:', data);
-      shouldRetry = (typeof data?.response === 'string' && data.response.trim() === '') || (!data?.response && !data?.text);
+    if (contentType.includes('application/json')) {
+      data = await response.json();
     } else {
-      //  Non-2xx with 'empty content' → trigger retry path
-      shouldRetry = true;
+      const textBody = await response.text();
+      console.error('Unexpected non-JSON response from WellnessGeni:', textBody?.slice(0, 200));
+      throw new Error('Invalid response from WellnessGeni (non-JSON). Check WELLNESSGENI_CHAT_URL');
     }
 
-    // If upstream returned empty response, retry with a messages-only payload (no top-level message)
-    if (shouldRetry) {
-      console.warn('Empty response detected. Retrying with messages-only payload...');
-
-      // Attempt 1: messages-only (keep persona_id)
-      const altBody1 = {
-        session_id,
-        client_id,
-        persona_id: pidToUse,
-        template_key,
-        messages,
-        context: payloadBase.context,
-      } as const;
-      console.log('Retry #1 WellnessGeni with messages-only payload', {
-        messagesCount: Array.isArray(altBody1.messages) ? altBody1.messages.length : 0,
-        hasSystemInMessages0: altBody1.messages?.[0]?.role === 'system',
-        persona_id: pidToUse,
-      });
-      let retryRes = await fetch(WELLNESS_GENI_API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
-          'apikey': `${WELLNESS_GENI_API_KEY}`,
-          'x-api-key': `${WELLNESS_GENI_API_KEY}`,
-        },
-        body: JSON.stringify(altBody1),
-      });
-      let retryContentType = retryRes.headers.get('content-type') || '';
-      console.log('Retry #1 upstream response:', { status: retryRes.status, contentType: retryContentType });
-      let retryData: any = null;
-      if (retryContentType.includes('application/json')) {
-        retryData = await retryRes.json().catch(() => ({}));
-      } else {
-        const raw = await retryRes.text().catch(() => '');
-        console.error('Retry #1 received non-JSON body', raw?.slice(0, 200));
-      }
-
-      const retry1Empty = !retryRes.ok || ((typeof retryData?.response === 'string' && retryData.response.trim() === '') || (!retryData?.response && !retryData?.text));
-
-      // Attempt 2: messages-only WITHOUT persona_id (let upstream resolve by client/system)
-      if (retry1Empty) {
-        console.warn('Retry #1 still empty. Retrying #2 without persona_id...');
-        const altBody2 = {
-          session_id,
-          client_id,
-          template_key,
-          messages,
-          context: payloadBase.context,
-        } as const;
-        console.log('Retry #2 WellnessGeni with messages-only (no persona_id)', {
-          messagesCount: Array.isArray(altBody2.messages) ? altBody2.messages.length : 0,
-          hasSystemInMessages0: altBody2.messages?.[0]?.role === 'system',
-        });
-        retryRes = await fetch(WELLNESS_GENI_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
-            'apikey': `${WELLNESS_GENI_API_KEY}`,
-            'x-api-key': `${WELLNESS_GENI_API_KEY}`,
-          },
-          body: JSON.stringify(altBody2),
-        });
-        retryContentType = retryRes.headers.get('content-type') || '';
-        console.log('Retry #2 upstream response:', { status: retryRes.status, contentType: retryContentType });
-        if (retryContentType.includes('application/json')) {
-          retryData = await retryRes.json().catch(() => ({}));
-        } else {
-          const raw2 = await retryRes.text().catch(() => '');
-          console.error('Retry #2 received non-JSON body', raw2?.slice(0, 200));
-        }
-      }
-
-      const retry2Empty = !retryRes.ok || ((typeof retryData?.response === 'string' && retryData.response.trim() === '') || (!retryData?.response && !retryData?.text));
-
-      // Attempt 3: top-level message ONLY (no messages)
-      if (retry2Empty) {
-        console.warn('Retry #2 still empty. Retrying #3 with top-level message only...');
-        const altBody3 = {
-          message: payloadMessage,
-          session_id,
-          client_id,
-          persona_id: pidToUse,
-          template_key,
-          context: payloadBase.context,
-        } as const;
-        console.log('Retry #3 WellnessGeni with top-level message only', {
-          hasMessage: typeof altBody3.message === 'string',
-          messageLen: String(altBody3.message || '').length,
-          persona_id: pidToUse,
-        });
-        const retryRes3 = await fetch(WELLNESS_GENI_API_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
-            'apikey': `${WELLNESS_GENI_API_KEY}`,
-            'x-api-key': `${WELLNESS_GENI_API_KEY}`,
-          },
-          body: JSON.stringify(altBody3),
-        });
-        const retryContentType3 = retryRes3.headers.get('content-type') || '';
-        console.log('Retry #3 upstream response:', { status: retryRes3.status, contentType: retryContentType3 });
-        if (retryContentType3.includes('application/json')) {
-          const retryData3 = await retryRes3.json().catch(() => ({}));
-          if (retryRes3.ok) data = retryData3;
-        } else {
-          const raw3 = await retryRes3.text().catch(() => '');
-          console.error('Retry #3 received non-JSON body', raw3?.slice(0, 200));
-        }
-      } else {
-        // If retry #1 or #2 produced data, adopt it
-        if (retryRes.ok && retryData) data = retryData;
-      }
-    }
+    console.log('WellnessGeni response received:', {
+      hasResponse: !!data.response,
+      responseLength: data.response?.length || 0,
+      hasMeta: !!data.meta,
+      resolvedTemplate: data.meta?.resolved_template,
+      clientName: data.meta?.client_name,
+      modelUsed: data.meta?.model_used,
+      fallbackAttempted: data.meta?.fallback_attempted
+    });
 
     // Update session store with conversation history
     if (data.response || data.text) {
