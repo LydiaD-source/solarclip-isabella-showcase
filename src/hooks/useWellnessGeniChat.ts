@@ -276,15 +276,7 @@ export const useWellnessGeniChat = () => {
 
     } catch (error) {
       console.error('Error sending message:', error);
-      
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString() + '_error',
-        text: "I'm sorry, I'm having trouble connecting right now. Please try again.",
-        sender: 'isabella',
-        timestamp: new Date(),
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
+      // Do not inject a static fallback message; rely on logs/UX to show failure state
     } finally {
       setIsProcessing(false);
     }

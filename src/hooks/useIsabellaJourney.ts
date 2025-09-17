@@ -37,7 +37,7 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
     switch (nextStage) {
       case 'step_product_intro': {
         setStage('step_product_intro');
-        await narrate("This is our product, SolarClip™.");
+        await narrate("Excellent!! Let me begin. This is our trademarked product, SolarClip™.");
         showCard({
           type: 'video',
           title: 'SolarClip Product Intro',

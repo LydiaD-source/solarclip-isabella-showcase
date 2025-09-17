@@ -236,25 +236,24 @@ serve(async (req) => {
 
     console.log('WellnessGeni response:', data);
 
-    // If upstream returned empty response, retry once with a messages-only payload (no top-level message)
+    // If upstream returned empty response, retry with a messages-only payload (no top-level message)
     if ((typeof data?.response === 'string' && data.response.trim() === '') || (!data?.response && !data?.text)) {
       console.warn('Empty response detected. Retrying with messages-only payload...');
-      const altBody = {
-        message: payloadMessage,
+
+      // Attempt 1: messages-only (keep persona_id)
+      const altBody1 = {
         session_id,
         client_id,
         persona_id: pidToUse,
         messages,
         context: payloadBase.context,
-      };
-      console.log('Retrying WellnessGeni with messages+message payload', {
-        hasMessage: typeof altBody.message === 'string',
-        messageLen: String(altBody.message || '').length,
-        messagesCount: Array.isArray(altBody.messages) ? altBody.messages.length : 0,
-        hasSystemInMessages0: altBody.messages?.[0]?.role === 'system',
+      } as const;
+      console.log('Retry #1 WellnessGeni with messages-only payload', {
+        messagesCount: Array.isArray(altBody1.messages) ? altBody1.messages.length : 0,
+        hasSystemInMessages0: altBody1.messages?.[0]?.role === 'system',
         persona_id: pidToUse,
       });
-      const retryRes = await fetch(WELLNESS_GENI_API_URL, {
+      let retryRes = await fetch(WELLNESS_GENI_API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -262,15 +261,92 @@ serve(async (req) => {
           'apikey': `${WELLNESS_GENI_API_KEY}`,
           'x-api-key': `${WELLNESS_GENI_API_KEY}`,
         },
-        body: JSON.stringify(altBody),
+        body: JSON.stringify(altBody1),
       });
-      const retryContentType = retryRes.headers.get('content-type') || '';
-      console.log('WellnessGeni retry upstream response:', { status: retryRes.status, contentType: retryContentType });
+      let retryContentType = retryRes.headers.get('content-type') || '';
+      console.log('Retry #1 upstream response:', { status: retryRes.status, contentType: retryContentType });
+      let retryData: any = null;
       if (retryContentType.includes('application/json')) {
-        const retryData = await retryRes.json();
-        data = retryData;
+        retryData = await retryRes.json().catch(() => ({}));
       } else {
-        console.error('Retry received non-JSON body');
+        const raw = await retryRes.text().catch(() => '');
+        console.error('Retry #1 received non-JSON body', raw?.slice(0, 200));
+      }
+
+      const retry1Empty = !retryRes.ok || ((typeof retryData?.response === 'string' && retryData.response.trim() === '') || (!retryData?.response && !retryData?.text));
+
+      // Attempt 2: messages-only WITHOUT persona_id (let upstream resolve by client/system)
+      if (retry1Empty) {
+        console.warn('Retry #1 still empty. Retrying #2 without persona_id...');
+        const altBody2 = {
+          session_id,
+          client_id,
+          messages,
+          context: payloadBase.context,
+        } as const;
+        console.log('Retry #2 WellnessGeni with messages-only (no persona_id)', {
+          messagesCount: Array.isArray(altBody2.messages) ? altBody2.messages.length : 0,
+          hasSystemInMessages0: altBody2.messages?.[0]?.role === 'system',
+        });
+        retryRes = await fetch(WELLNESS_GENI_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
+            'apikey': `${WELLNESS_GENI_API_KEY}`,
+            'x-api-key': `${WELLNESS_GENI_API_KEY}`,
+          },
+          body: JSON.stringify(altBody2),
+        });
+        retryContentType = retryRes.headers.get('content-type') || '';
+        console.log('Retry #2 upstream response:', { status: retryRes.status, contentType: retryContentType });
+        if (retryContentType.includes('application/json')) {
+          retryData = await retryRes.json().catch(() => ({}));
+        } else {
+          const raw2 = await retryRes.text().catch(() => '');
+          console.error('Retry #2 received non-JSON body', raw2?.slice(0, 200));
+        }
+      }
+
+      const retry2Empty = !retryRes.ok || ((typeof retryData?.response === 'string' && retryData.response.trim() === '') || (!retryData?.response && !retryData?.text));
+
+      // Attempt 3: top-level message ONLY (no messages)
+      if (retry2Empty) {
+        console.warn('Retry #2 still empty. Retrying #3 with top-level message only...');
+        const altBody3 = {
+          message: payloadMessage,
+          session_id,
+          client_id,
+          persona_id: pidToUse,
+          context: payloadBase.context,
+        } as const;
+        console.log('Retry #3 WellnessGeni with top-level message only', {
+          hasMessage: typeof altBody3.message === 'string',
+          messageLen: String(altBody3.message || '').length,
+          persona_id: pidToUse,
+        });
+        const retryRes3 = await fetch(WELLNESS_GENI_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${WELLNESS_GENI_API_KEY}`,
+            'apikey': `${WELLNESS_GENI_API_KEY}`,
+            'x-api-key': `${WELLNESS_GENI_API_KEY}`,
+          },
+          body: JSON.stringify(altBody3),
+        });
+        const retryContentType3 = retryRes3.headers.get('content-type') || '';
+        console.log('Retry #3 upstream response:', { status: retryRes3.status, contentType: retryContentType3 });
+        if (retryContentType3.includes('application/json')) {
+          const retryData3 = await retryRes3.json().catch(() => ({}));
+          if (retryRes3.ok) data = retryData3;
+        } else {
+          const raw3 = await retryRes3.text().catch(() => '');
+          console.error('Retry #3 received non-JSON body', raw3?.slice(0, 200));
+        }
+      } else {
+        // If retry #1 or #2 produced data, adopt it
+        if (retryRes.ok && retryData) data = retryData;
       }
     }
 
