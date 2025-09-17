@@ -54,14 +54,15 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     // TODO: Implement video modal with sliding card animation
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputMessage.trim() || isProcessing) return;
-    // Let journey intercept when appropriate
-    if (journey.handleUserInput(inputMessage.trim())) {
+    // Let journey intercept when appropriate (await the async handler)
+    const intercepted = await journey.handleUserInput(inputMessage.trim());
+    if (intercepted) {
       setInputMessage('');
       return;
     }
-    sendMessage(inputMessage.trim());
+    await sendMessage(inputMessage.trim());
     setInputMessage('');
   };
 

@@ -115,6 +115,10 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
           narrate("We can continue in chat. Ask me anything about SolarClip, or I can send you product sheets and incentives. Would you like me to save your contact for a follow-up?");
         }, 1000);
         return true;
+      } else {
+        await narrate("No problem—let's continue in chat. Ask me anything about SolarClip.");
+        setStage('open_chat');
+        return true;
       }
     }
     return false;

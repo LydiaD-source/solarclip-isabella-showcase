@@ -24,7 +24,6 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     isListening,
     didVideoUrl,
     sendMessage,
-    sendGreeting,
     startListening,
     toggleSpeaker,
     toggleMicrophone,
@@ -45,20 +44,11 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
       setShowTooltip(true);
     }, 12000);
 
-    // Send auto-greeting after page load (guarded to avoid duplicates)
-    const greetingTimer = setTimeout(() => {
-      const w = (typeof window !== 'undefined' ? (window as any) : {}) as any;
-      if (!w.__ISABELLA_GREETING_SENT) {
-        sendGreeting();
-      }
-    }, 2000);
-
     return () => {
       clearTimeout(timer);
       clearTimeout(tooltipTimer);
-      clearTimeout(greetingTimer);
     };
-  }, [sendGreeting]);
+  }, []);
 
   const handleChatToggle = async () => {
     setShowTooltip(false); // Hide tooltip after first interaction
