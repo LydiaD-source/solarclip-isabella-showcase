@@ -151,7 +151,6 @@ serve(async (req) => {
       context: { 
         ...(context || {}), 
         client_id, 
-        persona_id, 
         client_guide: baseGuide || undefined, 
         override_client_template: !!baseGuide,
         system_prompt: systemGuide || baseGuide || undefined,
@@ -159,6 +158,16 @@ serve(async (req) => {
       }
     };
 
+    // Log payload shape for debugging (sanitized)
+    console.log('Prepared payloadBase:', {
+      hasMessage: typeof payloadBase.message === 'string',
+      messageLen: String(payloadBase.message || '').length,
+      messagesCount: Array.isArray(messages) ? messages.length : 0,
+      hasSystemInMessages0: messages?.[0]?.role === 'system',
+      contextKeys: Object.keys(payloadBase.context || {}),
+      client_id,
+      persona_in_context: !!(payloadBase as any)?.context?.persona_id,
+    });
     // Helper to call upstream with a given persona_id
     const callUpstreamWithPersona = async (pid: string) => {
       const response = await fetch(WELLNESS_GENI_API_URL, {
@@ -231,12 +240,20 @@ serve(async (req) => {
     if ((typeof data?.response === 'string' && data.response.trim() === '') || (!data?.response && !data?.text)) {
       console.warn('Empty response detected. Retrying with messages-only payload...');
       const altBody = {
+        message: payloadMessage,
         session_id,
         client_id,
         persona_id: pidToUse,
         messages,
         context: payloadBase.context,
       };
+      console.log('Retrying WellnessGeni with messages+message payload', {
+        hasMessage: typeof altBody.message === 'string',
+        messageLen: String(altBody.message || '').length,
+        messagesCount: Array.isArray(altBody.messages) ? altBody.messages.length : 0,
+        hasSystemInMessages0: altBody.messages?.[0]?.role === 'system',
+        persona_id: pidToUse,
+      });
       const retryRes = await fetch(WELLNESS_GENI_API_URL, {
         method: 'POST',
         headers: {
