@@ -11,14 +11,42 @@ export interface ChatMessage {
 }
 
 export const useWellnessGeniChat = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Initialize messages from sessionStorage to prevent conversation resets
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('isabella-chat-messages');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading saved messages:', error);
+      }
+    }
+    return [];
+  });
+  
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
   const [isMicEnabled, setIsMicEnabled] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
-  const [sessionId] = useState(() => `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [sessionId] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('isabella-session-id');
+      if (saved) return saved;
+    }
+    const newId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('isabella-session-id', newId);
+    }
+    return newId;
+  });
   const [currentSource, setCurrentSource] = useState<AudioBufferSourceNode | null>(null);
   const lastSentRef = useRef<{ text: string; time: number } | null>(null);
   const greetingSentRef = useRef(false);
@@ -155,7 +183,18 @@ export const useWellnessGeniChat = () => {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => {
+      const updated = [...prev, userMessage];
+      // Persist to sessionStorage to prevent conversation resets
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+        } catch (error) {
+          console.error('Error saving messages:', error);
+        }
+      }
+      return updated;
+    });
     setIsProcessing(true);
     lastSentRef.current = { text: trimmed, time: now };
 
@@ -211,7 +250,18 @@ export const useWellnessGeniChat = () => {
         sender: 'isabella',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, isabellaMessage]);
+      setMessages(prev => {
+        const updated = [...prev, isabellaMessage];
+        // Persist to sessionStorage to prevent conversation resets
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving messages:', error);
+          }
+        }
+        return updated;
+      });
 
       // Generate speech with ElevenLabs + D-ID animation
       if (isSpeakerEnabled && responseText.trim()) {
@@ -386,7 +436,17 @@ export const useWellnessGeniChat = () => {
         sender: 'isabella',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const updated = [...prev, errorMessage];
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving messages:', error);
+          }
+        }
+        return updated;
+      });
     }
   }, [isMicEnabled, isListening]);
 
@@ -440,7 +500,17 @@ export const useWellnessGeniChat = () => {
         sender: 'isabella',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, processingMessage]);
+      setMessages(prev => {
+        const updated = [...prev, processingMessage];
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving messages:', error);
+          }
+        }
+        return updated;
+      });
 
       // Send to enhanced speech-to-text function
       const { data, error } = await supabase.functions.invoke('speech-to-text', {
@@ -461,14 +531,25 @@ export const useWellnessGeniChat = () => {
         const transcribedText = data.text.trim();
         console.log('Transcribed text:', transcribedText);
         
-        // Add transcription to chat first
-        const transcriptionMessage: ChatMessage = {
-          id: Date.now().toString() + '_transcription',
-          text: `🎤 "${transcribedText}"`,
+        // Add user message with clean transcribed text (no emoji prefix)
+        const userMessage: ChatMessage = {
+          id: Date.now().toString() + '_user',
+          text: transcribedText,
           sender: 'user',
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, transcriptionMessage]);
+        setMessages(prev => {
+          const updated = [...prev, userMessage];
+          // Persist to sessionStorage to prevent conversation resets
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+            } catch (error) {
+              console.error('Error saving messages:', error);
+            }
+          }
+          return updated;
+        });
         
         // Send transcribed text as a message (this will get Isabella's response)
         await sendMessage(transcribedText);
@@ -479,7 +560,17 @@ export const useWellnessGeniChat = () => {
           sender: 'isabella',
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, noSpeechMessage]);
+        setMessages(prev => {
+          const updated = [...prev, noSpeechMessage];
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+            } catch (error) {
+              console.error('Error saving messages:', error);
+            }
+          }
+          return updated;
+        });
       }
 
     } catch (error) {
@@ -491,7 +582,17 @@ export const useWellnessGeniChat = () => {
         sender: 'isabella',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const updated = [...prev, errorMessage];
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving messages:', error);
+          }
+        }
+        return updated;
+      });
     }
   }, [sendMessage]);
 
@@ -515,7 +616,17 @@ export const useWellnessGeniChat = () => {
       sender: 'isabella',
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, isabellaMessage]);
+    setMessages(prev => {
+      const updated = [...prev, isabellaMessage];
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+        } catch (error) {
+          console.error('Error saving messages:', error);
+        }
+      }
+      return updated;
+    });
 
     // Generate speech with ElevenLabs immediately
     if (isSpeakerEnabled) {
@@ -611,7 +722,17 @@ export const useWellnessGeniChat = () => {
       sender: 'isabella',
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, isabellaMessage]);
+    setMessages(prev => {
+      const updated = [...prev, isabellaMessage];
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+        } catch (error) {
+          console.error('Error saving messages:', error);
+        }
+      }
+      return updated;
+    });
 
     if (!isSpeakerEnabled || !text.trim()) return;
     try {
