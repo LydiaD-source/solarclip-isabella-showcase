@@ -144,14 +144,14 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         </div>
 
         {/* Right Column - Isabella Avatar */}
-        <div className="flex justify-center lg:justify-end items-start relative pt-4 pb-20 pr-8">
+        <div className="flex justify-center lg:justify-end items-start relative pt-1 pb-3 pr-8">
           <div className="relative">
             {!isExpanded ? (
               <div className="text-center relative">
                 <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} hideTooltip size="xl" />
                 {showMeetButton && (
                   <Button 
-                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute bottom-5 -left-44 z-50"
+                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute -bottom-8 -left-36 z-50"
                     onClick={handleMeetIsabella}
                   >
                     <Play className="mr-3 w-6 h-6" />

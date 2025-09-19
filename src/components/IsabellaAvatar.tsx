@@ -69,7 +69,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
     }
   };
 
-  const sizeClass = isExpanded ? 'w-20 h-20' : (size === 'xl' ? 'w-[20rem] h-[20rem] lg:w-[24rem] lg:h-[24rem]' : 'w-[18rem] h-[18rem] lg:w-[20rem] lg:h-[20rem]');
+  const sizeClass = isExpanded ? 'w-20 h-20' : (size === 'xl' ? 'w-[16rem] h-[16rem] lg:w-[18rem] lg:h-[18rem]' : 'w-[14rem] h-[14rem] lg:w-[16rem] lg:h-[16rem]');
   return (
     <div className="relative">
       {/* Main Avatar Button - Large, Luminous Design */}
@@ -78,10 +78,10 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
         onClick={handleChatToggle}
       >
         {/* Outer glow effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-blue-400/30 blur-lg group-hover:blur-xl transition-all duration-500" style={{ borderRadius: '50% / 70%' }}></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-blue-400/30 blur-lg group-hover:blur-xl transition-all duration-500 rounded-full"></div>
         
-        {/* Inner avatar container with D-ID video or image - Egg-shaped oval */}
-        <div className="relative w-full h-full overflow-hidden border-2 border-white/20 shadow-2xl bg-gradient-to-br from-purple-100 to-blue-100" style={{ borderRadius: '50% / 70%' }}>
+        {/* Inner avatar container with D-ID video or image - Rounded oval */}
+        <div className="relative w-full h-full overflow-hidden border-2 border-white/20 shadow-2xl bg-gradient-to-br from-purple-100 to-blue-100 rounded-full">
           {didVideoUrl ? (
             <video 
               src={didVideoUrl} 
@@ -111,8 +111,8 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
           )}
         </div>
         
-        {/* Pulsing ring animation - Egg-shaped oval */}
-        <div className="absolute inset-0 border-2 border-purple-400/50 animate-ping" style={{ borderRadius: '50% / 70%' }}></div>
+        {/* Pulsing ring animation - Rounded oval */}
+        <div className="absolute inset-0 border-2 border-purple-400/50 animate-ping rounded-full"></div>
       </div>
 
       {/* Floating tooltip */}
