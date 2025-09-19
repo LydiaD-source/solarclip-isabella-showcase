@@ -338,16 +338,25 @@ export const useWellnessGeniChat = () => {
       const ext = audioBlob.type.includes('mp4') ? 'mp4' : audioBlob.type.includes('wav') ? 'wav' : 'webm';
       formData.append('file', audioBlob, `voice-input.${ext}`);
 
-      const { data, error } = await supabase.functions.invoke('speech-to-text', {
+      // Invoke via direct fetch with multipart/form-data (functions.invoke doesn't reliably handle FormData)
+      const resp = await fetch('https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/speech-to-text', {
+        method: 'POST',
+        headers: {
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aWtmeXF6d2VwbnViZHNjbGZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjYwOTAsImV4cCI6MjA3MzAwMjA5MH0.pU9K35VK1G2Zp6HATRAhaahMN-QWY_BSXjmtbXEIMrM',
+          'authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aWtmeXF6d2VwbnViZHNjbGZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjYwOTAsImV4cCI6MjA3MzAwMjA5MH0.pU9K35VK1G2Zp6HATRAhaahMN-QWY_BSXjmtbXEIMrM',
+        },
         body: formData,
       });
 
-      if (error) {
-        console.error('Speech-to-text error:', error);
-        throw new Error(error.message || 'Speech-to-text failed');
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error('Speech-to-text error:', resp.status, errText);
+        throw new Error(`Speech-to-text failed: ${resp.status} - ${errText}`);
       }
 
-      console.log('Speech-to-text result:', data);
+      const sttData = await resp.json();
+
+      console.log('Speech-to-text result:', sttData);
 
       // Remove processing message
       setMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
