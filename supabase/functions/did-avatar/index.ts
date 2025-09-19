@@ -18,6 +18,7 @@ serve(async (req) => {
     
     const DID_API_KEY = Deno.env.get('DID_API_KEY');
     if (!DID_API_KEY) {
+      console.error('D-ID API key not configured');
       throw new Error('D-ID API key not configured');
     }
 
@@ -29,7 +30,6 @@ serve(async (req) => {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json',
           'Authorization': `Basic ${DID_API_KEY}`,
         },
       });
@@ -37,16 +37,39 @@ serve(async (req) => {
       if (!pollRes.ok) {
         const errText = await pollRes.text();
         console.error('D-ID poll error:', pollRes.status, errText);
-        throw new Error(`D-ID poll error: ${pollRes.status}`);
+        throw new Error(`D-ID poll error: ${pollRes.status} - ${errText}`);
       }
 
       const pollData = await pollRes.json();
+      console.log('D-ID poll result:', pollData.status, pollData.result_url ? 'has video' : 'no video yet');
       return new Response(JSON.stringify(pollData), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     // Create talk with D-ID API
+    const requestBody = {
+      source_url: 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg',
+      script: {
+        type: audio_base64 ? 'audio' : 'text',
+        input: audio_base64 ? `data:audio/mp3;base64,${audio_base64}` : text,
+        // Only add provider if we're using text input (D-ID will handle ElevenLabs TTS)
+        ...(audio_base64 ? {} : {
+          provider: {
+            type: 'elevenlabs',
+            voice_id: 't0IcnDolatli2xhqgLgn', // Isabella's voice
+          }
+        })
+      },
+      config: {
+        fluent: true,
+        pad_audio: 0.0,
+        stitch: true, // Better lip sync
+      }
+    };
+
+    console.log('D-ID request payload:', JSON.stringify(requestBody, null, 2));
+
     const response = await fetch('https://api.d-id.com/talks', {
       method: 'POST',
       headers: {
@@ -54,35 +77,32 @@ serve(async (req) => {
         'Content-Type': 'application/json',
         'Authorization': `Basic ${DID_API_KEY}`,
       },
-      body: JSON.stringify({
-        source_url: 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg',
-        script: {
-          type: audio_base64 ? 'audio' : 'text',
-          input: audio_base64 ? `data:audio/mp3;base64,${audio_base64}` : text,
-          provider: audio_base64 ? undefined : {
-            type: 'elevenlabs',
-            voice_id: 't0IcnDolatli2xhqgLgn',
-          }
-        },
-        config: {
-          fluent: true,
-          pad_audio: 0.0,
-        }
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
       console.error('D-ID API error:', response.status, errorText);
-      throw new Error(`D-ID API error: ${response.status}`);
+      
+      // Try to parse error details
+      let errorDetails = errorText;
+      try {
+        const errorJson = JSON.parse(errorText);
+        errorDetails = JSON.stringify(errorJson, null, 2);
+      } catch (e) {
+        // Keep original text if not JSON
+      }
+      
+      throw new Error(`D-ID API error: ${response.status} - ${errorDetails}`);
     }
 
     const data = await response.json();
-    console.log('D-ID talk created:', data.id);
+    console.log('D-ID talk created successfully:', data.id);
 
     return new Response(JSON.stringify({ 
       talk_id: data.id,
       status: data.status,
+      result_url: data.result_url,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -90,7 +110,7 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in did-avatar function:', error);
     return new Response(JSON.stringify({ 
-      error: error.message 
+      error: error.message || 'Unknown error occurred'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
-import { MessageCircle, Volume2, VolumeX, Mic, MicOff, FileText, Calculator, Send } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Volume2, VolumeX, Mic, MicOff, Send } from 'lucide-react';
 import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
 // Using approved Cloudinary image for Isabella Navia
 const isabellaNavia = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
@@ -15,6 +15,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [inputText, setInputText] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const {
     messages,
@@ -22,7 +23,6 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     isSpeakerEnabled,
     isMicEnabled,
     isListening,
-    didVideoUrl,
     sendMessage,
     startListening,
     stopListening,
@@ -32,35 +32,30 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     narrate,
   } = useWellnessGeniChat();
 
+  // Auto-show tooltip after component mounts
   useEffect(() => {
-    // Auto-play greeting animation on mount
     const timer = setTimeout(() => {
-      setIsPlaying(true);
-      // Simulate D-ID animation duration (10 seconds)
-      setTimeout(() => setIsPlaying(false), 10000);
-    }, 1000);
-
-    // Show tooltip after greeting
-    const tooltipTimer = setTimeout(() => {
       setShowTooltip(true);
-    }, 12000);
-
-    return () => {
-      clearTimeout(timer);
-      clearTimeout(tooltipTimer);
-    };
+    }, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isProcessing]);
+
   const handleChatToggle = async () => {
-    setShowTooltip(false); // Hide tooltip after first interaction
-    // Initialize audio context to bypass browser restrictions
+    setShowTooltip(false);
     await initializeAudio();
     onChatToggle?.();
   };
 
-  const handleSendMessage = async () => {
+  const handleSendMessage = () => {
     if (inputText.trim()) {
-      await sendMessage(inputText);
+      sendMessage(inputText.trim());
       setInputText('');
     }
   };
@@ -72,31 +67,38 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
   };
 
   return (
-    <div className="relative mx-auto lg:mx-0 z-50">
-      {/* Avatar - Enlarged and centered without cropping */}
+    <div className="relative">
+      {/* Main Avatar Button - Larger, Luminous Design */}
       <div 
-        className={`isabella-avatar w-[65vw] h-[80vw] sm:w-[60vw] sm:h-[76vw] lg:w-[22rem] lg:h-[28rem] xl:w-[26rem] xl:h-[32rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 shadow-black/20 hover:shadow-accent/20`}
+        className="relative w-24 h-24 cursor-pointer group transition-all duration-300 hover:scale-105"
         onClick={handleChatToggle}
       >
-        {/* Isabella Navia Video (D-ID) */}
-        {didVideoUrl && (
-          <video
-            src={didVideoUrl}
-            autoPlay
-            muted
-            playsInline
-            className="absolute inset-0 w-full h-full object-cover rounded-full"
+        {/* Outer glow effect */}
+        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-400/30 to-blue-400/30 blur-lg group-hover:blur-xl transition-all duration-500"></div>
+        
+        {/* Inner avatar container */}
+        <div className="relative w-full h-full rounded-full overflow-hidden border-2 border-white/20 shadow-2xl bg-gradient-to-br from-purple-100 to-blue-100">
+          <img 
+            src={isabellaNavia} 
+            alt="Isabella Navia - AI Solar Ambassador" 
+            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
           />
-        )}
-        {/* Isabella Navia Image */}
-        <img 
-          src={isabellaNavia} 
-          alt="Isabella Navia - AI Solar Ambassador" 
-          className={`w-full h-full object-contain rounded-full p-2 ${didVideoUrl ? 'opacity-0' : ''}`}
-        />
+          
+          {/* Voice indicator when speaking */}
+          {isPlaying && (
+            <div className="absolute inset-0 bg-gradient-to-r from-purple-500/40 to-blue-500/40 flex items-center justify-center">
+              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center animate-pulse">
+                <Volume2 className="w-5 h-5 text-purple-600" />
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Pulsing ring animation */}
+        <div className="absolute inset-0 rounded-full border-2 border-purple-400/50 animate-ping"></div>
       </div>
 
-      {/* Animated Tooltip - Click to Chat Hint */}
+      {/* Floating tooltip */}
       {showTooltip && !isExpanded && (
         <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg animate-[fade-in_0.5s_ease-out,pulse_2s_ease-in-out_infinite] pointer-events-none">
           <p className="text-xs text-muted-foreground whitespace-nowrap">
@@ -160,7 +162,9 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
             </div>
 
             {/* Messages - Larger scrollable area */}
-            <div className="flex-1 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent">
+            <div 
+              className="flex-1 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent"
+            >
               {/* Messages will show here when Isabella responds */}
               
               {messages.map((message) => (
@@ -181,6 +185,9 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
                   <p className="text-sm text-muted-foreground">Isabella is thinking...</p>
                 </div>
               )}
+              
+              {/* Invisible element to scroll to */}
+              <div ref={messagesEndRef} />
             </div>
           </div>
 
@@ -198,9 +205,9 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
               <Button 
                 size="default" 
                 variant="default" 
-                onClick={handleSendMessage}
+                onClick={handleSendMessage} 
                 disabled={isProcessing || !inputText.trim()}
-                className="px-4 py-3 rounded-xl bg-gradient-to-r from-accent to-accent-light hover:from-accent-light hover:to-accent transition-all duration-200 shadow-lg hover:shadow-accent/20"
+                className="px-6 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
               >
                 <Send className="w-4 h-4" />
               </Button>
