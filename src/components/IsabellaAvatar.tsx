@@ -69,7 +69,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
     }
   };
 
-  const sizeClass = isExpanded ? 'w-20 h-20' : (size === 'xl' ? 'w-[28rem] h-[28rem] lg:w-[32rem] lg:h-[32rem]' : 'w-[20rem] h-[20rem] lg:w-[24rem] lg:h-[24rem]');
+  const sizeClass = isExpanded ? 'w-20 h-20' : (size === 'xl' ? 'w-[24rem] h-[24rem] lg:w-[28rem] lg:h-[28rem]' : 'w-[20rem] h-[20rem] lg:w-[24rem] lg:h-[24rem]');
   return (
     <div className="relative">
       {/* Main Avatar Button - Large, Luminous Design */}
