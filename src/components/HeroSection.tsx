@@ -151,7 +151,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} hideTooltip size="xl" />
                 {showMeetButton && (
                   <Button 
-                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute bottom-1 left-0 -translate-x-full ml-3 z-50"
+                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute bottom-5 right-[calc(100%+16px)] z-50"
                     onClick={handleMeetIsabella}
                   >
                     <Play className="mr-3 w-6 h-6" />
