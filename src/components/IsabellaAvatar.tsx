@@ -107,15 +107,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
         />
       </div>
 
-      {/* Animated Tooltip - Click to Chat Hint */}
-      {showTooltip && !isExpanded && showInlineChat && (
-        <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg animate-[fade-in_0.5s_ease-out,pulse_2s_ease-in-out_infinite] pointer-events-none">
-          <p className="text-xs text-muted-foreground whitespace-nowrap">
-            💬 <span className="text-accent font-medium">Click to chat with me</span>
-          </p>
-          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-b-4 border-b-border"></div>
-        </div>
-      )}
+      {/* Removed tooltip to prevent collision during beta testing */}
 
       {/* Expanded Chat Panel - Larger, Fluid Design */}
       {isExpanded && showInlineChat && (

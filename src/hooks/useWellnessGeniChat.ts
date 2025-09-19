@@ -161,14 +161,14 @@ export const useWellnessGeniChat = () => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
     let receivedAudioUrl: string | null = null;
     let started = false;
-    for (let i = 0; i < 40; i++) { // Increase max polls for longer greetings
+    for (let i = 0; i < 50; i++) { // Increase max polls for longer greetings
       try {
         const { data, error } = await supabase.functions.invoke('did-avatar', {
           body: { talk_id: talkId }
         });
         if (error) {
           console.error('[D-ID] poll error', error);
-          await delay(800); // Faster polling for quicker response
+          await delay(500); // Even faster polling for quickest response
           continue;
         }
         console.log('[D-ID] poll status:', { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, id: data?.id, duration: data?.duration });
@@ -221,7 +221,7 @@ export const useWellnessGeniChat = () => {
           console.error('[D-ID] poll status error', data);
           break;
         }
-        await delay(1500); // Faster polling interval
+        await delay(500); // Much faster polling interval
       } catch (e) {
         console.error('[D-ID] poll exception', e);
         await delay(1000);
@@ -754,11 +754,25 @@ export const useWellnessGeniChat = () => {
     if (!isMicEnabled) {
       // Request microphone permission and immediately start listening
       try {
-        await navigator.mediaDevices.getUserMedia({ audio: true });
+        await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            sampleRate: 24000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
         setIsMicEnabled(true);
+        console.log('Microphone enabled, starting to listen...');
         await startListening();
       } catch (error) {
         console.error('Microphone permission denied:', error);
+        toast({
+          title: "Microphone Access Denied",
+          description: "Please allow microphone access to use voice features.",
+          variant: "destructive",
+        });
       }
     } else {
       setIsMicEnabled(false);
