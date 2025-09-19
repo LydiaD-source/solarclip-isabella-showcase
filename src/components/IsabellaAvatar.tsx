@@ -78,10 +78,10 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
         onClick={handleChatToggle}
       >
         {/* Outer glow effect */}
-        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-blue-400/30 blur-lg group-hover:blur-xl transition-all duration-500" style={{ borderRadius: '50% / 60%' }}></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-blue-400/30 blur-lg group-hover:blur-xl transition-all duration-500" style={{ borderRadius: '50% / 70%' }}></div>
         
-        {/* Inner avatar container with D-ID video or image - Oval shape */}
-        <div className="relative w-full h-full overflow-hidden border-2 border-white/20 shadow-2xl bg-gradient-to-br from-purple-100 to-blue-100" style={{ borderRadius: '50% / 60%' }}>
+        {/* Inner avatar container with D-ID video or image - Egg-shaped oval */}
+        <div className="relative w-full h-full overflow-hidden border-2 border-white/20 shadow-2xl bg-gradient-to-br from-purple-100 to-blue-100" style={{ borderRadius: '50% / 70%' }}>
           {didVideoUrl ? (
             <video 
               src={didVideoUrl} 
@@ -111,8 +111,8 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
           )}
         </div>
         
-        {/* Pulsing ring animation - Oval shape */}
-        <div className="absolute inset-0 border-2 border-purple-400/50 animate-ping" style={{ borderRadius: '50% / 60%' }}></div>
+        {/* Pulsing ring animation - Egg-shaped oval */}
+        <div className="absolute inset-0 border-2 border-purple-400/50 animate-ping" style={{ borderRadius: '50% / 70%' }}></div>
       </div>
 
       {/* Floating tooltip */}
