@@ -361,8 +361,8 @@ export const useWellnessGeniChat = () => {
       // Remove processing message
       setMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
 
-      if (data?.text && data.text.trim()) {
-        const transcribedText = data.text.trim();
+      if (sttData?.text && sttData.text.trim()) {
+        const transcribedText = sttData.text.trim();
         console.log('Transcribed text:', transcribedText);
         
         // Add user message with clean transcribed text (no emoji prefix)
