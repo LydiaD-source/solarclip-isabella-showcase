@@ -56,6 +56,7 @@ export const useWellnessGeniChat = () => {
   const lastSentRef = useRef<{ text: string; time: number } | null>(null);
   const greetingSentRef = useRef(false);
   const [didVideoUrl, setDidVideoUrl] = useState<string | null>(null);
+  const didVideoObjectUrlRef = useRef<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const didAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -142,11 +143,24 @@ export const useWellnessGeniChat = () => {
         try { didAudioRef.current.pause(); } catch {}
         didAudioRef.current = null;
       }
-      const audio = new Audio(url);
+      // Fetch as blob to avoid CORS/media-type issues, then play via object URL
+      const resp = await fetch(url);
+      if (!resp.ok) throw new Error(`Audio fetch failed: ${resp.status}`);
+      const blob = await resp.blob();
+      const objectUrl = URL.createObjectURL(blob);
+
+      const audio = new Audio();
+      audio.src = objectUrl;
       audio.crossOrigin = 'anonymous';
       didAudioRef.current = audio;
+
       await audio.play();
-      audio.onended = () => { didAudioRef.current = null; };
+      audio.onended = () => {
+        if (didAudioRef.current && didAudioRef.current.src === objectUrl) {
+          didAudioRef.current = null;
+        }
+        try { URL.revokeObjectURL(objectUrl); } catch {}
+      };
     } catch (e) {
       console.error('[D-ID] audio playback error', e);
     }
@@ -169,9 +183,29 @@ export const useWellnessGeniChat = () => {
           try { await playDidAudio(data.audio_url); } catch (e) { console.warn('[D-ID] audio play warn', e); }
         }
         if (data?.result_url) {
-          setDidVideoUrl(data.result_url);
-          // Auto-hide after 15s
-          setTimeout(() => setDidVideoUrl(null), 15000);
+          try {
+            // Fetch video to blob to avoid CORS playback issues, then use object URL
+            const vResp = await fetch(data.result_url);
+            if (!vResp.ok) throw new Error(`Video fetch failed: ${vResp.status}`);
+            const vBlob = await vResp.blob();
+            const vUrl = URL.createObjectURL(vBlob);
+            // Revoke previous if exists
+            if (didVideoObjectUrlRef.current) {
+              try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+            }
+            didVideoObjectUrlRef.current = vUrl;
+            setDidVideoUrl(vUrl);
+            // Auto-hide and cleanup after 15s
+            setTimeout(() => {
+              setDidVideoUrl(null);
+              if (didVideoObjectUrlRef.current) {
+                try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+                didVideoObjectUrlRef.current = null;
+              }
+            }, 15000);
+          } catch (e) {
+            console.error('[D-ID] video playback prepare error', e);
+          }
           break;
         }
         if (data?.status === 'error') {
@@ -184,7 +218,7 @@ export const useWellnessGeniChat = () => {
         await delay(1000);
       }
     }
-  }, []);
+  }, [playDidAudio]);
 
   const stopAudio = useCallback(() => {
     if (currentSource) {
@@ -728,7 +762,7 @@ export const useWellnessGeniChat = () => {
     }
   }, [isMicEnabled, isListening, recognition, startListening, stopListening]);
 
-  // Fallback narrate to ensure journey can always speak
+  // Fallback narrate to ensure journey can always speak (uses D-ID TTS while ElevenLabs is unavailable)
   const narrate = useCallback(async (text: string) => {
     const isabellaMessage: ChatMessage = {
       id: Date.now().toString() + '_narrate_min',
@@ -750,16 +784,31 @@ export const useWellnessGeniChat = () => {
 
     if (!isSpeakerEnabled || !text.trim()) return;
     try {
-      const { data } = await supabase.functions.invoke('elevenlabs-tts', {
-        body: { text, voice_id: 't0IcnDolatli2xhqgLgn' }
-      });
-      if (data?.audio) {
-        await playAudio(data.audio);
+      if (USE_ELEVENLABS_TTS) {
+        const { data } = await supabase.functions.invoke('elevenlabs-tts', {
+          body: { text, voice_id: 't0IcnDolatli2xhqgLgn' }
+        });
+        if (data?.audio) {
+          await playAudio(data.audio);
+        }
+      } else {
+        // Use D-ID built-in TTS by sending text and then polling for video/audio
+        console.log('[D-ID] narrate → did-avatar with built-in TTS');
+        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+          body: { text }
+        });
+        if (didError) {
+          console.error('[D-ID] narrate error', didError);
+          return;
+        }
+        if (didData?.talk_id) {
+          await pollDidTalk(didData.talk_id);
+        }
       }
     } catch (e) {
       console.error('[TTS] narrate fallback error', e);
     }
-  }, [isSpeakerEnabled, playAudio]);
+  }, [isSpeakerEnabled, playAudio, pollDidTalk]);
 
   return {
     messages,
