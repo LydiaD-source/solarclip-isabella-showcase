@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Volume2, VolumeX, Mic, MicOff, FileText, Calculator, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -10,9 +10,10 @@ interface IsabellaAvatarProps {
   onChatToggle?: () => void;
   isExpanded?: boolean;
   didVideoUrl?: string | null;
+  showInlineChat?: boolean; // if false, hide internal chat UI (used when external chat panel is rendered)
 }
 
-export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl }: IsabellaAvatarProps) => {
+export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, showInlineChat = true }: IsabellaAvatarProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [inputText, setInputText] = useState('');
@@ -35,6 +36,20 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl }
 
   // Prefer parent-provided video URL to avoid duplicate hook instances causing mismatch
   const videoUrl = didVideoUrl ?? hookDidVideoUrl;
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Ensure video and audio (embedded) start together without separate audio element
+  useEffect(() => {
+    if (videoUrl && videoRef.current) {
+      const v = videoRef.current;
+      const tryPlay = async () => {
+        try { await v.play(); } catch (e) { console.warn('Video play blocked, will retry on canplay', e); }
+      };
+      v.addEventListener('canplay', tryPlay, { once: true } as any);
+      tryPlay();
+      return () => { v.removeEventListener('canplay', tryPlay as any); };
+    }
+  }, [videoUrl]);
 
   useEffect(() => {
     // Show tooltip after delay but no auto-greeting - only when user clicks start
@@ -77,11 +92,11 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl }
         {/* Isabella Navia Video (D-ID) */}
         {videoUrl && (
           <video
+            ref={videoRef}
             src={videoUrl}
             autoPlay
-            muted
             playsInline
-            className="absolute inset-0 w-full h-full object-contain rounded-full p-2"
+            className={`absolute inset-0 w-full h-full ${videoUrl ? 'object-cover p-0' : 'object-contain p-2'} rounded-full`}
           />
         )}
         {/* Isabella Navia Image */}
@@ -93,7 +108,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl }
       </div>
 
       {/* Animated Tooltip - Click to Chat Hint */}
-      {showTooltip && !isExpanded && (
+      {showTooltip && !isExpanded && showInlineChat && (
         <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg animate-[fade-in_0.5s_ease-out,pulse_2s_ease-in-out_infinite] pointer-events-none">
           <p className="text-xs text-muted-foreground whitespace-nowrap">
             💬 <span className="text-accent font-medium">Click to chat with me</span>
@@ -103,7 +118,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl }
       )}
 
       {/* Expanded Chat Panel - Larger, Fluid Design */}
-      {isExpanded && (
+      {isExpanded && showInlineChat && (
         <Card className="absolute top-48 lg:top-72 xl:top-80 right-0 w-[90vw] sm:w-[26rem] lg:w-[28rem] xl:w-[32rem] h-[70vh] max-h-[600px] card-premium animate-fade-in-up border-0 shadow-xl bg-gradient-to-br from-card/95 to-secondary/90 backdrop-blur-lg">
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">

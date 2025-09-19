@@ -154,7 +154,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         {/* Right Column - Isabella Avatar */}
         <div className="flex justify-center lg:justify-end items-center relative -mt-5">
           <div className="relative">
-            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} didVideoUrl={didVideoUrl} />
+            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} didVideoUrl={didVideoUrl} showInlineChat={false} />
             {showMeetButton && (
               <div className="absolute bottom-[-1px] -left-36 xl:-left-44 text-center z-10">
                 <Button 

@@ -199,11 +199,8 @@ export const useWellnessGeniChat = () => {
             didVideoObjectUrlRef.current = vUrl;
             setDidVideoUrl(vUrl);
 
-            // Start audio once (after video URL is set) to keep them in sync
-            if (!started && (receivedAudioUrl || data?.audio_url)) {
-              try { await playDidAudio(receivedAudioUrl || data.audio_url); } catch (e) { console.warn('[D-ID] audio play warn', e); }
-              started = true;
-            }
+            // Do not play separate audio; the proxied video includes the audio track.
+            // We rely on the <video> element to play synchronized A/V once it's ready.
 
             // Auto-hide and cleanup after 20s
             setTimeout(() => {
