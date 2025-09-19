@@ -213,6 +213,18 @@ Cinematic gradients with solar energy themes
     box-shadow: 0 8px 25px hsl(122 48% 56% / 0.4), 0 0 20px hsl(122 48% 56% / 0.3);
     transform: scale(1.1) translateY(-2px);
   }
+
+  /* Larger Video Thumbnail Circles - Enlarged by user request */
+  .video-thumbnail-interactive-large {
+    @apply w-20 h-20 rounded-full border-2 border-accent/30 cursor-pointer transition-all duration-300 overflow-hidden;
+    box-shadow: 0 4px 15px hsl(209 100% 14% / 0.3);
+  }
+  
+  .video-thumbnail-interactive-large:hover {
+    @apply border-accent scale-110;
+    box-shadow: 0 8px 25px hsl(122 48% 56% / 0.4), 0 0 20px hsl(122 48% 56% / 0.3);
+    transform: scale(1.1) translateY(-2px);
+  }
   
   /* Chatbox Glow Effect */
   .chatbox-glow {

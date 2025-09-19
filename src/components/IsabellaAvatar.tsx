@@ -33,20 +33,12 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
   } = useWellnessGeniChat();
 
   useEffect(() => {
-    // Auto-play greeting animation on mount
-    const timer = setTimeout(() => {
-      setIsPlaying(true);
-      // Simulate D-ID animation duration (10 seconds)
-      setTimeout(() => setIsPlaying(false), 10000);
-    }, 1000);
-
-    // Show tooltip after greeting
+    // Show tooltip after delay but no auto-greeting - only when user clicks start
     const tooltipTimer = setTimeout(() => {
       setShowTooltip(true);
-    }, 12000);
+    }, 3000);
 
     return () => {
-      clearTimeout(timer);
       clearTimeout(tooltipTimer);
     };
   }, []);
@@ -159,8 +151,15 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
               </div>
             </div>
 
-            {/* Messages - Larger scrollable area */}
-            <div className="flex-1 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent">
+            {/* Messages - Auto-scroll to bottom for new messages */}
+            <div 
+              className="flex-1 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent"
+              ref={(el) => {
+                if (el && messages.length > 0) {
+                  setTimeout(() => el.scrollTop = el.scrollHeight, 100);
+                }
+              }}
+            >
               {/* Messages will show here when Isabella responds */}
               
               {messages.map((message) => (

@@ -113,12 +113,12 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             <span className="font-semibold text-white"> Fast. Reversible. Roof-safe.</span>
           </p>
 
-          {/* Video Thumbnails */}
-          <div className="flex gap-4 flex-wrap">
+          {/* Video Thumbnails - Enlarged and lifted 3mm (12px) */}
+          <div className="flex gap-4 flex-wrap" style={{ transform: 'translateY(-12px)' }}>
             {videoThumbnails.map((video) => (
               <div 
                 key={video.id}
-                className="video-thumbnail-interactive"
+                className="video-thumbnail-interactive-large"
                 onClick={() => handleVideoThumbnail(video.id)}
                 title={video.title}
               >
@@ -188,8 +188,15 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
               </div>
             </div>
             
-            {/* Chat Messages Area - Enhanced scrolling */}
-            <div className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent">
+            {/* Chat Messages Area - Auto-scroll to bottom for new messages */}
+            <div 
+              className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent"
+              ref={(el) => {
+                if (el && messages.length > 0) {
+                  setTimeout(() => el.scrollTop = el.scrollHeight, 100);
+                }
+              }}
+            >
               {messages.map((message) => (
                 <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`px-4 py-2 rounded-lg max-w-[80%] text-sm ${
