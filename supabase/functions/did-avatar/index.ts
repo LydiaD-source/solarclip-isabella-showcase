@@ -62,14 +62,15 @@ serve(async (req) => {
     // Create talk with D-ID API
     const talkPayload = {
       source_url: 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg',
-      script: {
-        type: audio_base64 ? 'audio' : 'text',
-        input: audio_base64 ? `data:audio/mp3;base64,${audio_base64}` : text,
-        provider: audio_base64 ? undefined : {
-          type: 'elevenlabs',
-          voice_id: 't0IcnDolatli2xhqgLgn',
-        }
-      },
+      script: audio_base64
+        ? {
+            type: 'audio',
+            input: `data:audio/mp3;base64,${audio_base64}`,
+          }
+        : {
+            type: 'text',
+            input: text,
+          },
       config: {
         fluent: true,
         pad_audio: 0.0,

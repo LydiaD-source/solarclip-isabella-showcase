@@ -513,17 +513,20 @@ export const useWellnessGeniChat = () => {
       formData.append('file', audioBlob, `voice-input.${ext}`);
 
       console.log('Sending audio to speech-to-text function...');
-      const { data, error } = await supabase.functions.invoke('speech-to-text', {
-        body: formData
+      // Use direct fetch with FormData to ensure proper multipart boundaries
+      const resp = await fetch('https://mzikfyqzwepnubdsclfd.functions.supabase.co/speech-to-text', {
+        method: 'POST',
+        body: formData,
       });
 
-      if (error) {
-        console.error('Speech-to-text error:', error);
-        throw new Error(error.message || 'Speech-to-text failed');
+      if (!resp.ok) {
+        const errText = await resp.text().catch(() => '');
+        console.error('Speech-to-text HTTP error:', resp.status, errText);
+        throw new Error(`Speech-to-text failed (${resp.status})`);
       }
 
+      const data = await resp.json();
       console.log('Speech-to-text result:', data);
-
       // Remove processing message
       setMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
 
