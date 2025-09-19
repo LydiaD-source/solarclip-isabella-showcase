@@ -114,8 +114,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             <span className="font-semibold text-white"> Fast. Reversible. Roof-safe.</span>
           </p>
 
-          {/* Video Thumbnails */}
-          <div className="flex gap-4 flex-wrap">
+          {/* Video Thumbnails - Lifted to prevent bottom cropping */}
+          <div className="flex gap-4 flex-wrap mb-4">
             {videoThumbnails.map((video) => (
               <div 
                 key={video.id}
@@ -151,7 +151,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} hideTooltip size="xl" />
                 {showMeetButton && (
                   <Button 
-                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute bottom-12 -left-36 z-40"
+                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute top-1/2 -left-44 -translate-y-1/2 z-40"
                     onClick={handleMeetIsabella}
                   >
                     <Play className="mr-3 w-6 h-6" />
