@@ -24,25 +24,30 @@ interface UseIsabellaJourneyArgs {
 
 export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseIsabellaJourneyArgs) => {
   const [stage, setStage] = useState<JourneyStage>('idle');
+  const [hasStarted, setHasStarted] = useState(false);
 
   const start = useCallback(async () => {
-    // Prevent multiple starts
-    if (stage !== 'idle') {
-      console.log('Journey already started, stage:', stage);
+    // Prevent multiple starts - use hasStarted flag for more robust checking
+    if (hasStarted || stage !== 'idle') {
+      console.log('Journey already started or in progress, stage:', stage, 'hasStarted:', hasStarted);
       return;
     }
+    
     console.log('Starting Isabella journey from stage:', stage);
-    // Initial greeting + ask for confirmation
+    setHasStarted(true);
     setStage('awaiting_start');
+    
     await narrate(
       "Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly and I will do the same."
     );
-  }, [narrate, stage]);
+  }, [narrate, stage, hasStarted]);
 
   const runStep = useCallback(async (nextStage: JourneyStage) => {
+    console.log('Journey runStep:', nextStage);
+    setStage(nextStage);
+    
     switch (nextStage) {
       case 'step_product_intro': {
-        setStage('step_product_intro');
         await narrate("Excellent!! Let me begin. This is our trademarked product, SolarClip™.");
         showCard({
           type: 'video',
@@ -55,7 +60,6 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
         break;
       }
       case 'step_comparison': {
-        setStage('step_comparison');
         await narrate("This is how our solution compares to traditional installations.");
         showCard({
           type: 'video',
@@ -68,7 +72,6 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
         break;
       }
       case 'step_installation': {
-        setStage('step_installation');
         await narrate("Here's how SolarClip integrates directly into the roof structure.");
         showCard({
           type: 'video',
@@ -81,7 +84,6 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
         break;
       }
       case 'map_prompt': {
-        setStage('map_prompt');
         await narrate(
           "I can show you an interactive solar map with your roof's energy potential. Would you like to type in your building address to see how much power your roof can generate with SolarClip panels?"
         );
@@ -141,6 +143,7 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
 
   return {
     stage,
+    hasStarted,
     start,
     runStep,
     handleUserInput,

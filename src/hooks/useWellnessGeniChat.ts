@@ -16,24 +16,8 @@ export const useWellnessGeniChat = () => {
   // Set to true to re-enable without touching rest of the flow.
   const USE_ELEVENLABS_TTS = false;
   const { toast } = useToast();
-  // Initialize messages from sessionStorage to prevent conversation resets
-  const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const saved = sessionStorage.getItem('isabella-chat-messages');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          return parsed.map((msg: any) => ({
-            ...msg,
-            timestamp: new Date(msg.timestamp)
-          }));
-        }
-      } catch (error) {
-        console.error('Error loading saved messages:', error);
-      }
-    }
-    return [];
-  });
+  // Fresh messages on each page load for clean journey flow
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
@@ -788,14 +772,23 @@ export const useWellnessGeniChat = () => {
     }
   }, [isMicEnabled, isListening, recognition, startListening, stopListening]);
 
-  // Fallback narrate to ensure journey can always speak (uses D-ID TTS while ElevenLabs is unavailable)
+  // Narrate function - adds messages to chat and handles D-ID TTS
   const narrate = useCallback(async (text: string) => {
+    console.log('[Isabella] narrate called:', text.substring(0, 50) + '...');
+    
+    // Prevent multiple identical messages
+    if (messages.some(msg => msg.text === text && msg.sender === 'isabella')) {
+      console.log('[Isabella] skipping duplicate message');
+      return;
+    }
+
     const isabellaMessage: ChatMessage = {
-      id: Date.now().toString() + '_narrate_min',
+      id: Date.now().toString() + '_narrate',
       text,
       sender: 'isabella',
       timestamp: new Date(),
     };
+    
     setMessages(prev => {
       const updated = [...prev, isabellaMessage];
       if (typeof window !== 'undefined') {
@@ -808,9 +801,14 @@ export const useWellnessGeniChat = () => {
       return updated;
     });
 
-    if (!isSpeakerEnabled || !text.trim()) return;
+    if (!isSpeakerEnabled || !text.trim()) {
+      console.log('[Isabella] speaker disabled or empty text, skipping TTS');
+      return;
+    }
+
     try {
       if (USE_ELEVENLABS_TTS) {
+        console.log('[Isabella] using ElevenLabs TTS');
         const { data } = await supabase.functions.invoke('elevenlabs-tts', {
           body: { text, voice_id: 't0IcnDolatli2xhqgLgn' }
         });
@@ -818,23 +816,28 @@ export const useWellnessGeniChat = () => {
           await playAudio(data.audio);
         }
       } else {
-        // Use D-ID built-in TTS by sending text and then polling for video/audio
-        console.log('[D-ID] narrate → did-avatar with built-in TTS');
+        // Use D-ID built-in TTS with video avatar
+        console.log('[Isabella] using D-ID TTS + avatar:', text.substring(0, 30) + '...');
         const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
           body: { text }
         });
+        
         if (didError) {
-          console.error('[D-ID] narrate error', didError);
+          console.error('[Isabella] D-ID API error:', didError);
           return;
         }
+        
         if (didData?.talk_id) {
+          console.log('[Isabella] D-ID talk created, polling for results:', didData.talk_id);
           await pollDidTalk(didData.talk_id);
+        } else {
+          console.warn('[Isabella] No talk_id received from D-ID');
         }
       }
     } catch (e) {
-      console.error('[TTS] narrate fallback error', e);
+      console.error('[Isabella] narrate error:', e);
     }
-  }, [isSpeakerEnabled, playAudio, pollDidTalk]);
+  }, [isSpeakerEnabled, playAudio, pollDidTalk, messages]);
 
   return {
     messages,
