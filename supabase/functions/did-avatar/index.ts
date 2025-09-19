@@ -14,7 +14,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { text, audio_base64, talk_id } = body || {};
+    const { text, audio_base64, talk_id, source_url } = body || {};
     
     const DID_API_KEY = Deno.env.get('DID_API_KEY');
     if (!DID_API_KEY) {
@@ -84,7 +84,7 @@ serve(async (req) => {
 
     // Create talk with D-ID API
     const talkPayload = {
-      source_url: 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg',
+      source_url: source_url || 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg',
       script: audio_base64
         ? {
             type: 'audio',
@@ -95,6 +95,7 @@ serve(async (req) => {
             input: text,
           },
       config: {
+        stitch: true,
         fluent: true,
         pad_audio: 0.0,
         driver_expressions: {

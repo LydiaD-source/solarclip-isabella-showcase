@@ -2,6 +2,9 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 
+// D-ID source image to animate (same as the website avatar)
+const DID_SOURCE_URL = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
+
 export interface ChatMessage {
   id: string;
   text: string;
@@ -345,7 +348,7 @@ export const useWellnessGeniChat = () => {
             if (ttsError) {
               console.error('[TTS] error', ttsError);
               // Fallback: animate with D-ID using text so the avatar still responds
-              const { error: didErr } = await supabase.functions.invoke('did-avatar', { body: { text: responseText } });
+              const { error: didErr } = await supabase.functions.invoke('did-avatar', { body: { text: responseText, source_url: DID_SOURCE_URL } });
               if (didErr) console.error('[D-ID] fallback (text) error', didErr);
               return;
             }
@@ -353,7 +356,7 @@ export const useWellnessGeniChat = () => {
             if (ttsData?.audio) {
               console.log('[TTS] got audio, sending to D-ID for animation');
               const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-                body: { audio_base64: ttsData.audio }
+                body: { audio_base64: ttsData.audio, source_url: DID_SOURCE_URL }
               });
               if (didError) {
                 console.error('[D-ID] error', didError);
@@ -368,7 +371,7 @@ export const useWellnessGeniChat = () => {
             // Temporary fallback: use D-ID built-in TTS with text only
             console.log('[D-ID] request → did-avatar with built-in TTS');
             const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-              body: { text: responseText }
+              body: { text: responseText, source_url: DID_SOURCE_URL }
             });
             if (didError) {
               console.error('[D-ID] error', didError);
@@ -668,7 +671,7 @@ export const useWellnessGeniChat = () => {
     greetingSentRef.current = true;
     
     // Use the structured journey greeting text
-    const greetingText = "Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly and I will do the same.";
+    const greetingText = "Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly.";
     
     // Add greeting message to UI
     const isabellaMessage: ChatMessage = {
@@ -700,7 +703,7 @@ export const useWellnessGeniChat = () => {
 
           if (ttsError) {
             console.error('[TTS] error', ttsError);
-            const { error: didErr } = await supabase.functions.invoke('did-avatar', { body: { text: greetingText } });
+            const { error: didErr } = await supabase.functions.invoke('did-avatar', { body: { text: greetingText, source_url: DID_SOURCE_URL } });
             if (didErr) console.error('[D-ID] greeting fallback (text) error', didErr);
             return;
           }
@@ -708,7 +711,7 @@ export const useWellnessGeniChat = () => {
           if (ttsData?.audio) {
             console.log('[TTS] got greeting audio, sending to D-ID for animation');
             const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-              body: { audio_base64: ttsData.audio }
+              body: { audio_base64: ttsData.audio, source_url: DID_SOURCE_URL }
             });
             if (didError) {
               console.error('[D-ID] greeting error', didError);
@@ -725,7 +728,7 @@ export const useWellnessGeniChat = () => {
           // Temporary fallback: use D-ID built-in TTS with text only
           console.log('[D-ID] greeting → did-avatar with built-in TTS');
           const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-            body: { text: greetingText }
+            body: { text: greetingText, source_url: DID_SOURCE_URL }
           });
           if (didError) {
             console.error('[D-ID] greeting error', didError);
@@ -832,7 +835,7 @@ export const useWellnessGeniChat = () => {
         // Use D-ID built-in TTS with video avatar
         console.log('[Isabella] using D-ID TTS + avatar:', text.substring(0, 30) + '...');
         const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-          body: { text }
+          body: { text, source_url: DID_SOURCE_URL }
         });
         
         if (didError) {
