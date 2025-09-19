@@ -115,7 +115,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           </p>
 
           {/* Video Thumbnails - Lifted to prevent bottom cropping */}
-          <div className="flex gap-4 flex-wrap -translate-y-5 sm:-translate-y-5">
+          <div className="flex gap-4 flex-wrap -translate-y-2 sm:-translate-y-2">
             {videoThumbnails.map((video) => (
               <div 
                 key={video.id}
@@ -144,14 +144,14 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         </div>
 
         {/* Right Column - Isabella Avatar */}
-        <div className="flex justify-center lg:justify-end items-start relative pt-1 pb-3 pr-8">
-          <div className="relative">
+        <div className="relative min-h-screen pr-8">
+          <div className="absolute top-1 bottom-4 right-8">
             {!isExpanded ? (
               <div className="text-center relative">
                 <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} hideTooltip size="xl" />
                 {showMeetButton && (
                   <Button 
-                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute -bottom-8 -left-36 z-50"
+                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute bottom-1 left-0 -translate-x-full ml-3 z-50"
                     onClick={handleMeetIsabella}
                   >
                     <Play className="mr-3 w-6 h-6" />
