@@ -100,9 +100,17 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
   const isPositive = (text: string) => /^(y|yes|yeah|sure|ok|okay|let's go|start)/i.test(text.trim());
 
   const handleUserInput = useCallback(async (text: string) => {
-    if (stage === 'awaiting_start' && isPositive(text)) {
-      await runStep('step_product_intro');
-      return true;
+    if (stage === 'awaiting_start') {
+      if (isPositive(text)) {
+        await runStep('step_product_intro');
+        return true;
+      }
+      const isNegative = /^\s*(no|not now|later|skip|nope|nah)\b/i.test(text);
+      if (isNegative) {
+        await narrate("No problem—let's continue in chat. Ask me anything about SolarClip.");
+        setStage('open_chat');
+        return true;
+      }
     }
     if (stage === 'map_prompt') {
       // Treat any text as address unless clearly negative

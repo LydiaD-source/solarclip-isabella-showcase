@@ -143,10 +143,17 @@ export const useWellnessGeniChat = () => {
         try { didAudioRef.current.pause(); } catch {}
         didAudioRef.current = null;
       }
-      // Fetch as blob to avoid CORS/media-type issues, then play via object URL
-      const resp = await fetch(url);
-      if (!resp.ok) throw new Error(`Audio fetch failed: ${resp.status}`);
-      const blob = await resp.blob();
+      console.log('[D-ID] proxying audio via edge function');
+      const { data, error } = await supabase.functions.invoke('did-avatar', {
+        body: { proxy_url: url, media_type: 'audio' }
+      });
+      if (error) throw error;
+      if (!data?.base64) throw new Error('No proxied audio data');
+      // Decode base64 to Blob
+      const binary = atob(data.base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: data.content_type || 'audio/mpeg' });
       const objectUrl = URL.createObjectURL(blob);
 
       const audio = new Audio();
@@ -185,10 +192,16 @@ export const useWellnessGeniChat = () => {
         }
         if (data?.result_url) {
           try {
-            // Fetch video to blob to avoid CORS playback issues, then use object URL
-            const vResp = await fetch(data.result_url);
-            if (!vResp.ok) throw new Error(`Video fetch failed: ${vResp.status}`);
-            const vBlob = await vResp.blob();
+            console.log('[D-ID] proxying video via edge function');
+            const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
+              body: { proxy_url: data.result_url, media_type: 'video' }
+            });
+            if (proxyErr) throw proxyErr;
+            if (!proxied?.base64) throw new Error('No proxied video data');
+            const binary = atob(proxied.base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const vBlob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
             const vUrl = URL.createObjectURL(vBlob);
             // Revoke previous if exists
             if (didVideoObjectUrlRef.current) {
@@ -196,14 +209,14 @@ export const useWellnessGeniChat = () => {
             }
             didVideoObjectUrlRef.current = vUrl;
             setDidVideoUrl(vUrl);
-            // Auto-hide and cleanup after 15s
+            // Auto-hide and cleanup after 20s
             setTimeout(() => {
               setDidVideoUrl(null);
               if (didVideoObjectUrlRef.current) {
                 try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
                 didVideoObjectUrlRef.current = null;
               }
-            }, 15000);
+            }, 20000);
           } catch (e) {
             console.error('[D-ID] video playback prepare error', e);
           }

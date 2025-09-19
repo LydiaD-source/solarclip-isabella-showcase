@@ -60,6 +60,28 @@ serve(async (req) => {
       });
     }
 
+    // Proxy remote media (audio/video) to bypass CORS
+    const { proxy_url, media_type } = body || {};
+    if (proxy_url && (media_type === 'audio' || media_type === 'video')) {
+      console.log('Proxying media from URL:', { media_type, proxy_url: proxy_url?.slice(0, 60) + '...' });
+      const mediaRes = await fetch(proxy_url);
+      if (!mediaRes.ok) {
+        const errText = await mediaRes.text();
+        console.error('Proxy fetch failed:', mediaRes.status, errText);
+        throw new Error(`Proxy fetch failed: ${mediaRes.status}`);
+      }
+      const arrayBuffer = await mediaRes.arrayBuffer();
+      // Convert to base64 to return safely with CORS headers
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+      const base64 = btoa(binary);
+      const contentType = mediaRes.headers.get('Content-Type') || (media_type === 'audio' ? 'audio/mpeg' : 'video/mp4');
+      return new Response(JSON.stringify({ base64, content_type: contentType }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Create talk with D-ID API
     const talkPayload = {
       source_url: 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg',
