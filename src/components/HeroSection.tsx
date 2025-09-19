@@ -36,7 +36,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     stopListening,
     toggleSpeaker, 
     toggleMicrophone,
-    narrate
+    narrate,
+    didVideoUrl,
   } = useWellnessGeniChat();
   const journey = useIsabellaJourney({ narrate, showCard, getSolarAnalysis });
   
@@ -157,7 +158,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         {/* Right Column - Isabella Avatar */}
         <div className="flex justify-center lg:justify-end items-center relative -mt-5">
           <div className="relative">
-            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={false} />
+            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={false} didVideoUrl={didVideoUrl} />
             {showMeetButton && (
               <div className="hidden lg:block absolute bottom-[-1px] -left-36 xl:-left-44 text-center">
                 <Button 

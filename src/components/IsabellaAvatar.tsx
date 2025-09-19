@@ -9,9 +9,10 @@ const isabellaNavia = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v174722
 interface IsabellaAvatarProps {
   onChatToggle?: () => void;
   isExpanded?: boolean;
+  didVideoUrl?: string | null;
 }
 
-export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAvatarProps) => {
+export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl }: IsabellaAvatarProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [inputText, setInputText] = useState('');
@@ -22,7 +23,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     isSpeakerEnabled,
     isMicEnabled,
     isListening,
-    didVideoUrl,
+    didVideoUrl: hookDidVideoUrl,
     sendMessage,
     startListening,
     stopListening,
@@ -31,6 +32,9 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     initializeAudio,
     narrate,
   } = useWellnessGeniChat();
+
+  // Prefer parent-provided video URL to avoid duplicate hook instances causing mismatch
+  const videoUrl = didVideoUrl ?? hookDidVideoUrl;
 
   useEffect(() => {
     // Show tooltip after delay but no auto-greeting - only when user clicks start
@@ -71,9 +75,9 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Video (D-ID) */}
-        {didVideoUrl && (
+        {videoUrl && (
           <video
-            src={didVideoUrl}
+            src={videoUrl}
             autoPlay
             muted
             playsInline
@@ -84,7 +88,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
         <img 
           src={isabellaNavia} 
           alt="Isabella Navia - AI Solar Ambassador" 
-          className={`w-full h-full object-contain rounded-full p-2 ${didVideoUrl ? 'opacity-0' : ''}`}
+          className={`w-full h-full object-contain rounded-full p-2 ${videoUrl ? 'opacity-0' : ''}`}
         />
       </div>
 

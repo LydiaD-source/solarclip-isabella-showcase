@@ -178,6 +178,7 @@ export const useWellnessGeniChat = () => {
           await delay(1000);
           continue;
         }
+        console.log('[D-ID] poll status:', { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, id: data?.id });
         if (data?.audio_url) {
           console.log('[D-ID] audio_url received', data.audio_url);
           try { await playDidAudio(data.audio_url); } catch (e) { console.warn('[D-ID] audio play warn', e); }
