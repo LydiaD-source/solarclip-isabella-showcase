@@ -26,12 +26,18 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
   const [stage, setStage] = useState<JourneyStage>('idle');
 
   const start = useCallback(async () => {
+    // Prevent multiple starts
+    if (stage !== 'idle') {
+      console.log('Journey already started, stage:', stage);
+      return;
+    }
+    console.log('Starting Isabella journey from stage:', stage);
     // Initial greeting + ask for confirmation
     setStage('awaiting_start');
     await narrate(
-      "Hello, I’m Isabella, a SolarClip ambassador at ClearNanoTech. I’d like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly and I will do the same."
+      "Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly and I will do the same."
     );
-  }, [narrate]);
+  }, [narrate, stage]);
 
   const runStep = useCallback(async (nextStage: JourneyStage) => {
     switch (nextStage) {
@@ -63,7 +69,7 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
       }
       case 'step_installation': {
         setStage('step_installation');
-        await narrate("Here’s how SolarClip integrates directly into the roof structure.");
+        await narrate("Here's how SolarClip integrates directly into the roof structure.");
         showCard({
           type: 'video',
           title: 'Roof Integration & Installation',
@@ -100,6 +106,7 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
   const isPositive = (text: string) => /^(y|yes|yeah|sure|ok|okay|let's go|start)/i.test(text.trim());
 
   const handleUserInput = useCallback(async (text: string) => {
+    console.log('Journey handling user input:', text, 'stage:', stage);
     if (stage === 'awaiting_start') {
       if (isPositive(text)) {
         await runStep('step_product_intro');

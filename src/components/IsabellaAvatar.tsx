@@ -81,7 +81,12 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl }
             autoPlay
             muted
             playsInline
-            className="absolute inset-0 w-full h-full object-contain rounded-full p-2"
+            className="absolute inset-0 w-full h-full object-cover rounded-full scale-110"
+            style={{ 
+              objectFit: 'cover',
+              objectPosition: 'center top',
+              transform: 'scale(1.1) translateY(-5%)'
+            }}
           />
         )}
         {/* Isabella Navia Image */}

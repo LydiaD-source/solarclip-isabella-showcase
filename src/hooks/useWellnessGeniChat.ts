@@ -808,15 +808,20 @@ export const useWellnessGeniChat = () => {
       } else {
         // Use D-ID built-in TTS by sending text and then polling for video/audio
         console.log('[D-ID] narrate → did-avatar with built-in TTS');
-        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-          body: { text }
-        });
-        if (didError) {
-          console.error('[D-ID] narrate error', didError);
-          return;
-        }
-        if (didData?.talk_id) {
-          await pollDidTalk(didData.talk_id);
+        setIsProcessing(true);
+        try {
+          const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+            body: { text }
+          });
+          if (didError) {
+            console.error('[D-ID] narrate error', didError);
+            return;
+          }
+          if (didData?.talk_id) {
+            await pollDidTalk(didData.talk_id);
+          }
+        } finally {
+          setIsProcessing(false);
         }
       }
     } catch (e) {
