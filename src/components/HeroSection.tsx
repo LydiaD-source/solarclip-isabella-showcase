@@ -36,6 +36,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     stopListening,
     toggleSpeaker, 
     toggleMicrophone,
+    initializeAudio,
     narrate,
     didVideoUrl,
   } = useWellnessGeniChat();
@@ -43,23 +44,13 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   
   const languages = ['EN', 'FR', 'DE', 'LB'];
 
-  // Auto-start greeting/journey on page load (no layout change), guarded to avoid duplicates
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const w = window as any;
-      if (w.__ISABELLA_JOURNEY_STARTED) return;
-      w.__ISABELLA_JOURNEY_STARTED = true;
-    }
-    journey.start();
-  }, []);
 
-  // Remove duplicate greeting - Isabella handles her own greeting
-
-  const handleMeetIsabella = () => {
+  const handleMeetIsabella = async () => {
     setShowMeetButton(false);
+    await initializeAudio();
     // Avoid re-triggering journey if already started
     if (journey.stage === 'idle') {
-      journey.start();
+      await journey.start();
     }
     onChatToggle?.();
   };
