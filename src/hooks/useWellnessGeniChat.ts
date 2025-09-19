@@ -73,42 +73,8 @@ export const useWellnessGeniChat = () => {
       }
     }
     
-    // Send initial greeting and get D-ID animation
-    const sendInitialGreeting = async () => {
-      const greeting = "Hello! I'm Isabella, your AI Solar Ambassador. I'm here to guide you through SolarClip™, the revolutionary clip-on solar mounting system. How can I help you today?";
-      
-      // Add greeting to chat
-      const greetingMessage: ChatMessage = {
-        id: Date.now().toString(),
-        text: greeting,
-        sender: 'assistant',
-        timestamp: new Date()
-      };
-      setMessages([greetingMessage]);
-      
-      // Get D-ID animation for greeting
-      try {
-        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-          body: { text: greeting }
-        });
-        
-        if (didError) {
-          console.error('D-ID error:', didError);
-        } else if (didData?.talk_id) {
-          // Poll for video result
-          pollDidVideo(didData.talk_id);
-        }
-      } catch (error) {
-        console.error('Failed to create D-ID animation:', error);
-      }
-      
-      // Narrate the greeting
-      if (isSpeakerEnabled) {
-        narrate(greeting);
-      }
-    };
-    
-    setTimeout(sendInitialGreeting, 1000);
+    // Auto-greeting disabled: triggered explicitly by Start Assistant via sendGreeting()
+    // We intentionally do not send or narrate any greeting on mount to avoid double playback.
   }, []);
 
   const initializeAudio = useCallback(async () => {

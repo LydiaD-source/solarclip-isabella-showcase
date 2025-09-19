@@ -9,9 +9,11 @@ const isabellaNavia = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v174722
 interface IsabellaAvatarProps {
   onChatToggle?: () => void;
   isExpanded?: boolean;
+  hideTooltip?: boolean;
+  size?: 'lg' | 'xl';
 }
 
-export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAvatarProps) => {
+export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip = false, size = 'xl' }: IsabellaAvatarProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [inputText, setInputText] = useState('');
@@ -67,13 +69,12 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     }
   };
 
+  const sizeClass = isExpanded ? 'w-20 h-20' : (size === 'xl' ? 'w-[28rem] h-[28rem] lg:w-[32rem] lg:h-[32rem]' : 'w-[20rem] h-[20rem] lg:w-[24rem] lg:h-[24rem]');
   return (
     <div className="relative">
       {/* Main Avatar Button - Large, Luminous Design */}
       <div 
-        className={`relative cursor-pointer group transition-all duration-300 hover:scale-105 ${
-          isExpanded ? 'w-20 h-20' : 'w-40 h-40'
-        }`}
+        className={`relative cursor-pointer group transition-all duration-300 hover:scale-105 ${sizeClass}`
         onClick={handleChatToggle}
       >
         {/* Outer glow effect */}
@@ -115,7 +116,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
       </div>
 
       {/* Floating tooltip */}
-      {showTooltip && !isExpanded && (
+      {showTooltip && !hideTooltip && !isExpanded && (
         <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg animate-[fade-in_0.5s_ease-out,pulse_2s_ease-in-out_infinite] pointer-events-none">
           <p className="text-xs text-muted-foreground whitespace-nowrap">
             💬 <span className="text-accent font-medium">Click to chat with me</span>

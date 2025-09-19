@@ -48,6 +48,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     setShowMeetButton(false);
     journey.start();
     onChatToggle?.();
+    sendGreeting();
   };
 
   const handleVideoThumbnail = (videoId: string) => {
@@ -147,7 +148,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           <div className="relative">
             {!isExpanded ? (
               <div className="text-center">
-                <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} />
+                <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} hideTooltip size="xl" />
                 {showMeetButton && (
                   <Button 
                     className="meet-isabella-btn-animated text-lg px-8 py-4 absolute bottom-10 left-0 -translate-x-full ml-4"
@@ -159,7 +160,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 )}
               </div>
             ) : (
-              <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} />
+              <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} hideTooltip size="xl" />
             )}
           </div>
         </div>
