@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 export interface ChatMessage {
   id: string;
   text: string;
-  sender: 'user' | 'assistant';
+  sender: 'user' | 'isabella';
   timestamp: Date;
   audio?: string;
   isPlaying?: boolean;
@@ -13,8 +13,24 @@ export interface ChatMessage {
 
 export const useWellnessGeniChat = () => {
   const { toast } = useToast();
-  // Initialize with empty messages - reset on each session
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // Initialize messages from sessionStorage to prevent conversation resets
+  const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('isabella-chat-messages');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return parsed.map((msg: any) => ({
+            ...msg,
+            timestamp: new Date(msg.timestamp)
+          }));
+        }
+      } catch (error) {
+        console.error('Error loading saved messages:', error);
+      }
+    }
+    return [];
+  });
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
@@ -42,10 +58,6 @@ export const useWellnessGeniChat = () => {
 
   // Initialize audio context and speech recognition
   useEffect(() => {
-    // Reset session and start fresh each time
-    setMessages([]);
-    setDidVideoUrl(null);
-    
     if (typeof window !== 'undefined') {
       // Initialize speech recognition
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -72,9 +84,6 @@ export const useWellnessGeniChat = () => {
         setRecognition(recognitionInstance);
       }
     }
-    
-    // Auto-greeting disabled: triggered explicitly by Start Assistant via sendGreeting()
-    // We intentionally do not send or narrate any greeting on mount to avoid double playback.
   }, []);
 
   const initializeAudio = useCallback(async () => {
@@ -94,18 +103,10 @@ export const useWellnessGeniChat = () => {
 
   const playAudio = useCallback(async (base64Audio: string) => {
     if (!isSpeakerEnabled) return;
-    
+    const ctx = await initializeAudio();
+    if (!ctx) return;
+
     try {
-      const ctx = await initializeAudio();
-      if (!ctx) return;
-
-      // Stop any currently playing audio
-      if (currentSource) {
-        currentSource.stop();
-        setCurrentSource(null);
-      }
-
-      // Decode base64 audio
       const binaryString = atob(base64Audio);
       const bytes = new Uint8Array(binaryString.length);
       for (let i = 0; i < binaryString.length; i++) {
@@ -113,14 +114,16 @@ export const useWellnessGeniChat = () => {
       }
 
       const audioBuffer = await ctx.decodeAudioData(bytes.buffer);
+      // Stop any currently playing source before starting a new one
+      if (currentSource) {
+        try { currentSource.stop(); } catch {}
+      }
       const source = ctx.createBufferSource();
       source.buffer = audioBuffer;
       source.connect(ctx.destination);
-      
       source.onended = () => {
         setCurrentSource(null);
       };
-      
       setCurrentSource(source);
       source.start(0);
     } catch (error) {
@@ -128,50 +131,72 @@ export const useWellnessGeniChat = () => {
     }
   }, [isSpeakerEnabled, initializeAudio, currentSource]);
 
-  const narrate = useCallback(async (text: string) => {
-    if (!isSpeakerEnabled || !text.trim()) return;
-    
-    try {
-      const { data, error } = await supabase.functions.invoke('elevenlabs-tts', {
-        body: {
-          text: text,
-          voice_id: 't0IcnDolatli2xhqgLgn'
+  const pollDidTalk = useCallback(async (talkId: string) => {
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+    for (let i = 0; i < 30; i++) {
+      try {
+        const { data, error } = await supabase.functions.invoke('did-avatar', {
+          body: { talk_id: talkId }
+        });
+        if (error) {
+          console.error('[D-ID] poll error', error);
+          await delay(1000);
+          continue;
         }
-      });
-
-      if (error) {
-        console.error('TTS error:', error);
-        return;
+        if (data?.result_url) {
+          setDidVideoUrl(data.result_url);
+          // Auto-hide after 15s
+          setTimeout(() => setDidVideoUrl(null), 15000);
+          break;
+        }
+        if (data?.status === 'error') {
+          console.error('[D-ID] poll status error', data);
+          break;
+        }
+        await delay(1000);
+      } catch (e) {
+        console.error('[D-ID] poll exception', e);
+        await delay(1000);
       }
-
-      if (data?.audio) {
-        await playAudio(data.audio);
-      }
-    } catch (error) {
-      console.error('Error in narrate:', error);
     }
-  }, [isSpeakerEnabled, playAudio]);
+  }, []);
+
+  const stopAudio = useCallback(() => {
+    if (currentSource) {
+      try { currentSource.stop(); } catch {}
+      setCurrentSource(null);
+    }
+  }, [currentSource]);
 
   const sendMessage = useCallback(async (text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
+    if (!text.trim() || isProcessing) return;
 
-    // Duplicate prevention
     const now = Date.now();
-    const recent = lastSentRef.current;
-    if (recent && recent.text === trimmed && (now - recent.time) < 2000) {
-      console.log('Duplicate message detected, skipping');
+    const trimmed = text.trim();
+    if (lastSentRef.current && lastSentRef.current.text === trimmed && now - lastSentRef.current.time < 30000) {
+      console.log('Deduped repeated message');
       return;
     }
 
     const userMessage: ChatMessage = {
-      id: Date.now().toString() + '_user',
-      text: trimmed,
+      id: Date.now().toString(),
+      text: text.trim(),
       sender: 'user',
       timestamp: new Date(),
     };
-    setMessages(prev => [...prev, userMessage]);
 
+    setMessages(prev => {
+      const updated = [...prev, userMessage];
+      // Persist to sessionStorage to prevent conversation resets
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+        } catch (error) {
+          console.error('Error saving messages:', error);
+        }
+      }
+      return updated;
+    });
     setIsProcessing(true);
     lastSentRef.current = { text: trimmed, time: now };
 
@@ -212,6 +237,8 @@ export const useWellnessGeniChat = () => {
 
       console.log('[WellnessGeni] response', chatData);
 
+      if (chatError) throw chatError;
+
       let responseText = typeof chatData?.response === 'string' ? chatData.response : 
                          typeof chatData?.text === 'string' ? chatData.text : '';
       
@@ -222,30 +249,23 @@ export const useWellnessGeniChat = () => {
       const isabellaMessage: ChatMessage = {
         id: Date.now().toString() + '_isabella',
         text: responseText,
-        sender: 'assistant',
+        sender: 'isabella',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, isabellaMessage]);
-
-      // Always create D-ID animation for Isabella's response
-      try {
-        console.log('[D-ID] Creating animation for response');
-        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-          body: { text: responseText }
-        });
-
-        if (didError) {
-          console.error('[D-ID] error', didError);
-        } else if (didData?.talk_id) {
-          console.log('[D-ID] talk created:', didData.talk_id);
-          // Start polling for video completion
-          pollDidVideo(didData.talk_id);
+      setMessages(prev => {
+        const updated = [...prev, isabellaMessage];
+        // Persist to sessionStorage to prevent conversation resets
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving messages:', error);
+          }
         }
-      } catch (error) {
-        console.error('[D-ID] Failed to create animation:', error);
-      }
+        return updated;
+      });
 
-      // Generate speech with ElevenLabs if speaker is enabled
+      // Generate speech with ElevenLabs + D-ID animation
       if (isSpeakerEnabled && responseText.trim()) {
         try {
           console.log('[TTS] request → elevenlabs-tts');
@@ -258,107 +278,256 @@ export const useWellnessGeniChat = () => {
 
           if (ttsError) {
             console.error('[TTS] error', ttsError);
+            // Fallback: animate with D-ID using text so the avatar still responds
+            try {
+              const { error: didErr } = await supabase.functions.invoke('did-avatar', {
+                body: { text: responseText }
+              });
+              if (didErr) console.error('[D-ID] fallback (text) error', didErr);
+            } catch (e) {
+              console.error('[D-ID] fallback (text) exception', e);
+            }
             return;
           }
 
           if (ttsData?.audio) {
-            console.log('[TTS] got audio, playing...');
-            // Play audio through standard audio system
-            await playAudio(ttsData.audio);
+            console.log('[TTS] got audio, sending to D-ID for animation');
+            
+            // Send audio to D-ID for avatar animation
+            try {
+              const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                body: {
+                  audio_base64: ttsData.audio
+                }
+              });
+
+              if (didError) {
+                console.error('[D-ID] error', didError);
+                // Fallback to just playing audio without animation
+                await playAudio(ttsData.audio);
+                return;
+              }
+
+              console.log('[D-ID] animation created:', didData);
+              if (didData?.talk_id) {
+                try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
+              }
+              // Play the ElevenLabs audio directly while D-ID handles animation
+              await playAudio(ttsData.audio);
+              
+            } catch (didError) {
+              console.error('D-ID animation error:', didError);
+              // Fallback to just playing audio
+              await playAudio(ttsData.audio);
+            }
           }
         } catch (error) {
-          console.error('Error with TTS:', error);
+          console.error('Speech synthesis error:', error);
         }
       }
 
     } catch (error) {
       console.error('Error sending message:', error);
-      
-      const errorMessage: ChatMessage = {
-        id: Date.now().toString() + '_error',
-        text: 'I\'m sorry, I encountered an error. Please try again.',
-        sender: 'assistant',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      // Do not inject a static fallback message; rely on logs/UX to show failure state
     } finally {
       setIsProcessing(false);
     }
-  }, [messages, sessionId, isSpeakerEnabled, playAudio]);
+  }, [isProcessing, isSpeakerEnabled, playAudio, messages, sessionId]);
 
-  const pollDidVideo = useCallback(async (talkId: string, maxAttempts = 10) => {
-    for (let i = 0; i < maxAttempts; i++) {
-      try {
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds
-        
-        const { data, error } = await supabase.functions.invoke('did-avatar', {
-          body: { talk_id: talkId }
-        });
-
-        if (error) {
-          console.error(`[D-ID] poll attempt ${i + 1} error:`, error);
-          continue;
+  const startListening = useCallback(async () => {
+    if (!isMicEnabled || isListening) return;
+    
+    try {
+      setIsListening(true);
+      
+      // Try starting SpeechRecognition for quicker transcript
+      if (recognition) {
+        try {
+          recognition.start();
+          console.log('SpeechRecognition started');
+        } catch (e) {
+          console.warn('SpeechRecognition start failed:', e);
         }
-
-        if (data?.status === 'done' && data?.result_url) {
-          console.log('[D-ID] video ready:', data.result_url);
-          setDidVideoUrl(data.result_url);
-          break;
-        } else if (data?.status === 'error') {
-          console.error('[D-ID] video generation failed:', data);
-          break;
-        }
-
-        console.log(`[D-ID] poll attempt ${i + 1}: ${data?.status || 'unknown'}`);
-      } catch (error) {
-        console.error(`[D-ID] poll attempt ${i + 1} exception:`, error);
       }
+      
+      // Enhanced microphone access with better error handling
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      console.log('Microphone access granted successfully');
+      
+      // Reset audio chunks
+      audioChunksRef.current = [];
+
+      // Enhanced MediaRecorder with better format detection
+      const mimeTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm;codecs=pcm', 
+        'audio/webm',
+        'audio/mp4',
+        'audio/wav'
+      ];
+      
+      let mimeType = 'audio/webm';
+      for (const type of mimeTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          break;
+        }
+      }
+
+      const mediaRecorder = new MediaRecorder(stream, { 
+        mimeType,
+        audioBitsPerSecond: 128000
+      });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+          console.log(`Audio chunk received: ${event.data.size} bytes`);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        console.log('MediaRecorder stopped, processing audio...');
+        setIsListening(false);
+        
+        // Stop all tracks to release microphone
+        stream.getTracks().forEach(track => track.stop());
+        
+        if (audioChunksRef.current.length > 0) {
+          await processAudioToText();
+        } else {
+          console.warn('No audio chunks recorded');
+        }
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error('MediaRecorder error:', event);
+        setIsListening(false);
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      // Start recording
+      mediaRecorder.start(1000); // Collect data every second
+      console.log('Started voice recording with mime type:', mimeType);
+
+      // Auto-stop after 10 seconds
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          console.log('Auto-stopping recording after 10 seconds');
+          mediaRecorderRef.current.stop();
+        }
+      }, 10000);
+
+    } catch (error) {
+      console.error('Error starting voice input:', error);
+      setIsListening(false);
+      
+      // Enhanced error message with specific guidance
+      let errorText = 'Sorry, I couldn\'t access your microphone. ';
+      if (error.name === 'NotAllowedError') {
+        errorText += 'Please allow microphone access and try again.';
+      } else if (error.name === 'NotFoundError') {
+        errorText += 'No microphone found. Please check your device.';
+      } else {
+        errorText += 'Please check your browser permissions and try again.';
+      }
+      
+      const errorMessage: ChatMessage = {
+        id: Date.now().toString() + '_mic_error',
+        text: errorText,
+        sender: 'isabella',
+        timestamp: new Date(),
+      };
+      setMessages(prev => {
+        const updated = [...prev, errorMessage];
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving messages:', error);
+          }
+        }
+        return updated;
+      });
+    }
+  }, [isMicEnabled, isListening, recognition]);
+
+  const stopListening = useCallback(() => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
     }
   }, []);
 
-  const processVoiceInput = useCallback(async (audioBlob: Blob) => {
-    console.log('Processing voice input, blob size:', audioBlob.size);
-    
+  const processAudioToText = useCallback(async () => {
     try {
-      // Add processing message
+      console.log('Processing audio chunks:', audioChunksRef.current.length);
+      
+      if (audioChunksRef.current.length === 0) {
+        console.warn('No audio chunks to process');
+        return;
+      }
+      
+      const audioBlob = new Blob(audioChunksRef.current, { 
+        type: audioChunksRef.current[0]?.type || 'audio/webm' 
+      });
+      
+      console.log('Audio blob created:', {
+        size: audioBlob.size,
+        type: audioBlob.type
+      });
+      
+      // Using direct FormData upload to edge function; base64 conversion removed
+
+      // Add processing message to UI
       const processingMessage: ChatMessage = {
         id: Date.now().toString() + '_processing',
-        text: '🎤 Processing voice input...',
-        sender: 'user',
+        text: '🎤 Processing your voice...',
+        sender: 'isabella',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, processingMessage]);
+      setMessages(prev => {
+        const updated = [...prev, processingMessage];
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving messages:', error);
+          }
+        }
+        return updated;
+      });
 
       // Send audio blob as multipart/form-data to Supabase Edge Function
       const formData = new FormData();
       const ext = audioBlob.type.includes('mp4') ? 'mp4' : audioBlob.type.includes('wav') ? 'wav' : 'webm';
       formData.append('file', audioBlob, `voice-input.${ext}`);
 
-      // Invoke via direct fetch with multipart/form-data (functions.invoke doesn't reliably handle FormData)
-      const resp = await fetch('https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/speech-to-text', {
-        method: 'POST',
-        headers: {
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aWtmeXF6d2VwbnViZHNjbGZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjYwOTAsImV4cCI6MjA3MzAwMjA5MH0.pU9K35VK1G2Zp6HATRAhaahMN-QWY_BSXjmtbXEIMrM',
-          'authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aWtmeXF6d2VwbnViZHNjbGZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjYwOTAsImV4cCI6MjA3MzAwMjA5MH0.pU9K35VK1G2Zp6HATRAhaahMN-QWY_BSXjmtbXEIMrM',
-        },
+      const { data, error } = await supabase.functions.invoke('speech-to-text', {
         body: formData,
       });
 
-      if (!resp.ok) {
-        const errText = await resp.text();
-        console.error('Speech-to-text error:', resp.status, errText);
-        throw new Error(`Speech-to-text failed: ${resp.status} - ${errText}`);
+      if (error) {
+        console.error('Speech-to-text error:', error);
+        throw new Error(error.message || 'Speech-to-text failed');
       }
 
-      const sttData = await resp.json();
-
-      console.log('Speech-to-text result:', sttData);
+      console.log('Speech-to-text result:', data);
 
       // Remove processing message
       setMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
 
-      if (sttData?.text && sttData.text.trim()) {
-        const transcribedText = sttData.text.trim();
+      if (data?.text && data.text.trim()) {
+        const transcribedText = data.text.trim();
         console.log('Transcribed text:', transcribedText);
         
         // Add user message with clean transcribed text (no emoji prefix)
@@ -368,7 +537,18 @@ export const useWellnessGeniChat = () => {
           sender: 'user',
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, userMessage]);
+        setMessages(prev => {
+          const updated = [...prev, userMessage];
+          // Persist to sessionStorage to prevent conversation resets
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+            } catch (error) {
+              console.error('Error saving messages:', error);
+            }
+          }
+          return updated;
+        });
         
         // Send transcribed text as a message (this will get Isabella's response)
         await sendMessage(transcribedText);
@@ -376,10 +556,20 @@ export const useWellnessGeniChat = () => {
         const noSpeechMessage: ChatMessage = {
           id: Date.now().toString() + '_no_speech',
           text: 'I couldn\'t understand what you said. Please try speaking clearly or use the text input.',
-          sender: 'assistant',
+          sender: 'isabella',
           timestamp: new Date(),
         };
-        setMessages(prev => [...prev, noSpeechMessage]);
+        setMessages(prev => {
+          const updated = [...prev, noSpeechMessage];
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+            } catch (error) {
+              console.error('Error saving messages:', error);
+            }
+          }
+          return updated;
+        });
       }
 
     } catch (error) {
@@ -388,105 +578,22 @@ export const useWellnessGeniChat = () => {
       const errorMessage: ChatMessage = {
         id: Date.now().toString() + '_speech_error',
         text: 'Sorry, I had trouble processing your voice input. Please try speaking again or use the text input.',
-        sender: 'assistant',
+        sender: 'isabella',
         timestamp: new Date(),
       };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const updated = [...prev, errorMessage];
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving messages:', error);
+          }
+        }
+        return updated;
+      });
     }
   }, [sendMessage]);
-
-  const startListening = useCallback(async () => {
-    if (!isMicEnabled) return;
-    
-    setIsListening(true);
-    
-    try {
-      // Get user media for microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          sampleRate: 44100,
-          channelCount: 1,
-          echoCancellation: true,
-          noiseSuppression: true
-        } 
-      });
-      
-      // Reset audio chunks
-      audioChunksRef.current = [];
-      
-      // Create MediaRecorder with best available format
-      let mimeType = 'audio/webm;codecs=opus';
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/webm';
-      }
-      if (!MediaRecorder.isTypeSupported(mimeType)) {
-        mimeType = 'audio/mp4';
-      }
-      
-      const mediaRecorder = new MediaRecorder(stream, { mimeType });
-      mediaRecorderRef.current = mediaRecorder;
-      
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
-        }
-      };
-      
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
-        
-        if (audioBlob.size > 0) {
-          await processVoiceInput(audioBlob);
-        }
-        
-        // Clean up stream
-        stream.getTracks().forEach(track => track.stop());
-        setIsListening(false);
-      };
-      
-      // Start recording
-      mediaRecorder.start();
-      
-      // Auto-stop after 5 seconds for better UX
-      setTimeout(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          mediaRecorderRef.current.stop();
-        }
-      }, 5000);
-      
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      setIsListening(false);
-      
-      toast({
-        title: "Microphone Access",
-        description: "Could not access microphone. Please check permissions.",
-        variant: "destructive",
-      });
-    }
-  }, [isMicEnabled, processVoiceInput, toast]);
-
-  const stopListening = useCallback(() => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-    setIsListening(false);
-  }, []);
-
-  const toggleSpeaker = useCallback(() => {
-    setIsSpeakerEnabled(prev => !prev);
-    if (currentSource) {
-      currentSource.stop();
-      setCurrentSource(null);
-    }
-  }, [currentSource]);
-
-  const toggleMicrophone = useCallback(() => {
-    setIsMicEnabled(prev => !prev);
-    if (isListening) {
-      stopListening();
-    }
-  }, [isListening, stopListening]);
 
   const sendGreeting = useCallback(async () => {
     // Global guard to avoid duplicate greetings (React StrictMode mounts, route remounts)
@@ -498,10 +605,150 @@ export const useWellnessGeniChat = () => {
     if (greetingSentRef.current) return;
     greetingSentRef.current = true;
     
-    console.log('[Isabella] Sending automated greeting');
-    // This will send the greeting and get Isabella's response automatically
-    await sendMessage("Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly and I will do the same.");
-  }, [sendMessage]);
+    // Use the structured journey greeting text
+    const greetingText = "Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly and I will do the same.";
+    
+    // Add greeting message to UI
+    const isabellaMessage: ChatMessage = {
+      id: Date.now().toString() + '_greeting',
+      text: greetingText,
+      sender: 'isabella',
+      timestamp: new Date(),
+    };
+    setMessages(prev => {
+      const updated = [...prev, isabellaMessage];
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+        } catch (error) {
+          console.error('Error saving messages:', error);
+        }
+      }
+      return updated;
+    });
+
+    // Generate speech with ElevenLabs immediately
+    if (isSpeakerEnabled) {
+      try {
+        console.log('[TTS] request → elevenlabs-tts (greeting)');
+        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
+          body: {
+            text: greetingText,
+            voice_id: 't0IcnDolatli2xhqgLgn' // Isabella Navia voice
+          }
+        });
+
+        if (ttsError) {
+          console.error('[TTS] error', ttsError);
+          // Fallback: animate with D-ID using text so the avatar still responds
+          try {
+            const { error: didErr } = await supabase.functions.invoke('did-avatar', {
+              body: { text: greetingText }
+            });
+            if (didErr) console.error('[D-ID] greeting fallback (text) error', didErr);
+          } catch (e) {
+            console.error('[D-ID] greeting fallback (text) exception', e);
+          }
+          return;
+        }
+
+        if (ttsData?.audio) {
+          console.log('[TTS] got greeting audio, sending to D-ID for animation');
+          
+          // Send audio to D-ID for avatar animation
+          try {
+            const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+              body: {
+                audio_base64: ttsData.audio
+              }
+            });
+
+            if (didError) {
+              console.error('[D-ID] greeting error', didError);
+            } else {
+              console.log('[D-ID] greeting animation created:', didData);
+              if (didData?.talk_id) {
+                try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
+              }
+            }
+          } catch (didError) {
+            console.error('D-ID greeting animation error:', didError);
+          }
+
+          // Play the ElevenLabs audio directly
+          console.log('[TTS] playing greeting audio');
+          await playAudio(ttsData.audio);
+        }
+      } catch (error) {
+        console.error('Greeting speech synthesis error:', error);
+      }
+    }
+  }, [isSpeakerEnabled, playAudio, setMessages]);
+
+  const toggleSpeaker = useCallback(() => {
+    setIsSpeakerEnabled(prev => {
+      const next = !prev;
+      if (!next) {
+        // Stop any ongoing audio immediately when disabling speaker
+        stopAudio();
+      }
+      return next;
+    });
+  }, [stopAudio]);
+
+  const toggleMicrophone = useCallback(async () => {
+    if (!isMicEnabled) {
+      // Request microphone permission and immediately start listening
+      try {
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        setIsMicEnabled(true);
+        await startListening();
+      } catch (error) {
+        console.error('Microphone permission denied:', error);
+      }
+    } else {
+      setIsMicEnabled(false);
+      if (isListening) {
+        stopListening();
+      }
+      if (recognition) {
+        try { recognition.stop(); } catch {}
+      }
+    }
+  }, [isMicEnabled, isListening, recognition, startListening, stopListening]);
+
+  // Fallback narrate to ensure journey can always speak
+  const narrate = useCallback(async (text: string) => {
+    const isabellaMessage: ChatMessage = {
+      id: Date.now().toString() + '_narrate_min',
+      text,
+      sender: 'isabella',
+      timestamp: new Date(),
+    };
+    setMessages(prev => {
+      const updated = [...prev, isabellaMessage];
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+        } catch (error) {
+          console.error('Error saving messages:', error);
+        }
+      }
+      return updated;
+    });
+
+    if (!isSpeakerEnabled || !text.trim()) return;
+    try {
+      const { data } = await supabase.functions.invoke('elevenlabs-tts', {
+        body: { text, voice_id: 't0IcnDolatli2xhqgLgn' }
+      });
+      if (data?.audio) {
+        await playAudio(data.audio);
+      }
+    } catch (e) {
+      console.error('[TTS] narrate fallback error', e);
+    }
+  }, [isSpeakerEnabled, playAudio]);
 
   return {
     messages,
@@ -509,7 +756,6 @@ export const useWellnessGeniChat = () => {
     isSpeakerEnabled,
     isMicEnabled,
     isListening,
-    audioContext,
     didVideoUrl,
     sendMessage,
     sendGreeting,

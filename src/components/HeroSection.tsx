@@ -48,7 +48,6 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     setShowMeetButton(false);
     journey.start();
     onChatToggle?.();
-    sendGreeting();
   };
 
   const handleVideoThumbnail = (videoId: string) => {
@@ -114,8 +113,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             <span className="font-semibold text-white"> Fast. Reversible. Roof-safe.</span>
           </p>
 
-          {/* Video Thumbnails - Lifted to prevent bottom cropping */}
-          <div className="flex gap-4 flex-wrap -translate-y-2 sm:-translate-y-2">
+          {/* Video Thumbnails */}
+          <div className="flex gap-4 flex-wrap">
             {videoThumbnails.map((video) => (
               <div 
                 key={video.id}
@@ -144,26 +143,24 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         </div>
 
         {/* Right Column - Isabella Avatar */}
-        <div className="relative min-h-screen pr-8">
-          <div className="absolute top-1 bottom-4 right-8">
-            {!isExpanded ? (
-              <div className="text-center relative">
-                <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} hideTooltip size="xl" />
-                {showMeetButton && (
-                  <Button 
-                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute bottom-5 right-[calc(100%+16px)] z-50"
-                    onClick={handleMeetIsabella}
-                  >
-                    <Play className="mr-3 w-6 h-6" />
-                    Start Assistant
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} hideTooltip size="xl" />
-            )}
-          </div>
-        </div>
+        <div className="flex justify-center lg:justify-end items-center relative -mt-5">
+          <div className="relative">
+            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={false} />
+            {showMeetButton && (
+              <div className="hidden lg:block absolute bottom-[-22px] -left-36 xl:-left-44 text-center">
+                <Button 
+                  className="meet-isabella-btn-animated text-sm px-5 py-2"
+                  onClick={handleMeetIsabella}
+                  style={{ transform: 'scale(0.88)' }}
+                >
+                  <Play className="mr-2 w-5 h-5" />
+                  Start Assistant
+                </Button>
+                 <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
+               </div>
+             )}
+           </div>
+         </div>
 
         {/* Enhanced Chatbox Panel - Positioned with proper spacing from Isabella */}
         {isExpanded && (
