@@ -175,6 +175,8 @@ export const useWellnessGeniChat = () => {
 
   const pollDidTalk = useCallback(async (talkId: string) => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+    let receivedAudioUrl: string | null = null;
+    let started = false;
     for (let i = 0; i < 30; i++) {
       try {
         const { data, error } = await supabase.functions.invoke('did-avatar', {
@@ -186,10 +188,13 @@ export const useWellnessGeniChat = () => {
           continue;
         }
         console.log('[D-ID] poll status:', { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, id: data?.id });
-        if (data?.audio_url) {
-          console.log('[D-ID] audio_url received', data.audio_url);
-          try { await playDidAudio(data.audio_url); } catch (e) { console.warn('[D-ID] audio play warn', e); }
+
+        // Capture audio URL once but do not start playback until video is ready
+        if (data?.audio_url && !receivedAudioUrl) {
+          receivedAudioUrl = data.audio_url;
+          console.log('[D-ID] audio_url received (captured for sync)');
         }
+
         if (data?.result_url) {
           try {
             console.log('[D-ID] proxying video via edge function');
@@ -209,6 +214,13 @@ export const useWellnessGeniChat = () => {
             }
             didVideoObjectUrlRef.current = vUrl;
             setDidVideoUrl(vUrl);
+
+            // Start audio once (after video URL is set) to keep them in sync
+            if (!started && (receivedAudioUrl || data?.audio_url)) {
+              try { await playDidAudio(receivedAudioUrl || data.audio_url); } catch (e) { console.warn('[D-ID] audio play warn', e); }
+              started = true;
+            }
+
             // Auto-hide and cleanup after 20s
             setTimeout(() => {
               setDidVideoUrl(null);
@@ -577,7 +589,7 @@ export const useWellnessGeniChat = () => {
 
       console.log('Sending audio to speech-to-text function...');
       // Use direct fetch with FormData to ensure proper multipart boundaries
-      const resp = await fetch('https://mzikfyqzwepnubdsclfd.functions.supabase.co/speech-to-text', {
+      const resp = await fetch('https://mzikfyqzwepnubdsclfd.functions.supabase.co/functions/v1/speech-to-text', {
         method: 'POST',
         body: formData,
       });
@@ -808,20 +820,15 @@ export const useWellnessGeniChat = () => {
       } else {
         // Use D-ID built-in TTS by sending text and then polling for video/audio
         console.log('[D-ID] narrate → did-avatar with built-in TTS');
-        setIsProcessing(true);
-        try {
-          const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-            body: { text }
-          });
-          if (didError) {
-            console.error('[D-ID] narrate error', didError);
-            return;
-          }
-          if (didData?.talk_id) {
-            await pollDidTalk(didData.talk_id);
-          }
-        } finally {
-          setIsProcessing(false);
+        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+          body: { text }
+        });
+        if (didError) {
+          console.error('[D-ID] narrate error', didError);
+          return;
+        }
+        if (didData?.talk_id) {
+          await pollDidTalk(didData.talk_id);
         }
       }
     } catch (e) {
