@@ -15,6 +15,9 @@ verify_jwt = false
 [functions.elevenlabs-tts]
 verify_jwt = false
 
+[functions.speech-to-text]
+verify_jwt = false
+
 [functions.did-avatar]
 verify_jwt = false
 
