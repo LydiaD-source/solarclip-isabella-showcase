@@ -30,6 +30,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     toggleMicrophone,
     initializeAudio,
     narrate,
+    didVideoUrl,
   } = useWellnessGeniChat();
 
   // Auto-show tooltip after component mounts

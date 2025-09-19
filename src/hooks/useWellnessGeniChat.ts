@@ -252,7 +252,7 @@ export const useWellnessGeniChat = () => {
             try {
               const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
                 body: {
-                  audio_base64: ttsData.audio
+                  text: responseText
                 }
               });
 
