@@ -161,17 +161,17 @@ export const useWellnessGeniChat = () => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
     let receivedAudioUrl: string | null = null;
     let started = false;
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) { // Increase max polls for longer greetings
       try {
         const { data, error } = await supabase.functions.invoke('did-avatar', {
           body: { talk_id: talkId }
         });
         if (error) {
           console.error('[D-ID] poll error', error);
-          await delay(1000);
+          await delay(800); // Faster polling for quicker response
           continue;
         }
-        console.log('[D-ID] poll status:', { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, id: data?.id });
+        console.log('[D-ID] poll status:', { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, id: data?.id, duration: data?.duration });
 
         // Capture audio URL once but do not start playback until video is ready
         if (data?.audio_url && !receivedAudioUrl) {
@@ -202,8 +202,10 @@ export const useWellnessGeniChat = () => {
             // Do not play separate audio; the proxied video includes the audio track.
             // We rely on the <video> element to play synchronized A/V once it's ready.
 
-            // Auto-hide and cleanup after 20s
+            // Auto-hide video after the actual duration + 2 seconds buffer
+            const hideDelay = (data.duration || 20) * 1000 + 2000;
             setTimeout(() => {
+              console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 'seconds');
               setDidVideoUrl(null);
               if (didVideoObjectUrlRef.current) {
                 try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
@@ -219,7 +221,7 @@ export const useWellnessGeniChat = () => {
           console.error('[D-ID] poll status error', data);
           break;
         }
-        await delay(1000);
+        await delay(1500); // Faster polling interval
       } catch (e) {
         console.error('[D-ID] poll exception', e);
         await delay(1000);

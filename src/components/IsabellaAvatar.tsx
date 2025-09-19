@@ -96,7 +96,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
             src={videoUrl}
             autoPlay
             playsInline
-            className={`absolute inset-0 w-full h-full ${videoUrl ? 'object-cover p-0' : 'object-contain p-2'} rounded-full`}
+            className="absolute inset-0 w-full h-full object-contain rounded-full p-2"
           />
         )}
         {/* Isabella Navia Image */}
