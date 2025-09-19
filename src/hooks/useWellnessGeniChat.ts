@@ -205,8 +205,8 @@ export const useWellnessGeniChat = () => {
             // Do not play separate audio; the proxied video includes the audio track.
             // We rely on the <video> element to play synchronized A/V once it's ready.
 
-            // Auto-hide video after the actual duration + 2 seconds buffer
-            const hideDelay = (data.duration || 20) * 1000 + 2000;
+            // Auto-hide video after the actual duration + 3 seconds buffer for longer greetings
+            const hideDelay = (data.duration || 30) * 1000 + 3000;
             setTimeout(() => {
               console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 'seconds');
               setDidVideoUrl(null);
@@ -214,7 +214,7 @@ export const useWellnessGeniChat = () => {
                 try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
                 didVideoObjectUrlRef.current = null;
               }
-            }, 20000);
+            }, hideDelay);
           } catch (e) {
             console.error('[D-ID] video playback prepare error', e);
           }
