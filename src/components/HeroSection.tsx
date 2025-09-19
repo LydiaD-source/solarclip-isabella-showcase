@@ -77,8 +77,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
 
-      {/* Language Toggle - Top Right Corner of Isabella's Image */}
-      <div className="absolute top-8 right-8 z-50">
+      {/* Language Toggle - Top Right Corner of Isabella's Image - Lifted 3mm up, 2mm right */}
+      <div className="absolute top-5 right-6 z-50">
         <Button
           variant="ghost"
           size="sm"
@@ -147,7 +147,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           <div className="relative">
             <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={false} />
             {showMeetButton && (
-              <div className="hidden lg:block absolute bottom-[-22px] -left-36 xl:-left-44 text-center">
+              <div className="hidden lg:block absolute bottom-[-10px] -left-36 xl:-left-44 text-center">
                 <Button 
                   className="meet-isabella-btn-animated text-sm px-5 py-2"
                   onClick={handleMeetIsabella}

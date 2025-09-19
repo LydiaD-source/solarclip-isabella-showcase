@@ -67,7 +67,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAva
     <div className="relative mx-auto lg:mx-0 z-50">
       {/* Avatar - Enlarged and centered without cropping */}
       <div 
-        className={`isabella-avatar w-[65vw] h-[80vw] sm:w-[60vw] sm:h-[76vw] lg:w-[22rem] lg:h-[28rem] xl:w-[26rem] xl:h-[32rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 shadow-black/20 hover:shadow-accent/20`}
+        className={`isabella-avatar w-[63vw] h-[78vw] sm:w-[58vw] sm:h-[74vw] lg:w-[21rem] lg:h-[27rem] xl:w-[25rem] xl:h-[31rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 shadow-black/20 hover:shadow-accent/20`}
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Video (D-ID) */}
