@@ -143,22 +143,19 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         </div>
 
         {/* Right Column - Isabella Avatar */}
-        <div className="flex justify-center lg:justify-end items-center relative">
+        <div className="flex justify-center lg:justify-end items-start relative pt-4 pb-10">
           <div className="relative">
             {!isExpanded ? (
               <div className="text-center">
                 <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} />
                 {showMeetButton && (
-                  <div className="mt-6">
-                    <Button 
-                      className="meet-isabella-btn-animated text-lg px-8 py-4"
-                      onClick={handleMeetIsabella}
-                    >
-                      <Play className="mr-3 w-6 h-6" />
-                      Start Assistant
-                    </Button>
-                    <p className="text-white/70 text-lg mt-3">Your AI guide to SolarClip™</p>
-                  </div>
+                  <Button 
+                    className="meet-isabella-btn-animated text-lg px-8 py-4 absolute bottom-10 left-0 -translate-x-full ml-4"
+                    onClick={handleMeetIsabella}
+                  >
+                    <Play className="mr-3 w-6 h-6" />
+                    Start Assistant
+                  </Button>
                 )}
               </div>
             ) : (
