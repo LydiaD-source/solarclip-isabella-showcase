@@ -78,17 +78,17 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
         onClick={handleChatToggle}
       >
         {/* Outer glow effect */}
-        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-purple-400/30 to-blue-400/30 blur-lg group-hover:blur-xl transition-all duration-500"></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-purple-400/30 to-blue-400/30 blur-lg group-hover:blur-xl transition-all duration-500" style={{ borderRadius: '50% / 60%' }}></div>
         
         {/* Inner avatar container with D-ID video or image - Oval shape */}
-        <div className="relative w-full h-full overflow-hidden border-2 border-white/20 shadow-2xl bg-gradient-to-br from-purple-100 to-blue-100" style={{ borderRadius: '50% / 40%' }}>
+        <div className="relative w-full h-full overflow-hidden border-2 border-white/20 shadow-2xl bg-gradient-to-br from-purple-100 to-blue-100" style={{ borderRadius: '50% / 60%' }}>
           {didVideoUrl ? (
             <video 
               src={didVideoUrl} 
               autoPlay 
               loop 
               muted
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover object-top"
               onError={() => {
                 console.log('D-ID video failed to load, falling back to image');
               }}
@@ -97,7 +97,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
             <img 
               src={isabellaNavia} 
               alt="Isabella Navia - AI Solar Ambassador" 
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              className="w-full h-full object-cover object-top transition-transform duration-300 group-hover:scale-110"
             />
           )}
           
@@ -112,7 +112,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
         </div>
         
         {/* Pulsing ring animation - Oval shape */}
-        <div className="absolute inset-0 border-2 border-purple-400/50 animate-ping" style={{ borderRadius: '50% / 40%' }}></div>
+        <div className="absolute inset-0 border-2 border-purple-400/50 animate-ping" style={{ borderRadius: '50% / 60%' }}></div>
       </div>
 
       {/* Floating tooltip */}
