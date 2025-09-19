@@ -74,7 +74,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, hideTooltip =
     <div className="relative">
       {/* Main Avatar Button - Large, Luminous Design */}
       <div 
-        className={`relative cursor-pointer group transition-all duration-300 hover:scale-105 ${sizeClass}`
+        className={`relative cursor-pointer group transition-all duration-300 hover:scale-105 ${sizeClass}`}
         onClick={handleChatToggle}
       >
         {/* Outer glow effect */}
