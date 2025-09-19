@@ -5,7 +5,7 @@ import { useToast } from '@/components/ui/use-toast';
 export interface ChatMessage {
   id: string;
   text: string;
-  sender: 'user' | 'isabella';
+  sender: 'user' | 'assistant';
   timestamp: Date;
   audio?: string;
   isPlaying?: boolean;
@@ -42,6 +42,10 @@ export const useWellnessGeniChat = () => {
 
   // Initialize audio context and speech recognition
   useEffect(() => {
+    // Reset session and start fresh each time
+    setMessages([]);
+    setDidVideoUrl(null);
+    
     if (typeof window !== 'undefined') {
       // Initialize speech recognition
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -68,6 +72,43 @@ export const useWellnessGeniChat = () => {
         setRecognition(recognitionInstance);
       }
     }
+    
+    // Send initial greeting and get D-ID animation
+    const sendInitialGreeting = async () => {
+      const greeting = "Hello! I'm Isabella, your AI Solar Ambassador. I'm here to guide you through SolarClip™, the revolutionary clip-on solar mounting system. How can I help you today?";
+      
+      // Add greeting to chat
+      const greetingMessage: ChatMessage = {
+        id: Date.now().toString(),
+        text: greeting,
+        sender: 'assistant',
+        timestamp: new Date()
+      };
+      setMessages([greetingMessage]);
+      
+      // Get D-ID animation for greeting
+      try {
+        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+          body: { text: greeting }
+        });
+        
+        if (didError) {
+          console.error('D-ID error:', didError);
+        } else if (didData?.talk_id) {
+          // Poll for video result
+          pollDidVideo(didData.talk_id);
+        }
+      } catch (error) {
+        console.error('Failed to create D-ID animation:', error);
+      }
+      
+      // Narrate the greeting
+      if (isSpeakerEnabled) {
+        narrate(greeting);
+      }
+    };
+    
+    setTimeout(sendInitialGreeting, 1000);
   }, []);
 
   const initializeAudio = useCallback(async () => {
@@ -215,12 +256,30 @@ export const useWellnessGeniChat = () => {
       const isabellaMessage: ChatMessage = {
         id: Date.now().toString() + '_isabella',
         text: responseText,
-        sender: 'isabella',
+        sender: 'assistant',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, isabellaMessage]);
 
-      // Generate speech with ElevenLabs + D-ID animation
+      // Always create D-ID animation for Isabella's response
+      try {
+        console.log('[D-ID] Creating animation for response');
+        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+          body: { text: responseText }
+        });
+
+        if (didError) {
+          console.error('[D-ID] error', didError);
+        } else if (didData?.talk_id) {
+          console.log('[D-ID] talk created:', didData.talk_id);
+          // Start polling for video completion
+          pollDidVideo(didData.talk_id);
+        }
+      } catch (error) {
+        console.error('[D-ID] Failed to create animation:', error);
+      }
+
+      // Generate speech with ElevenLabs if speaker is enabled
       if (isSpeakerEnabled && responseText.trim()) {
         try {
           console.log('[TTS] request → elevenlabs-tts');
@@ -233,45 +292,16 @@ export const useWellnessGeniChat = () => {
 
           if (ttsError) {
             console.error('[TTS] error', ttsError);
-            // Fallback: animate with D-ID using text so the avatar still responds
-            try {
-              const { error: didErr } = await supabase.functions.invoke('did-avatar', {
-                body: { text: responseText }
-              });
-              if (didErr) console.error('[D-ID] fallback (text) error', didErr);
-            } catch (e) {
-              console.error('[D-ID] fallback (text) exception', e);
-            }
             return;
           }
 
           if (ttsData?.audio) {
-            console.log('[TTS] got audio, sending to D-ID for animation');
-            
-            // Send audio to D-ID for avatar animation
-            try {
-              const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-                body: {
-                  text: responseText
-                }
-              });
-
-              if (didError) {
-                console.error('[D-ID] error', didError);
-              } else if (didData?.talk_id) {
-                console.log('[D-ID] talk created:', didData.talk_id);
-                // Start polling for video completion
-                pollDidVideo(didData.talk_id);
-              }
-            } catch (e) {
-              console.error('[D-ID] exception', e);
-            }
-
+            console.log('[TTS] got audio, playing...');
             // Play audio through standard audio system
             await playAudio(ttsData.audio);
           }
         } catch (error) {
-          console.error('Error with TTS/D-ID:', error);
+          console.error('Error with TTS:', error);
         }
       }
 
@@ -281,7 +311,7 @@ export const useWellnessGeniChat = () => {
       const errorMessage: ChatMessage = {
         id: Date.now().toString() + '_error',
         text: 'I\'m sorry, I encountered an error. Please try again.',
-        sender: 'isabella',
+        sender: 'assistant',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -380,7 +410,7 @@ export const useWellnessGeniChat = () => {
         const noSpeechMessage: ChatMessage = {
           id: Date.now().toString() + '_no_speech',
           text: 'I couldn\'t understand what you said. Please try speaking clearly or use the text input.',
-          sender: 'isabella',
+          sender: 'assistant',
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, noSpeechMessage]);
@@ -392,7 +422,7 @@ export const useWellnessGeniChat = () => {
       const errorMessage: ChatMessage = {
         id: Date.now().toString() + '_speech_error',
         text: 'Sorry, I had trouble processing your voice input. Please try speaking again or use the text input.',
-        sender: 'isabella',
+        sender: 'assistant',
         timestamp: new Date(),
       };
       setMessages(prev => [...prev, errorMessage]);

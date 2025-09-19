@@ -143,24 +143,29 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         </div>
 
         {/* Right Column - Isabella Avatar */}
-        <div className="flex justify-center lg:justify-end items-center relative -mt-5">
+        <div className="flex justify-center lg:justify-end items-center relative">
           <div className="relative">
-            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={false} />
-            {showMeetButton && (
-              <div className="hidden lg:block absolute bottom-[-22px] -left-36 xl:-left-44 text-center">
-                <Button 
-                  className="meet-isabella-btn-animated text-sm px-5 py-2"
-                  onClick={handleMeetIsabella}
-                  style={{ transform: 'scale(0.88)' }}
-                >
-                  <Play className="mr-2 w-5 h-5" />
-                  Start Assistant
-                </Button>
-                 <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
-               </div>
-             )}
-           </div>
-         </div>
+            {!isExpanded ? (
+              <div className="text-center">
+                <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} />
+                {showMeetButton && (
+                  <div className="mt-6">
+                    <Button 
+                      className="meet-isabella-btn-animated text-lg px-8 py-4"
+                      onClick={handleMeetIsabella}
+                    >
+                      <Play className="mr-3 w-6 h-6" />
+                      Start Assistant
+                    </Button>
+                    <p className="text-white/70 text-lg mt-3">Your AI guide to SolarClip™</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} />
+            )}
+          </div>
+        </div>
 
         {/* Enhanced Chatbox Panel - Positioned with proper spacing from Isabella */}
         {isExpanded && (
