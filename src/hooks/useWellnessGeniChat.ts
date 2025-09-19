@@ -12,6 +12,9 @@ export interface ChatMessage {
 }
 
 export const useWellnessGeniChat = () => {
+  // Temporary flag: disable ElevenLabs TTS while credits are exhausted.
+  // Set to true to re-enable without touching rest of the flow.
+  const USE_ELEVENLABS_TTS = false;
   const { toast } = useToast();
   // Initialize messages from sessionStorage to prevent conversation resets
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
@@ -55,6 +58,7 @@ export const useWellnessGeniChat = () => {
   const [didVideoUrl, setDidVideoUrl] = useState<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const didAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Initialize audio context and speech recognition
   useEffect(() => {
@@ -131,6 +135,23 @@ export const useWellnessGeniChat = () => {
     }
   }, [isSpeakerEnabled, initializeAudio, currentSource]);
 
+  // Play audio from a direct URL (e.g., D-ID audio_url)
+  const playDidAudio = useCallback(async (url: string) => {
+    try {
+      if (didAudioRef.current) {
+        try { didAudioRef.current.pause(); } catch {}
+        didAudioRef.current = null;
+      }
+      const audio = new Audio(url);
+      audio.crossOrigin = 'anonymous';
+      didAudioRef.current = audio;
+      await audio.play();
+      audio.onended = () => { didAudioRef.current = null; };
+    } catch (e) {
+      console.error('[D-ID] audio playback error', e);
+    }
+  }, []);
+
   const pollDidTalk = useCallback(async (talkId: string) => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
     for (let i = 0; i < 30; i++) {
@@ -142,6 +163,10 @@ export const useWellnessGeniChat = () => {
           console.error('[D-ID] poll error', error);
           await delay(1000);
           continue;
+        }
+        if (data?.audio_url) {
+          console.log('[D-ID] audio_url received', data.audio_url);
+          try { await playDidAudio(data.audio_url); } catch (e) { console.warn('[D-ID] audio play warn', e); }
         }
         if (data?.result_url) {
           setDidVideoUrl(data.result_url);
@@ -265,60 +290,50 @@ export const useWellnessGeniChat = () => {
         return updated;
       });
 
-      // Generate speech with ElevenLabs + D-ID animation
+      // Generate speech with voice + D-ID animation
       if (isSpeakerEnabled && responseText.trim()) {
         try {
-          console.log('[TTS] request → elevenlabs-tts');
-          const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
-            body: {
-              text: responseText,
-              voice_id: 't0IcnDolatli2xhqgLgn' // Isabella Navia voice
-            }
-          });
+          if (USE_ELEVENLABS_TTS) {
+            console.log('[TTS] request → elevenlabs-tts');
+            const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
+              body: { text: responseText, voice_id: 't0IcnDolatli2xhqgLgn' }
+            });
 
-          if (ttsError) {
-            console.error('[TTS] error', ttsError);
-            // Fallback: animate with D-ID using text so the avatar still responds
-            try {
-              const { error: didErr } = await supabase.functions.invoke('did-avatar', {
-                body: { text: responseText }
-              });
+            if (ttsError) {
+              console.error('[TTS] error', ttsError);
+              // Fallback: animate with D-ID using text so the avatar still responds
+              const { error: didErr } = await supabase.functions.invoke('did-avatar', { body: { text: responseText } });
               if (didErr) console.error('[D-ID] fallback (text) error', didErr);
-            } catch (e) {
-              console.error('[D-ID] fallback (text) exception', e);
+              return;
             }
-            return;
-          }
 
-          if (ttsData?.audio) {
-            console.log('[TTS] got audio, sending to D-ID for animation');
-            
-            // Send audio to D-ID for avatar animation
-            try {
+            if (ttsData?.audio) {
+              console.log('[TTS] got audio, sending to D-ID for animation');
               const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-                body: {
-                  audio_base64: ttsData.audio
-                }
+                body: { audio_base64: ttsData.audio }
               });
-
               if (didError) {
                 console.error('[D-ID] error', didError);
-                // Fallback to just playing audio without animation
                 await playAudio(ttsData.audio);
                 return;
               }
-
               console.log('[D-ID] animation created:', didData);
-              if (didData?.talk_id) {
-                try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
-              }
-              // Play the ElevenLabs audio directly while D-ID handles animation
+              if (didData?.talk_id) { try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); } }
               await playAudio(ttsData.audio);
-              
-            } catch (didError) {
-              console.error('D-ID animation error:', didError);
-              // Fallback to just playing audio
-              await playAudio(ttsData.audio);
+            }
+          } else {
+            // Temporary fallback: use D-ID built-in TTS with text only
+            console.log('[D-ID] request → did-avatar with built-in TTS');
+            const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+              body: { text: responseText }
+            });
+            if (didError) {
+              console.error('[D-ID] error', didError);
+              return;
+            }
+            console.log('[D-ID] animation created (built-in TTS):', didData);
+            if (didData?.talk_id) {
+              try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
             }
           }
         } catch (error) {
@@ -631,42 +646,27 @@ export const useWellnessGeniChat = () => {
       return updated;
     });
 
-    // Generate speech with ElevenLabs immediately
+    // Generate speech with voice immediately
     if (isSpeakerEnabled) {
       try {
-        console.log('[TTS] request → elevenlabs-tts (greeting)');
-        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
-          body: {
-            text: greetingText,
-            voice_id: 't0IcnDolatli2xhqgLgn' // Isabella Navia voice
-          }
-        });
+        if (USE_ELEVENLABS_TTS) {
+          console.log('[TTS] request → elevenlabs-tts (greeting)');
+          const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
+            body: { text: greetingText, voice_id: 't0IcnDolatli2xhqgLgn' }
+          });
 
-        if (ttsError) {
-          console.error('[TTS] error', ttsError);
-          // Fallback: animate with D-ID using text so the avatar still responds
-          try {
-            const { error: didErr } = await supabase.functions.invoke('did-avatar', {
-              body: { text: greetingText }
-            });
+          if (ttsError) {
+            console.error('[TTS] error', ttsError);
+            const { error: didErr } = await supabase.functions.invoke('did-avatar', { body: { text: greetingText } });
             if (didErr) console.error('[D-ID] greeting fallback (text) error', didErr);
-          } catch (e) {
-            console.error('[D-ID] greeting fallback (text) exception', e);
+            return;
           }
-          return;
-        }
 
-        if (ttsData?.audio) {
-          console.log('[TTS] got greeting audio, sending to D-ID for animation');
-          
-          // Send audio to D-ID for avatar animation
-          try {
+          if (ttsData?.audio) {
+            console.log('[TTS] got greeting audio, sending to D-ID for animation');
             const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-              body: {
-                audio_base64: ttsData.audio
-              }
+              body: { audio_base64: ttsData.audio }
             });
-
             if (didError) {
               console.error('[D-ID] greeting error', didError);
             } else {
@@ -675,13 +675,20 @@ export const useWellnessGeniChat = () => {
                 try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
               }
             }
-          } catch (didError) {
-            console.error('D-ID greeting animation error:', didError);
+            console.log('[TTS] playing greeting audio');
+            await playAudio(ttsData.audio);
           }
-
-          // Play the ElevenLabs audio directly
-          console.log('[TTS] playing greeting audio');
-          await playAudio(ttsData.audio);
+        } else {
+          // Temporary fallback: use D-ID built-in TTS with text only
+          console.log('[D-ID] greeting → did-avatar with built-in TTS');
+          const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+            body: { text: greetingText }
+          });
+          if (didError) {
+            console.error('[D-ID] greeting error', didError);
+          } else if (didData?.talk_id) {
+            try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
+          }
         }
       } catch (error) {
         console.error('Greeting speech synthesis error:', error);

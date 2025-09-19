@@ -52,6 +52,7 @@ serve(async (req) => {
       console.log('D-ID poll result:', { 
         status: pollData.status, 
         hasResultUrl: !!pollData.result_url,
+        hasAudioUrl: !!pollData.audio_url,
         id: pollData.id 
       });
       return new Response(JSON.stringify(pollData), {
