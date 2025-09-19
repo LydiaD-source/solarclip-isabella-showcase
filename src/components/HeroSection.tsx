@@ -147,7 +147,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           <div className="relative">
             <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={false} />
             {showMeetButton && (
-              <div className="hidden lg:block absolute bottom-[-10px] -left-36 xl:-left-44 text-center">
+              <div className="hidden lg:block absolute bottom-[-1px] -left-36 xl:-left-44 text-center">
                 <Button 
                   className="meet-isabella-btn-animated text-sm px-5 py-2"
                   onClick={handleMeetIsabella}

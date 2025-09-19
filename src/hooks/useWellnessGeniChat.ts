@@ -353,7 +353,7 @@ export const useWellnessGeniChat = () => {
       // Enhanced microphone access with better error handling
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 16000,
+          sampleRate: 24000,
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
@@ -420,13 +420,13 @@ export const useWellnessGeniChat = () => {
       mediaRecorder.start(1000); // Collect data every second
       console.log('Started voice recording with mime type:', mimeType);
 
-      // Auto-stop after 10 seconds
+      // Auto-stop after 8 seconds for faster processing
       setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          console.log('Auto-stopping recording after 10 seconds');
+          console.log('Auto-stopping recording after 8 seconds');
           mediaRecorderRef.current.stop();
         }
-      }, 10000);
+      }, 8000);
 
     } catch (error) {
       console.error('Error starting voice input:', error);
@@ -512,8 +512,9 @@ export const useWellnessGeniChat = () => {
       const ext = audioBlob.type.includes('mp4') ? 'mp4' : audioBlob.type.includes('wav') ? 'wav' : 'webm';
       formData.append('file', audioBlob, `voice-input.${ext}`);
 
+      console.log('Sending audio to speech-to-text function...');
       const { data, error } = await supabase.functions.invoke('speech-to-text', {
-        body: formData,
+        body: formData
       });
 
       if (error) {
