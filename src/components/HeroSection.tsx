@@ -117,25 +117,29 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         {/* Left Column - Hero Content */}
         <div className="flex flex-col justify-center space-y-8 lg:mt-12" style={{ transform: 'translateY(-20px)' }}>
           {/* Main Headline */}
-          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-tight" style={{ color: 'hsl(var(--heading-navy))' }}>
+          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-tight mb-6" style={{ color: 'hsl(var(--heading-navy))' }}>
             The Future of
             <span className="block">Lightweight Solar</span>
             is Here.
           </h1>
 
-          {/* Subheadline with Logo */}
-          <p className="text-lg sm:text-xl lg:text-2xl leading-relaxed flex items-center justify-start gap-3" style={{ color: 'hsl(var(--body-gray))' }}>
+          {/* Subheadline with Logo - Restructured for proper alignment */}
+          <div className="flex items-start gap-4 mb-8">
             <img 
               src="/src/assets/solarclip-logo.png" 
               alt="SolarClip Lightweight Solutions" 
-              className="h-8 sm:h-10 lg:h-12 w-auto"
+              className="h-12 sm:h-14 lg:h-16 w-auto flex-shrink-0 mt-1"
             />
-            — the world's first clip-on / clip-off solar mounting system. 
-            <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}> Fast. Reversible. Roof-safe.</span>
-          </p>
+            <div className="text-lg sm:text-xl lg:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
+              — the world's first clip-on / clip-off solar mounting system.{' '}
+              <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>
+                Fast. Reversible. Roof-safe.
+              </span>
+            </div>
+          </div>
 
           {/* Video Thumbnails with Curved Labels */}
-          <div className="flex gap-6 flex-wrap" style={{ transform: 'translateY(-12px)' }}>
+          <div className="flex gap-6 flex-wrap justify-start">
             {videoThumbnails.map((video, index) => {
               const labels = ['President', 'Partner', 'Client', 'Developer'];
               return (
