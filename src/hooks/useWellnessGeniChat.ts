@@ -187,41 +187,19 @@ export const useWellnessGeniChat = () => {
         }
 
         if (data?.result_url) {
-          try {
-            console.log('[D-ID] proxying video via edge function');
-            const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
-              body: { proxy_url: data.result_url, media_type: 'video' }
-            });
-            if (proxyErr) throw proxyErr;
-            if (!proxied?.base64) throw new Error('No proxied video data');
-            const binary = atob(proxied.base64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-            const vBlob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
-            const vUrl = URL.createObjectURL(vBlob);
-            // Revoke previous if exists
-            if (didVideoObjectUrlRef.current) {
-              try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
-            }
-            didVideoObjectUrlRef.current = vUrl;
-            setDidVideoUrl(vUrl);
-
-            // Do not play separate audio; the proxied video includes the audio track.
-            // We rely on the <video> element to play synchronized A/V once it's ready.
-
-            // Auto-hide video after the actual duration + 5 seconds buffer to prevent cutoffs
-            const hideDelay = (data.duration || 45) * 1000 + 5000;
-            setTimeout(() => {
-              console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 'seconds');
-              setDidVideoUrl(null);
-              if (didVideoObjectUrlRef.current) {
-                try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
-                didVideoObjectUrlRef.current = null;
-              }
-            }, hideDelay);
-          } catch (e) {
-            console.error('[D-ID] video playback prepare error', e);
+          console.log('[D-ID] using direct result_url for playback');
+          // Clean up previous object URL if any
+          if (didVideoObjectUrlRef.current) {
+            try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+            didVideoObjectUrlRef.current = null;
           }
+          setDidVideoUrl(data.result_url);
+          // Auto-hide after duration + buffer
+          const hideDelay = (data.duration || 45) * 1000 + 5000;
+          setTimeout(() => {
+            console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 'seconds');
+            setDidVideoUrl(null);
+          }, hideDelay);
           break;
         }
         if (data?.status === 'error') {
