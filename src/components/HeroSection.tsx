@@ -124,26 +124,29 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           </h1>
 
           {/* Subheadline with Logo - Lifted positioning for better alignment */}
-          <div className="flex items-baseline gap-3 mb-8" style={{ transform: 'translateY(-5mm)' }}>
+          <div className="flex items-start gap-3 mb-8" style={{ transform: 'translateY(-5mm)' }}>
             <img 
               src="/src/assets/solarclip-logo.png" 
               alt="SolarClip Lightweight Solutions" 
               className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0"
             />
             <div className="text-lg sm:text-xl lg:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
-              — the world's first clip-on / clip-off solar mounting system. 
-              <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>
-                Fast. Reversible.
-              </span>
-              <br />
-              <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>
+              {/* Line 1: After logo */}
+              <div>— the world's first clip-on / clip-off</div>
+              {/* Line 2: Aligned with red circle of logo */}
+              <div>
+                solar mounting system. 
+                <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}> Fast. Reversible.</span>
+              </div>
+              {/* Line 3: Under beginning of line 2 */}
+              <div className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>
                 Roof-safe.
-              </span>
+              </div>
             </div>
           </div>
 
           {/* Video Thumbnails with Curved Labels - Raised for better alignment */}
-          <div className="flex gap-6 flex-wrap justify-start" style={{ transform: 'translateY(-6mm)' }}>
+          <div className="flex gap-6 flex-wrap justify-start" style={{ transform: 'translateY(-3mm)' }}>
             {videoThumbnails.map((video, index) => {
               const labels = ['President', 'Partner', 'Client', 'Developer'];
               return (
