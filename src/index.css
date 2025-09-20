@@ -13,8 +13,8 @@ Cinematic gradients with solar energy themes
 
 @layer base {
   :root {
-    /* Hero Background - Soft blue-white blend for red logo contrast */
-    --hero-bg: linear-gradient(135deg, hsl(200, 100%, 95%), hsl(0, 0%, 100%));
+    /* Hero Background - Enhanced blue-white blend with more depth */
+    --hero-bg: linear-gradient(135deg, hsl(210, 80%, 85%) 0%, hsl(200, 90%, 90%) 30%, hsl(0, 0%, 98%) 100%);
     --background: 209 100% 8%; /* Deep navy space */
     --foreground: 220 20% 99%; /* Pure white text */
     

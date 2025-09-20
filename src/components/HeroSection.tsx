@@ -117,30 +117,33 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         {/* Left Column - Hero Content */}
         <div className="flex flex-col justify-center space-y-8 lg:mt-12" style={{ transform: 'translateY(-20px)' }}>
           {/* Main Headline */}
-          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-tight mb-6" style={{ color: 'hsl(var(--heading-navy))' }}>
+          <h1 className="font-heading font-bold text-3xl sm:text-4xl lg:text-5xl xl:text-6xl leading-tight mb-6 tracking-wide" style={{ color: 'hsl(var(--heading-navy))' }}>
             The Future of
             <span className="block">Lightweight Solar</span>
             is Here.
           </h1>
 
-          {/* Subheadline with Logo - Original layout with smaller logo */}
-          <div className="flex items-start gap-3 mb-8">
+          {/* Subheadline with Logo - Lifted positioning for better alignment */}
+          <div className="flex items-baseline gap-3 mb-8" style={{ transform: 'translateY(-5mm)' }}>
             <img 
               src="/src/assets/solarclip-logo.png" 
               alt="SolarClip Lightweight Solutions" 
-              className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0 mt-1"
+              className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0"
             />
             <div className="text-lg sm:text-xl lg:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
-              — the world's first clip-on / clip-off solar mounting system.
+              — the world's first clip-on / clip-off solar mounting system. 
+              <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>
+                Fast. Reversible.
+              </span>
               <br />
               <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>
-                Fast. Reversible. Roof-safe.
+                Roof-safe.
               </span>
             </div>
           </div>
 
-          {/* Video Thumbnails with Curved Labels */}
-          <div className="flex gap-6 flex-wrap justify-start">
+          {/* Video Thumbnails with Curved Labels - Raised for better alignment */}
+          <div className="flex gap-6 flex-wrap justify-start" style={{ transform: 'translateY(-6mm)' }}>
             {videoThumbnails.map((video, index) => {
               const labels = ['President', 'Partner', 'Client', 'Developer'];
               return (
@@ -174,8 +177,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           </div>
         </div>
 
-        {/* Right Column - Isabella Avatar */}
-        <div className="flex justify-center lg:justify-end items-center relative -mt-5">
+        {/* Right Column - Isabella Avatar - Lifted for better balance */}
+        <div className="flex justify-center lg:justify-end items-center relative" style={{ transform: 'translateY(-8mm)' }}>
           <div className="relative">
             <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} didVideoUrl={didVideoUrl} showInlineChat={false} />
             {showMeetButton && (
@@ -193,7 +196,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                   Start Assistant
                 </Button>
                  <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
-               </div>
+                </div>
              )}
            </div>
          </div>
