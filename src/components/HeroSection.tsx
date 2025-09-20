@@ -69,6 +69,13 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         content: { url: 'https://res.cloudinary.com/di5gj4nyp/video/upload/v1758373486/Alex1.2_gqfcft.mov' },
         animation: 'swoop-left'
       });
+    } else if (videoId === 'client') {
+      showCard({
+        type: 'video',
+        title: 'Installation Process',
+        content: { url: 'https://res.cloudinary.com/di5gj4nyp/video/upload/v1758394290/Solarclip_insatallation_thnspd.mp4' },
+        animation: 'swoop-left'
+      });
     }
   };
 
