@@ -148,8 +148,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             </div>
           </div>
 
-          {/* Video Thumbnails with Curved Labels - Raised for better alignment */}
-          <div className="flex gap-6 flex-wrap justify-start" style={{ transform: 'translateY(-8mm)' }}>
+          {/* Video Thumbnails with Curved Labels - Lifted by 2mm */}
+          <div className="flex gap-6 flex-wrap justify-start" style={{ transform: 'translateY(-10mm)' }}>
             {videoThumbnails.map((video, index) => {
               const labels = ['President', 'Partner', 'Client', 'Developer'];
               return (
