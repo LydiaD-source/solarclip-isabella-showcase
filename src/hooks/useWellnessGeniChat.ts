@@ -43,6 +43,11 @@ export const useWellnessGeniChat = () => {
   const lastSentRef = useRef<{ text: string; time: number } | null>(null);
   const greetingSentRef = useRef(false);
   const [didVideoUrl, setDidVideoUrl] = useState<string | null>(null);
+  
+  // D-ID Animation State Management
+  const [isDidProcessing, setIsDidProcessing] = useState(false);
+  const [didQueue, setDidQueue] = useState<string[]>([]);
+  
   const didVideoObjectUrlRef = useRef<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -168,6 +173,9 @@ export const useWellnessGeniChat = () => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
     let receivedAudioUrl: string | null = null;
     let started = false;
+    
+    console.log('[D-ID] Starting poll for talk:', talkId);
+    
     for (let i = 0; i < 100; i++) { // Increased max polls to prevent cutoffs
       try {
         const { data, error } = await supabase.functions.invoke('did-avatar', {
@@ -194,6 +202,8 @@ export const useWellnessGeniChat = () => {
             didVideoObjectUrlRef.current = null;
           }
           setDidVideoUrl(data.result_url);
+          console.log('[D-ID] Video set successfully, duration:', data.duration);
+          
           // Auto-hide after duration + buffer
           const hideDelay = (data.duration || 45) * 1000 + 5000;
           setTimeout(() => {
@@ -859,13 +869,20 @@ export const useWellnessGeniChat = () => {
     }
   }, [isMicEnabled, isListening, recognition, startListening, stopListening]);
 
-  // Narrate function - adds messages to chat and handles D-ID TTS
+  // Narrate function - adds messages to chat and handles D-ID TTS with proper sequencing
   const narrate = useCallback(async (text: string) => {
     console.log('[Isabella] narrate called:', text.substring(0, 50) + '...');
     
     // Prevent multiple identical messages
     if (messages.some(msg => msg.text === text && msg.sender === 'isabella')) {
       console.log('[Isabella] skipping duplicate message');
+      return;
+    }
+
+    // Check if D-ID is currently processing
+    if (isDidProcessing) {
+      console.log('[Isabella] D-ID busy, queueing narration:', text.substring(0, 30) + '...');
+      setDidQueue(prev => [...prev, text]);
       return;
     }
 
@@ -904,13 +921,28 @@ export const useWellnessGeniChat = () => {
         }
       } else {
         // Use D-ID built-in TTS with video avatar
-        console.log('[Isabella] using D-ID TTS + avatar:', text.substring(0, 30) + '...');
+        console.log('[Isabella] using D-ID TTS + avatar:', text.substring(0, 50) + '...');
+        
+        // Set D-ID as busy to prevent concurrent calls
+        setIsDidProcessing(true);
+        
+        // Clear any existing video first
+        if (didVideoUrl) {
+          console.log('[Isabella] clearing existing video before new D-ID call');
+          setDidVideoUrl(null);
+          if (didVideoObjectUrlRef.current) {
+            try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+            didVideoObjectUrlRef.current = null;
+          }
+        }
+        
         const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
           body: { text, source_url: DID_SOURCE_URL }
         });
         
         if (didError) {
           console.error('[Isabella] D-ID API error:', didError);
+          setIsDidProcessing(false);
           return;
         }
         
@@ -920,11 +952,26 @@ export const useWellnessGeniChat = () => {
         } else {
           console.warn('[Isabella] No talk_id received from D-ID');
         }
+        
+        // Mark D-ID as free and process next in queue
+        setIsDidProcessing(false);
+        if (didQueue.length > 0) {
+          const nextText = didQueue[0];
+          setDidQueue(prev => prev.slice(1));
+          console.log('[Isabella] processing queued D-ID call:', nextText.substring(0, 30) + '...');
+          setTimeout(() => narrate(nextText), 500);
+        }
       }
     } catch (e) {
       console.error('[Isabella] narrate error:', e);
+      setIsDidProcessing(false);
+      if (didQueue.length > 0) {
+        const nextText = didQueue[0];
+        setDidQueue(prev => prev.slice(1));
+        setTimeout(() => narrate(nextText), 500);
+      }
     }
-  }, [isSpeakerEnabled, playAudio, pollDidTalk, messages]);
+  }, [isSpeakerEnabled, playAudio, pollDidTalk, messages, isDidProcessing, didVideoUrl, didQueue]);
 
   return {
     messages,
