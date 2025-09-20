@@ -123,15 +123,16 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             is Here.
           </h1>
 
-          {/* Subheadline with Logo - Restructured for proper alignment */}
-          <div className="flex items-start gap-4 mb-8">
+          {/* Subheadline with Logo - Original layout with smaller logo */}
+          <div className="flex items-start gap-3 mb-8">
             <img 
               src="/src/assets/solarclip-logo.png" 
               alt="SolarClip Lightweight Solutions" 
-              className="h-12 sm:h-14 lg:h-16 w-auto flex-shrink-0 mt-1"
+              className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0 mt-1"
             />
             <div className="text-lg sm:text-xl lg:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
-              — the world's first clip-on / clip-off solar mounting system.{' '}
+              — the world's first clip-on / clip-off solar mounting system.
+              <br />
               <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>
                 Fast. Reversible. Roof-safe.
               </span>
