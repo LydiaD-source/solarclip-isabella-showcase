@@ -191,11 +191,12 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             {showMeetButton && (
               <div className="absolute bottom-[-1px] -left-36 xl:-left-44 text-center z-10">
                 <Button 
-                  className="text-sm px-5 py-2 transition-all duration-300 hover:shadow-xl transform hover:scale-105 text-white rounded-full"
+                  className="text-sm px-5 py-2 transition-all duration-300 hover:shadow-2xl hover:scale-110 text-white rounded-full relative overflow-hidden group start-assistant-enhanced"
                   style={{ 
                     backgroundColor: 'hsl(var(--cta-emerald))',
                     borderColor: 'hsl(var(--cta-emerald))',
-                    transform: 'scale(0.88)'
+                    transform: 'scale(0.88)',
+                    boxShadow: '0 8px 25px hsl(160 84% 39% / 0.4), 0 0 20px hsl(160 84% 39% / 0.3)'
                   }}
                   onClick={handleMeetIsabella}
                 >
