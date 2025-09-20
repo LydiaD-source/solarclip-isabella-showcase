@@ -791,7 +791,8 @@ export const useWellnessGeniChat = () => {
               } else {
                 console.log('[D-ID] greeting animation created:', didData);
                 if (didData?.talk_id) {
-                  try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
+                  // Non-blocking for immediate response
+                  pollDidTalk(didData.talk_id).catch(e => console.error('[D-ID] poll start error', e));
                 }
               }
               console.log('[TTS] playing greeting audio');
@@ -807,7 +808,8 @@ export const useWellnessGeniChat = () => {
               return;
             }
             if (didData?.talk_id) {
-              try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] greeting poll error', e); }
+              // Non-blocking for fastest initial response
+              pollDidTalk(didData.talk_id).catch(e => console.error('[D-ID] greeting poll error', e));
             }
           }
         } catch (error) {

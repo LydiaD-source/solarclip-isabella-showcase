@@ -53,7 +53,7 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
           type: 'video',
           title: 'SolarClip Product Intro',
           content: {
-            url: 'https://res.cloudinary.com/di5gj4nyp/video/upload/v1757341336/VIDEO-2025-04-11-11-30-14_1_xywu7x.mp4'
+            url: 'https://res.cloudinary.com/di5gj4nyp/video/upload/v1758405825/modul_1_errtk9.mov'
           },
           animation: 'swoop-left'
         });
