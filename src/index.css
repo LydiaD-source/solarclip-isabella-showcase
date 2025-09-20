@@ -223,7 +223,7 @@ Cinematic gradients with solar energy themes
 
   .curved-text {
     position: absolute;
-    top: -11px;
+    top: -14px;
     left: 50%;
     transform: translateX(-50%);
     color: hsl(122 48% 46%); /* Muted light green (lighter than Start Assistant button) */

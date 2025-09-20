@@ -16,8 +16,8 @@ interface HeroSectionProps {
 const videoThumbnails = [
   { id: 'ceo', title: 'CEO Testimonial', image: '/alex-president.png' },
   { id: 'board', title: 'Board Member', image: '/partner-testimonial.png' },
-  { id: 'client', title: 'Happy Client', image: '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png' },
-  { id: 'owner', title: 'Building Owner', image: '/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png' }
+  { id: 'client', title: 'Happy Client', image: '/mrs-nilles.jpg' },
+  { id: 'owner', title: 'Building Owner', image: '/mr-khun.jpg' }
 ];
 
 export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionProps) => {
