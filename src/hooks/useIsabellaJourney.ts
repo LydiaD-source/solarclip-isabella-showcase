@@ -77,7 +77,7 @@ export const useIsabellaJourney = ({ narrate, showCard, getSolarAnalysis }: UseI
           type: 'video',
           title: 'Roof Integration & Installation',
           content: {
-            url: 'https://res.cloudinary.com/di5gj4nyp/video/upload/v1758355449/CNT_installation_htmapc.mp4'
+            url: 'https://res.cloudinary.com/di5gj4nyp/video/upload/v1758394290/Solarclip_insatallation_thnspd.mp4'
           },
           animation: 'swoop-left'
         });
