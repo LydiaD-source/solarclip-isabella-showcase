@@ -256,7 +256,7 @@ export const CinematicCard = ({ card, onClose, onAction }: CinematicCardProps) =
             </motion.div>
           ) : (
             // Regular card layout for other types
-            <div className="flex items-center justify-center min-h-screen p-4 mb-12 md:mb-16">
+            <div className="flex items-center justify-center min-h-screen p-4 mb-16 md:mb-20">
               <motion.div
                 variants={containerVariants}
                 initial="hidden"
