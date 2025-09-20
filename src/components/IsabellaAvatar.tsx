@@ -89,21 +89,28 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
         className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 shadow-black/20 hover:shadow-accent/20`}
         onClick={handleChatToggle}
       >
-        {/* Isabella Navia Video (D-ID) */}
+        {/* Isabella Navia Video (D-ID) - Seamless overlay */}
         {videoUrl && (
           <video
             ref={videoRef}
             src={videoUrl}
             autoPlay
             playsInline
-            className="absolute inset-0 w-full h-full object-contain rounded-full p-2"
+            muted={false}
+            preload="metadata"
+            onLoadStart={() => console.log('[D-ID] Video loading started')}
+            onCanPlay={() => console.log('[D-ID] Video can play')}
+            onError={(e) => console.error('[D-ID] Video error:', e)}
+            className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-10 bg-transparent"
+            style={{ backgroundColor: 'transparent' }}
           />
         )}
-        {/* Isabella Navia Image */}
+        
+        {/* Isabella Navia Static Image - Always visible as background */}
         <img 
           src={isabellaNavia} 
           alt="Isabella Navia - AI Solar Ambassador" 
-          className={`w-full h-full object-contain rounded-full p-2 ${videoUrl ? 'opacity-0' : ''}`}
+          className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-0"
         />
       </div>
 

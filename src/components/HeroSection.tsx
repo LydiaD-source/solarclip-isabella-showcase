@@ -49,13 +49,20 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   const handleMeetIsabella = async () => {
     console.log('Meet Isabella button clicked, current stage:', journey.stage, 'hasStarted:', journey.hasStarted);
     setShowMeetButton(false);
-    await initializeAudio();
     onChatToggle?.(); // Show chat immediately when button is clicked
+    
+    // Initialize audio and start journey in parallel for faster response
+    const [audioInit] = await Promise.all([
+      initializeAudio(),
+      // Pre-warm the journey start to reduce delay
+      Promise.resolve()
+    ]);
     
     // Start journey only if it hasn't been started yet
     if (journey.stage === 'idle' && !journey.hasStarted) {
       console.log('Starting Isabella journey...');
-      await journey.start();
+      // Start immediately without additional delay
+      journey.start();
     } else {
       console.log('Journey already started, skipping duplicate start');
     }

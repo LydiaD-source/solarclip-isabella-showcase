@@ -195,17 +195,12 @@ export const useWellnessGeniChat = () => {
         }
 
         if (data?.result_url) {
-          console.log('[D-ID] using direct result_url for playback');
-          // Clean up previous object URL if any
-          if (didVideoObjectUrlRef.current) {
-            try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
-            didVideoObjectUrlRef.current = null;
-          }
+          console.log('[D-ID] Video ready, setting URL for seamless playback');
           setDidVideoUrl(data.result_url);
           console.log('[D-ID] Video set successfully, duration:', data.duration);
           
-          // Auto-hide after duration + buffer
-          const hideDelay = (data.duration || 45) * 1000 + 5000;
+          // Auto-hide after duration + buffer (keep static image visible)
+          const hideDelay = (data.duration || 45) * 1000 + 3000; // Reduced buffer to 3s
           setTimeout(() => {
             console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 'seconds');
             setDidVideoUrl(null);
@@ -926,14 +921,12 @@ export const useWellnessGeniChat = () => {
         // Set D-ID as busy to prevent concurrent calls
         setIsDidProcessing(true);
         
-        // Clear any existing video first
-        if (didVideoUrl) {
+        // Only clear existing video if there actually is one to avoid white flash
+        if (didVideoUrl && didVideoObjectUrlRef.current) {
           console.log('[Isabella] clearing existing video before new D-ID call');
           setDidVideoUrl(null);
-          if (didVideoObjectUrlRef.current) {
-            try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
-            didVideoObjectUrlRef.current = null;
-          }
+          try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+          didVideoObjectUrlRef.current = null;
         }
         
         const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
