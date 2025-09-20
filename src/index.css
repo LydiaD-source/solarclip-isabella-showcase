@@ -245,9 +245,9 @@ Cinematic gradients with solar energy themes
     transform: scale(1.1) translateY(-2px);
   }
 
-  /* Larger Video Thumbnail Circles - Enlarged by user request */
+  /* Larger Video Thumbnail Circles - Enhanced size for better visibility */
   .video-thumbnail-interactive-large {
-    @apply w-20 h-20 rounded-full border-2 border-accent/30 cursor-pointer transition-all duration-300 overflow-hidden;
+    @apply w-24 h-24 rounded-full border-2 border-accent/30 cursor-pointer transition-all duration-300 overflow-hidden;
   }
   
   .video-thumbnail-interactive-large:hover {
