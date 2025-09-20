@@ -133,7 +133,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0"
               />
               <div className="text-xl sm:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
-                — the world's first clip-on / clip-off
+                – the world's first clip-on / clip-off
               </div>
             </div>
             
