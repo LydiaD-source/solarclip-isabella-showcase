@@ -61,7 +61,11 @@ export const useWellnessGeniChat = () => {
         
         recognitionInstance.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
-          sendMessage(transcript);
+          console.log('SpeechRecognition transcript:', transcript);
+          // Only use SpeechRecognition as backup - primary is MediaRecorder
+          if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') {
+            sendMessage(transcript);
+          }
           setIsListening(false);
         };
         
@@ -164,7 +168,7 @@ export const useWellnessGeniChat = () => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
     let receivedAudioUrl: string | null = null;
     let started = false;
-    for (let i = 0; i < 50; i++) { // Increase max polls for longer greetings
+    for (let i = 0; i < 100; i++) { // Increased max polls to prevent cutoffs
       try {
         const { data, error } = await supabase.functions.invoke('did-avatar', {
           body: { talk_id: talkId }
@@ -205,8 +209,8 @@ export const useWellnessGeniChat = () => {
             // Do not play separate audio; the proxied video includes the audio track.
             // We rely on the <video> element to play synchronized A/V once it's ready.
 
-            // Auto-hide video after the actual duration + 3 seconds buffer for longer greetings
-            const hideDelay = (data.duration || 30) * 1000 + 3000;
+            // Auto-hide video after the actual duration + 5 seconds buffer to prevent cutoffs
+            const hideDelay = (data.duration || 45) * 1000 + 5000;
             setTimeout(() => {
               console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 'seconds');
               setDidVideoUrl(null);
@@ -244,8 +248,9 @@ export const useWellnessGeniChat = () => {
 
     const now = Date.now();
     const trimmed = text.trim();
-    if (lastSentRef.current && lastSentRef.current.text === trimmed && now - lastSentRef.current.time < 30000) {
-      console.log('Deduped repeated message');
+    // Increased deduplication window to prevent triple responses
+    if (lastSentRef.current && lastSentRef.current.text === trimmed && now - lastSentRef.current.time < 5000) {
+      console.log('Deduped repeated message within 5 seconds');
       return;
     }
 
@@ -401,15 +406,15 @@ export const useWellnessGeniChat = () => {
     try {
       setIsListening(true);
       
-      // Try starting SpeechRecognition for quicker transcript
-      if (recognition) {
-        try {
-          recognition.start();
-          console.log('SpeechRecognition started');
-        } catch (e) {
-          console.warn('SpeechRecognition start failed:', e);
-        }
-      }
+      // Disable SpeechRecognition to prevent duplication - only use MediaRecorder
+      // if (recognition) {
+      //   try {
+      //     recognition.start();
+      //     console.log('SpeechRecognition started');
+      //   } catch (e) {
+      //     console.warn('SpeechRecognition start failed:', e);
+      //   }
+      // }
       
       // Enhanced microphone access with better error handling
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -481,13 +486,13 @@ export const useWellnessGeniChat = () => {
       mediaRecorder.start(1000); // Collect data every second
       console.log('Started voice recording with mime type:', mimeType);
 
-      // Auto-stop after 8 seconds for faster processing
+      // Auto-stop after 15 seconds to prevent cutoffs
       setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          console.log('Auto-stopping recording after 8 seconds');
+          console.log('Auto-stopping recording after 15 seconds');
           mediaRecorderRef.current.stop();
         }
-      }, 8000);
+      }, 15000);
 
     } catch (error) {
       console.error('Error starting voice input:', error);
@@ -615,8 +620,15 @@ export const useWellnessGeniChat = () => {
           return updated;
         });
         
-        // Send transcribed text as a message (this will get Isabella's response)
-        await sendMessage(transcribedText);
+        // Process transcribed text by calling Isabella's system directly
+        // Use a timeout to ensure the user message is displayed first
+        setTimeout(async () => {
+          try {
+            await processTranscribedText(transcribedText);
+          } catch (error) {
+            console.error('Error processing transcribed text:', error);
+          }
+        }, 100);
       } else {
         const noSpeechMessage: ChatMessage = {
           id: Date.now().toString() + '_no_speech',
@@ -658,7 +670,88 @@ export const useWellnessGeniChat = () => {
         return updated;
       });
     }
-  }, [sendMessage]);
+  }, []);
+
+  // Separate handler for transcribed text to avoid duplication
+  const processTranscribedText = useCallback(async (text: string) => {
+    try {
+      // Send to WellnessGeni via Supabase edge function
+      const history = messages.map(m => ({
+        role: m.sender === 'user' ? 'user' : 'assistant',
+        content: m.text,
+      }));
+
+      const payload = {
+        message: text,
+        persona_id: 'solarclip',
+        client_id: 'SolarClip', 
+        session_id: sessionId,
+        messages: history,
+        context: {
+          product: 'SolarClip',
+          company: 'ClearNanoTech',
+          persona_name: 'Isabella Navia',
+          persona_role: 'ClearNanoTech Ambassador & SolarClip Product Promoter',
+          max_response_duration: '20_seconds',
+          tone: 'polite_professional_enthusiastic_concise',
+          focus: 'SolarClip_products_solutions_lead_generation',
+        },
+      };
+
+      const { data: chatData, error: chatError } = await supabase.functions.invoke('wellnessgeni-chat', {
+        body: payload,
+      });
+
+      if (chatError) throw chatError;
+
+      let responseText = typeof chatData?.response === 'string' ? chatData.response : 
+                         typeof chatData?.text === 'string' ? chatData.text : '';
+      
+      if (!responseText || !responseText.trim()) {
+        throw new Error('Empty response from chat API');
+      }
+
+      const isabellaMessage: ChatMessage = {
+        id: Date.now().toString() + '_isabella_voice',
+        text: responseText,
+        sender: 'isabella',
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => {
+        const updated = [...prev, isabellaMessage];
+        if (typeof window !== 'undefined') {
+          try {
+            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+          } catch (error) {
+            console.error('Error saving messages:', error);
+          }
+        }
+        return updated;
+      });
+
+      // Generate speech with extended time limits
+      if (isSpeakerEnabled && responseText.trim()) {
+        try {
+          console.log('[D-ID] request → did-avatar with built-in TTS (voice response)');
+          const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+            body: { text: responseText, source_url: DID_SOURCE_URL }
+          });
+          if (didError) {
+            console.error('[D-ID] error', didError);
+            return;
+          }
+          if (didData?.talk_id) {
+            try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll error', e); }
+          }
+        } catch (error) {
+          console.error('Speech synthesis error:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error in voice response processing:', error);
+    }
+  }, [messages, sessionId, isSpeakerEnabled, pollDidTalk]);
 
   const sendGreeting = useCallback(async () => {
     // Global guard to avoid duplicate greetings (React StrictMode mounts, route remounts)
