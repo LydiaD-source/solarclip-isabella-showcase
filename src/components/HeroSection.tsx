@@ -118,17 +118,21 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         <div className="flex flex-col justify-center space-y-8 lg:mt-12" style={{ transform: 'translateY(-20px)' }}>
           {/* Main Headline */}
           <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-tight" style={{ color: 'hsl(var(--heading-navy))' }}>
-            Transform Your Solar Business with{' '}
-            <span style={{ color: 'hsl(var(--logo-red))' }}>
-              SolarClip
+            The Future of
+            <span className="block flex items-center justify-start gap-3">
+              <img 
+                src="/src/assets/solarclip-logo.png" 
+                alt="SolarClip Lightweight Solutions" 
+                className="h-16 sm:h-20 lg:h-24 xl:h-28 w-auto"
+              />
             </span>
-            <span className="text-sm align-super" style={{ color: 'hsl(var(--logo-red))' }}>™</span>
+            is Here.
           </h1>
 
           {/* Subheadline */}
           <p className="text-lg sm:text-xl lg:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
-            AI-powered roof segmentation and solar analysis that delivers instant, professional presentations 
-            and closes more deals faster than ever before.
+            SolarClip™ — the world's first clip-on / clip-off solar mounting system. 
+            <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}> Fast. Reversible. Roof-safe.</span>
           </p>
 
           {/* Video Thumbnails with Curved Labels */}
