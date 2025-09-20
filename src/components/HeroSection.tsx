@@ -119,19 +119,18 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           {/* Main Headline */}
           <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-tight" style={{ color: 'hsl(var(--heading-navy))' }}>
             The Future of
-            <span className="block flex items-center justify-start gap-3">
-              <img 
-                src="/src/assets/solarclip-logo.png" 
-                alt="SolarClip Lightweight Solutions" 
-                className="h-16 sm:h-20 lg:h-24 xl:h-28 w-auto"
-              />
-            </span>
+            <span className="block">Lightweight Solar</span>
             is Here.
           </h1>
 
-          {/* Subheadline */}
-          <p className="text-lg sm:text-xl lg:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
-            SolarClip™ — the world's first clip-on / clip-off solar mounting system. 
+          {/* Subheadline with Logo */}
+          <p className="text-lg sm:text-xl lg:text-2xl leading-relaxed flex items-center justify-start gap-3" style={{ color: 'hsl(var(--body-gray))' }}>
+            <img 
+              src="/src/assets/solarclip-logo.png" 
+              alt="SolarClip Lightweight Solutions" 
+              className="h-8 sm:h-10 lg:h-12 w-auto"
+            />
+            — the world's first clip-on / clip-off solar mounting system. 
             <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}> Fast. Reversible. Roof-safe.</span>
           </p>
 
