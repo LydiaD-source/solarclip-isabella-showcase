@@ -91,7 +91,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   };
 
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden hero-bg">
 
       {/* Language Toggle - Top Right Corner of Isabella's Image - Lifted 3mm up, 2mm right */}
       <div className="absolute top-5 right-6 z-50">
@@ -117,44 +117,52 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         {/* Left Column - Hero Content */}
         <div className="flex flex-col justify-center space-y-8 lg:mt-12" style={{ transform: 'translateY(-20px)' }}>
           {/* Main Headline */}
-          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-white leading-tight hero-text-glow">
-            The Future of
-            <span className="block lw-solar-text" data-text="Lightweight Solar">Lightweight Solar</span>
-            is Here.
+          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl leading-tight" style={{ color: 'hsl(var(--heading-navy))' }}>
+            Transform Your Solar Business with{' '}
+            <span style={{ color: 'hsl(var(--logo-red))' }}>
+              SolarClip
+            </span>
+            <span className="text-sm align-super" style={{ color: 'hsl(var(--logo-red))' }}>™</span>
           </h1>
 
           {/* Subheadline */}
-          <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground leading-relaxed hero-text-glow">
-            SolarClip™ — the world's first clip-on / clip-off solar mounting system. 
-            <span className="font-semibold text-white"> Fast. Reversible. Roof-safe.</span>
+          <p className="text-lg sm:text-xl lg:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
+            AI-powered roof segmentation and solar analysis that delivers instant, professional presentations 
+            and closes more deals faster than ever before.
           </p>
 
-          {/* Video Thumbnails - Enlarged and lifted 3mm (12px) */}
-          <div className="flex gap-4 flex-wrap" style={{ transform: 'translateY(-12px)' }}>
-            {videoThumbnails.map((video) => (
-              <div 
-                key={video.id}
-                className="video-thumbnail-interactive-large"
-                onClick={() => handleVideoThumbnail(video.id)}
-                title={video.title}
-              >
-                <img 
-                  src={video.image} 
-                  alt={video.title}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    const target = e.currentTarget as HTMLImageElement;
-                    // Create a simple colored div fallback instead of external placeholder
-                    target.style.display = 'none';
-                    target.parentElement!.innerHTML = `
-                      <div class="w-full h-full bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
-                        ${video.title.charAt(0)}
-                      </div>
-                    `;
-                  }}
-                />
-              </div>
-            ))}
+          {/* Video Thumbnails with Curved Labels */}
+          <div className="flex gap-6 flex-wrap" style={{ transform: 'translateY(-12px)' }}>
+            {videoThumbnails.map((video, index) => {
+              const labels = ['President', 'Partner', 'Client', 'Developer'];
+              return (
+                <div key={video.id} className="video-thumbnail-container">
+                  <div className="curved-text">
+                    {labels[index]}
+                  </div>
+                  <div 
+                    className="video-thumbnail-interactive-large"
+                    onClick={() => handleVideoThumbnail(video.id)}
+                    title={video.title}
+                  >
+                    <img 
+                      src={video.image} 
+                      alt={video.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        target.style.display = 'none';
+                        target.parentElement!.innerHTML = `
+                          <div class="w-full h-full bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
+                            ${video.title.charAt(0)}
+                          </div>
+                        `;
+                      }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -165,9 +173,13 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             {showMeetButton && (
               <div className="absolute bottom-[-1px] -left-36 xl:-left-44 text-center z-10">
                 <Button 
-                  className="meet-isabella-btn-animated text-sm px-5 py-2"
+                  className="text-sm px-5 py-2 transition-all duration-300 hover:shadow-xl transform hover:scale-105 text-white rounded-full"
+                  style={{ 
+                    backgroundColor: 'hsl(var(--cta-emerald))',
+                    borderColor: 'hsl(var(--cta-emerald))',
+                    transform: 'scale(0.88)'
+                  }}
                   onClick={handleMeetIsabella}
-                  style={{ transform: 'scale(0.88)' }}
                 >
                   <Play className="mr-2 w-5 h-5" />
                   Start Assistant

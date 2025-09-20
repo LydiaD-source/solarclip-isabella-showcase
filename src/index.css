@@ -13,9 +13,16 @@ Cinematic gradients with solar energy themes
 
 @layer base {
   :root {
-    /* Cinematic Background - Navy to space-like depth */
+    /* Hero Background - Soft blue-white blend for red logo contrast */
+    --hero-bg: linear-gradient(135deg, hsl(200, 100%, 95%), hsl(0, 0%, 100%));
     --background: 209 100% 8%; /* Deep navy space */
     --foreground: 220 20% 99%; /* Pure white text */
+    
+    /* Logo and Color System */
+    --logo-red: 0 84% 50%; /* Vibrant red for SolarClip™ */
+    --heading-navy: 220 100% 15%; /* Dark navy for headings */
+    --body-gray: 220 10% 40%; /* Neutral gray for body text */
+    --cta-emerald: 160 84% 39%; /* Emerald green for CTA button */
     
     /* Navy Blue Primary - Trust & Engineering */
     --primary: 209 100% 14%; /* #002147 */
@@ -147,6 +154,13 @@ Cinematic gradients with solar energy themes
     @apply border-2 border-primary text-primary px-6 py-3 rounded-lg font-medium hover:bg-primary hover:text-primary-foreground transition-all duration-300;
   }
   
+  /* Hero Background - Soft blue-white blend */
+  .hero-bg {
+    background: var(--hero-bg);
+    position: relative;
+    overflow: hidden;
+  }
+
   /* Cinematic Background */
   .cinematic-bg {
     background: var(--gradient-cinematic);
@@ -202,6 +216,23 @@ Cinematic gradients with solar energy themes
     animation: rotate-glow-gentle 6s linear infinite;
   }
   
+  /* Video Thumbnail Container with Curved Text */
+  .video-thumbnail-container {
+    @apply relative flex flex-col items-center;
+  }
+
+  .curved-text {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: hsl(var(--heading-navy));
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
   /* Video Thumbnail Circles - Interactive */
   .video-thumbnail-interactive {
     @apply w-16 h-16 rounded-full border-2 border-accent/30 cursor-pointer transition-all duration-300 overflow-hidden;
@@ -217,7 +248,6 @@ Cinematic gradients with solar energy themes
   /* Larger Video Thumbnail Circles - Enlarged by user request */
   .video-thumbnail-interactive-large {
     @apply w-20 h-20 rounded-full border-2 border-accent/30 cursor-pointer transition-all duration-300 overflow-hidden;
-    box-shadow: 0 4px 15px hsl(209 100% 14% / 0.3);
   }
   
   .video-thumbnail-interactive-large:hover {
