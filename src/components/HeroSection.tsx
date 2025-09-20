@@ -123,22 +123,26 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             is Here.
           </h1>
 
-          {/* Subheadline with Logo - Lifted positioning for better alignment */}
-          <div className="flex items-start gap-3 mb-8" style={{ transform: 'translateY(-5mm)' }}>
-            <img 
-              src="/src/assets/solarclip-logo.png" 
-              alt="SolarClip Lightweight Solutions" 
-              className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0"
-            />
-            <div className="text-xl sm:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
-              {/* Line 1: Aligned with SolarClip™ red logo word */}
-              — the world's first clip-on / clip-off<br/>
-              {/* Line 2: Starts directly underneath the SolarClip logo */}
-              <div style={{ transform: 'translateX(-10mm)' }}>
+          {/* Subheadline with Logo - Repositioned for vertical alignment */}
+          <div className="relative mb-8" style={{ transform: 'translateY(-5mm)' }}>
+            {/* Logo and first line on same horizontal level */}
+            <div className="flex items-start gap-3 mb-2">
+              <img 
+                src="/src/assets/solarclip-logo.png" 
+                alt="SolarClip Lightweight Solutions" 
+                className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0"
+              />
+              <div className="text-xl sm:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
+                — the world's first clip-on / clip-off
+              </div>
+            </div>
+            
+            {/* Lines 2 and 3 positioned under the red circle of the logo */}
+            <div className="text-xl sm:text-2xl leading-relaxed ml-8" style={{ color: 'hsl(var(--body-gray))' }}>
+              <div className="mb-1">
                 solar mounting system. <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>Fast. Reversible.</span>
               </div>
-              {/* Line 3: Aligned with line 2 */}
-              <div style={{ transform: 'translateX(-10mm)' }}>
+              <div>
                 <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>Roof-safe.</span>
               </div>
             </div>
