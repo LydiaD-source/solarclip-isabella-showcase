@@ -134,7 +134,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
               {/* Line 1: Aligned with SolarClip™ red logo word */}
               — the world's first clip-on / clip-off<br/>
               {/* Line 2: Starts directly underneath the logo, aligned left with it */}
-              solar mounting system. <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>Fast. Reversible.</span><br/>
+              solar mounting system. <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))', transform: 'translateX(-10mm)' }}>Fast. Reversible.</span><br/>
               {/* Line 3: Aligned with the red circle and with line 2 */}
               <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>Roof-safe.</span>
             </div>
