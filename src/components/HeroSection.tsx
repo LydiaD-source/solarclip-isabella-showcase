@@ -40,6 +40,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     initializeAudio,
     narrate,
     didVideoUrl,
+    isThinking,
   } = useWellnessGeniChat();
   const journey = useIsabellaJourney({ narrate, showCard, getSolarAnalysis });
   
@@ -270,11 +271,11 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 </div>
               ))}
               
-              {isProcessing && (
+              {isThinking && (
                 <div className="flex justify-start">
                   <div className="bg-accent/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="animate-pulse">Isabella is thinking...</div>
+                      <div>Isabella is thinking...</div>
                       <div className="flex gap-1">
                         <div className="w-1 h-1 bg-white rounded-full animate-bounce"></div>
                         <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
