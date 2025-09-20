@@ -154,9 +154,9 @@ Cinematic gradients with solar energy themes
     @apply border-2 border-primary text-primary px-6 py-3 rounded-lg font-medium hover:bg-primary hover:text-primary-foreground transition-all duration-300;
   }
   
-  /* Hero Background - Soft blue-white blend */
+  /* Hero Background - Darker blue-white blend with authority */
   .hero-bg {
-    background: var(--hero-bg);
+    background: linear-gradient(to bottom, #bfdbfe, #93c5fd, #ffffff);
     position: relative;
     overflow: hidden;
   }

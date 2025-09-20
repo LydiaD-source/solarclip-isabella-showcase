@@ -130,23 +130,18 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
               alt="SolarClip Lightweight Solutions" 
               className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0"
             />
-            <div className="text-lg sm:text-xl lg:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
-              {/* Line 1: After logo */}
-              <div>— the world's first clip-on / clip-off</div>
-              {/* Line 2: Aligned with red circle of logo */}
-              <div>
-                solar mounting system. 
-                <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}> Fast. Reversible.</span>
-              </div>
-              {/* Line 3: Under beginning of line 2 */}
-              <div className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>
-                Roof-safe.
-              </div>
+            <div className="text-xl sm:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
+              {/* Line 1: Aligned with SolarClip™ red logo word */}
+              — the world's first clip-on / clip-off<br/>
+              {/* Line 2: Starts directly underneath the logo, aligned left with it */}
+              solar mounting system. <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>Fast. Reversible.</span><br/>
+              {/* Line 3: Aligned with the red circle and with line 2 */}
+              <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>Roof-safe.</span>
             </div>
           </div>
 
           {/* Video Thumbnails with Curved Labels - Raised for better alignment */}
-          <div className="flex gap-6 flex-wrap justify-start" style={{ transform: 'translateY(-3mm)' }}>
+          <div className="flex gap-6 flex-wrap justify-start" style={{ transform: 'translateY(-8mm)' }}>
             {videoThumbnails.map((video, index) => {
               const labels = ['President', 'Partner', 'Client', 'Developer'];
               return (
