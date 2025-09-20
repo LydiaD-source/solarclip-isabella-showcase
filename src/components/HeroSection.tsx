@@ -6,6 +6,7 @@ import { IsabellaAvatar } from './IsabellaAvatar';
 import { useIsabella } from '@/hooks/useIsabella';
 import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
 import { useIsabellaJourney } from '@/hooks/useIsabellaJourney';
+import solarclipLogo from '@/assets/solarclip-logo.png';
 
 interface HeroSectionProps { 
   isExpanded?: boolean; 
@@ -128,8 +129,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
             {/* Logo and first line on same horizontal level */}
             <div className="flex items-start gap-3 mb-2">
               <img 
-                src="/src/assets/solarclip-logo.png" 
-                alt="SolarClip Lightweight Solutions" 
+                src={solarclipLogo}
+                alt="SolarClip Lightweight Solutions"
                 className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0"
               />
               <div className="text-xl sm:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
@@ -184,7 +185,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         </div>
 
         {/* Right Column - Isabella Avatar - Lifted for better balance */}
-        <div className="flex justify-center lg:justify-end items-center relative" style={{ transform: 'translateY(-6mm)' }}>
+        <div className="flex justify-center lg:justify-end items-center relative" style={{ transform: 'translateY(-8mm)' }}>
           <div className="relative">
             <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} didVideoUrl={didVideoUrl} showInlineChat={false} />
             {showMeetButton && (
