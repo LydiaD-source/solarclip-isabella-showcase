@@ -152,7 +152,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
                   <Button
                     variant={isListening ? "destructive" : "secondary"}
                     size="sm"
-                    onClick={startListening}
+                    onClick={() => startListening()}
                     disabled={isListening}
                     className="text-xs px-2"
                   >

@@ -61,7 +61,14 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   };
   const handleVideoThumbnail = (videoId: string) => {
     console.log(`Playing video: ${videoId}`);
-    // TODO: Implement video modal with sliding card animation
+    if (videoId === 'ceo') {
+      showCard({
+        type: 'video',
+        title: 'CEO Testimonial',
+        content: { url: 'https://res.cloudinary.com/di5gj4nyp/video/upload/v1758373486/Alex1.2_gqfcft.mov' },
+        animation: 'swoop-left'
+      });
+    }
   };
 
   const handleSendMessage = async () => {
@@ -289,7 +296,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
                 <Button 
                   size="sm" 
                   className={`bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1 ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
-                  onClick={isListening ? stopListening : startListening}
+                  onClick={isListening ? stopListening : () => startListening()}
                   disabled={!isMicEnabled || isProcessing}
                 >
                   <Mic className="w-4 h-4 mr-2" />

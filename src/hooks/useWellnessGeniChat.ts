@@ -395,8 +395,8 @@ export const useWellnessGeniChat = () => {
     }
   }, [isProcessing, isSpeakerEnabled, playAudio, messages, sessionId]);
 
-  const startListening = useCallback(async () => {
-    if (!isMicEnabled || isListening) return;
+  const startListening = useCallback(async (force: boolean = false) => {
+    if ((!isMicEnabled && !force) || isListening) return;
     
     try {
       setIsListening(true);
@@ -768,7 +768,7 @@ export const useWellnessGeniChat = () => {
         });
         setIsMicEnabled(true);
         console.log('Microphone enabled, starting to listen...');
-        await startListening();
+        await startListening(true);
       } catch (error) {
         console.error('Microphone permission denied:', error);
         toast({
