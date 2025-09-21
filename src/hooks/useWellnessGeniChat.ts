@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
+import { usePerformanceMonitor } from './usePerformanceMonitor';
 
 // D-ID source image to animate (same as the website avatar)
 const DID_SOURCE_URL = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
@@ -29,6 +30,9 @@ export const useWellnessGeniChat = () => {
   const [isListening, setIsListening] = useState(false);
   const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  
+  // Performance monitoring
+  const { startTimer, endTimer } = usePerformanceMonitor();
   const [sessionId] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = sessionStorage.getItem('isabella-session-id');
@@ -170,39 +174,39 @@ export const useWellnessGeniChat = () => {
     }
   }, []);
 
-  const pollDidTalk = useCallback(async (talkId: string) => {
+  const pollDidTalk = useCallback(async (talkId: string, shouldShowMessage = true) => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
     let receivedAudioUrl: string | null = null;
     let started = false;
     
-    console.log('[D-ID] Starting poll for talk:', talkId);
+    console.log('[D-ID] Starting OPTIMIZED poll for talk:', talkId);
     
-    for (let i = 0; i < 100; i++) { // Increased max polls to prevent cutoffs
+    // OPTIMIZATION 1: Much more aggressive polling with exponential backoff
+    for (let i = 0; i < 60; i++) { // Reduced max polls but faster
       try {
         const { data, error } = await supabase.functions.invoke('did-avatar', {
           body: { talk_id: talkId }
         });
         if (error) {
           console.error('[D-ID] poll error', error);
-          await delay(500); // Even faster polling for quickest response
+          await delay(200); // Much faster initial polling
           continue;
         }
-        console.log('[D-ID] poll status:', { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, id: data?.id, duration: data?.duration });
+        
+        const pollInterval = i < 10 ? 200 : i < 20 ? 300 : 500; // Progressive backoff
+        console.log('[D-ID] poll #' + i, { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, nextPoll: pollInterval });
 
-        // Capture audio URL once but do not start playback until video is ready
-        if (data?.audio_url && !receivedAudioUrl) {
-          receivedAudioUrl = data.audio_url;
-          console.log('[D-ID] audio_url received (captured for sync)');
-        }
-
+        // OPTIMIZATION 2: Process video immediately when ready
         if (data?.result_url) {
-          console.log('[D-ID] Video ready, setting URL for seamless playback');
+          console.log('[D-ID] Video ready - IMMEDIATE playback optimization');
           setDidVideoUrl(data.result_url);
-          setIsThinking(false); // Stop thinking when video is ready
+          if (shouldShowMessage) {
+            setIsThinking(false); // Stop thinking when video is ready
+          }
           console.log('[D-ID] Video set successfully, duration:', data.duration);
           
-          // Auto-hide after duration + buffer (keep static image visible)
-          const hideDelay = (data.duration || 45) * 1000 + 3000; // Reduced buffer to 3s
+          // OPTIMIZATION 3: Shorter auto-hide delay for faster UX
+          const hideDelay = Math.min((data.duration || 30) * 1000 + 2000, 35000); // Cap at 35s max
           setTimeout(() => {
             console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 'seconds');
             setDidVideoUrl(null);
@@ -211,12 +215,15 @@ export const useWellnessGeniChat = () => {
         }
         if (data?.status === 'error') {
           console.error('[D-ID] poll status error', data);
+          if (shouldShowMessage) setIsThinking(false);
           break;
         }
-        await delay(500); // Much faster polling interval
+        
+        // OPTIMIZATION 4: Dynamic polling based on progress
+        await delay(pollInterval);
       } catch (e) {
         console.error('[D-ID] poll exception', e);
-        await delay(1000);
+        await delay(300); // Faster error recovery
       }
     }
   }, [playDidAudio]);
@@ -231,6 +238,9 @@ export const useWellnessGeniChat = () => {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isProcessing) return;
 
+    // PERFORMANCE TRACKING: Start total user-to-response timer
+    const totalTimer = startTimer('user-to-response-total');
+    
     const now = Date.now();
     const trimmed = text.trim();
     // Increased deduplication window to prevent triple responses
@@ -287,9 +297,11 @@ export const useWellnessGeniChat = () => {
       };
 
       console.log('[WellnessGeni] request → wellnessgeni-chat', payload);
+      startTimer('wellnessgeni-api-call');
       const { data: chatData, error: chatError } = await supabase.functions.invoke('wellnessgeni-chat', {
         body: payload,
       });
+      endTimer('wellnessgeni-api-call');
 
       if (chatError) {
         console.error('[WellnessGeni] error', chatError);
@@ -320,55 +332,47 @@ export const useWellnessGeniChat = () => {
       // Only add message to state when D-ID is ready, for now just queue it
       let pendingMessage = isabellaMessage;
 
-      // Generate speech with voice + D-ID animation
+      // OPTIMIZATION 5: Start D-ID processing immediately, don't wait for message addition
       if (isSpeakerEnabled && responseText.trim()) {
-        try {
-          if (USE_ELEVENLABS_TTS) {
-            console.log('[TTS] request → elevenlabs-tts');
-            const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
-              body: { text: responseText, voice_id: 't0IcnDolatli2xhqgLgn' }
-            });
-
-            if (ttsError) {
-              console.error('[TTS] error', ttsError);
-              // Fallback: animate with D-ID using text so the avatar still responds
-              const { error: didErr } = await supabase.functions.invoke('did-avatar', { body: { text: responseText, source_url: DID_SOURCE_URL } });
-              if (didErr) console.error('[D-ID] fallback (text) error', didErr);
-              return;
-            }
-
-            if (ttsData?.audio) {
-              console.log('[TTS] got audio, sending to D-ID for animation');
-              const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-                body: { audio_base64: ttsData.audio, source_url: DID_SOURCE_URL }
-              });
-              if (didError) {
-                console.error('[D-ID] error', didError);
-                await playAudio(ttsData.audio);
-                return;
-              }
-              console.log('[D-ID] animation created:', didData);
-              if (didData?.talk_id) { try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); } }
-              await playAudio(ttsData.audio);
-            }
-          } else {
-            // Temporary fallback: use D-ID built-in TTS with text only
-            console.log('[D-ID] request → did-avatar with built-in TTS');
+        console.log('[OPTIMIZATION] Starting parallel D-ID processing immediately');
+        
+        // Fire-and-forget D-ID processing for maximum speed
+        (async () => {
+          try {
+            console.log('[D-ID] FAST request → did-avatar with built-in TTS');
+            startTimer('did-api-call');
             const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
               body: { text: responseText, source_url: DID_SOURCE_URL }
             });
+            endTimer('did-api-call');
+            
             if (didError) {
               console.error('[D-ID] error', didError);
+              setIsThinking(false);
               return;
             }
             console.log('[D-ID] animation created (built-in TTS):', didData);
             if (didData?.talk_id) {
-              try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll start error', e); }
+              try { 
+                startTimer('did-polling');
+                await pollDidTalk(didData.talk_id, true);
+                endTimer('did-polling');
+                endTimer('user-to-response-total'); // End total timer when video is ready
+              } catch (e) { 
+                console.error('[D-ID] poll start error', e);
+                setIsThinking(false);
+                endTimer('user-to-response-total');
+              }
             }
+          } catch (error) {
+            console.error('Speech synthesis error:', error);
+            setIsThinking(false);
+            endTimer('user-to-response-total');
           }
-        } catch (error) {
-          console.error('Speech synthesis error:', error);
-        }
+        })();
+      } else {
+        // No speech enabled, stop thinking immediately
+        setIsThinking(false);
       }
 
     } catch (error) {
@@ -377,6 +381,10 @@ export const useWellnessGeniChat = () => {
       // Do not inject a static fallback message; rely on logs/UX to show failure state
     } finally {
       setIsProcessing(false);
+      // Ensure timer ends even if D-ID isn't used
+      if (!isSpeakerEnabled) {
+        endTimer('user-to-response-total');
+      }
     }
   }, [isProcessing, isSpeakerEnabled, playAudio, messages, sessionId]);
 
@@ -553,27 +561,32 @@ export const useWellnessGeniChat = () => {
         return updated;
       });
 
-      // Send audio blob as multipart/form-data to Supabase Edge Function
-      const formData = new FormData();
-      const ext = audioBlob.type.includes('mp4') ? 'mp4' : audioBlob.type.includes('wav') ? 'wav' : 'webm';
-      formData.append('file', audioBlob, `voice-input.${ext}`);
-
-      console.log('Sending audio to speech-to-text function...');
-      // Use direct fetch with FormData to ensure proper multipart boundaries
-      const resp = await fetch('https://mzikfyqzwepnubdsclfd.functions.supabase.co/functions/v1/speech-to-text', {
-        method: 'POST',
-        body: formData,
+      // OPTIMIZATION 8: Convert to base64 for faster processing
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const base64 = (reader.result as string).split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(audioBlob);
       });
 
-      if (!resp.ok) {
-        const errText = await resp.text().catch(() => '');
-        console.error('Speech-to-text HTTP error:', resp.status, errText);
-        throw new Error(`Speech-to-text failed (${resp.status})`);
+      console.log('Converting audio and sending to speech-to-text function...');
+      const audioBase64 = await base64Promise;
+      
+      // Use Supabase client for better performance
+      const { data, error } = await supabase.functions.invoke('speech-to-text', {
+        body: { audio: audioBase64 }
+      });
+
+      if (error) {
+        console.error('Speech-to-text error:', error);
+        throw new Error(`Speech-to-text failed: ${error.message}`);
       }
 
-      const data = await resp.json();
       console.log('Speech-to-text result:', data);
-      // Remove processing message
+      // Remove processing message immediately
       setMessages(prev => prev.filter(msg => msg.id !== processingMessage.id));
 
       if (data?.text && data.text.trim()) {
@@ -698,25 +711,31 @@ export const useWellnessGeniChat = () => {
         timestamp: new Date(),
       };
       
-      // Start D-ID processing immediately in parallel
-      const didPromise = (isSpeakerEnabled && responseText.trim()) ? 
+      // OPTIMIZATION 6: Ultra-fast parallel D-ID for voice responses  
+      if (isSpeakerEnabled && responseText.trim()) {
+        setIsThinking(true); // Show thinking for voice responses too
+        
         (async () => {
           try {
-            console.log('[D-ID] request → did-avatar with built-in TTS (voice response)');
+            console.log('[D-ID] VOICE request → did-avatar with built-in TTS');
+            const voiceDidStart = performance.now();
             const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
               body: { text: responseText, source_url: DID_SOURCE_URL }
             });
+            console.log('[D-ID] Voice API call completed in:', (performance.now() - voiceDidStart).toFixed(0), 'ms');
+            
             if (didError) {
-              console.error('[D-ID] error', didError);
+              console.error('[D-ID] voice error', didError);
               return;
             }
             if (didData?.talk_id) {
-              try { await pollDidTalk(didData.talk_id); } catch (e) { console.error('[D-ID] poll error', e); }
+              try { await pollDidTalk(didData.talk_id, true); } catch (e) { console.error('[D-ID] voice poll error', e); }
             }
           } catch (error) {
-            console.error('Speech synthesis error:', error);
+            console.error('Voice speech synthesis error:', error);
           }
-        })() : Promise.resolve();
+        })();
+      }
       
       // Add message to chat immediately
       setMessages(prev => {
@@ -808,29 +827,39 @@ export const useWellnessGeniChat = () => {
               await playAudio(ttsData.audio);
             }
           } else {
-            console.log('[D-ID] request → did-avatar with built-in TTS (greeting)');
+            console.log('[D-ID] GREETING request → did-avatar with built-in TTS');
+            const greetingStart = performance.now();
             const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
               body: { text: greetingText, source_url: DID_SOURCE_URL }
             });
+            console.log('[D-ID] Greeting API call completed in:', (performance.now() - greetingStart).toFixed(0), 'ms');
+            
             if (didError) {
               console.error('[D-ID] greeting error', didError);
+              setIsThinking(false);
               return;
             }
             if (didData?.talk_id) {
-              // Add greeting message when D-ID animation is ready
-              pollDidTalk(didData.talk_id).then(() => {
-                setMessages(prev => {
-                  const updated = [...prev, isabellaMessage];
-                  if (typeof window !== 'undefined') {
-                    try {
-                      sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
-                    } catch (error) {
-                      console.error('Error saving messages:', error);
-                    }
+              // OPTIMIZATION 7: Immediate message display with optimized polling
+              setMessages(prev => {
+                const updated = [...prev, isabellaMessage];
+                if (typeof window !== 'undefined') {
+                  try {
+                    sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+                  } catch (error) {
+                    console.error('Error saving messages:', error);
                   }
-                  return updated;
-                });
-              }).catch(e => console.error('[D-ID] greeting poll error', e));
+                }
+                return updated;
+              });
+              
+              // Start optimized polling
+              try { 
+                await pollDidTalk(didData.talk_id, true); 
+              } catch (e) { 
+                console.error('[D-ID] greeting poll error', e);
+                setIsThinking(false);
+              }
             }
           }
         } catch (error) {

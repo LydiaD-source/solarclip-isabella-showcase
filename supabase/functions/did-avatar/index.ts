@@ -82,7 +82,7 @@ serve(async (req) => {
       });
     }
 
-    // Create talk with D-ID API
+    // OPTIMIZED: Create talk with D-ID API - faster processing config
     const talkPayload = {
       source_url: source_url || 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg',
       script: audio_base64
@@ -93,17 +93,24 @@ serve(async (req) => {
         : {
             type: 'text',
             input: text,
+            provider: {
+              type: "microsoft",
+              voice_id: "en-US-AriaNeural"
+            }
           },
       config: {
         stitch: true,
-        fluent: true,
+        fluent: false, // OPTIMIZATION: Disable fluent for faster processing  
         pad_audio: 0.0,
+        auto_match: false, // OPTIMIZATION: Disable auto-match for speed
+        normalization_factor: 1,
+        motion_factor: 1,
         driver_expressions: {
           expressions: [
             {
               start_frame: 0,
               expression: "neutral",
-              intensity: 1.0
+              intensity: 0.8
             }
           ]
         }
