@@ -76,7 +76,7 @@ serve(async (req) => {
       let binary = '';
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
       const base64 = btoa(binary);
-      const contentType = mediaRes.headers.get('Content-Type') || (media_type === 'audio' ? 'audio/mpeg' : 'video/webm');
+      const contentType = mediaRes.headers.get('Content-Type') || (media_type === 'audio' ? 'audio/mpeg' : 'video/mp4');
       return new Response(JSON.stringify({ base64, content_type: contentType }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -107,8 +107,8 @@ serve(async (req) => {
         motion_factor: 1, // NATURAL: Full motion for realism
         align_driver: true, // CRITICAL: Prevent zoom distortion
         align_expand_factor: 0.0, // CRITICAL: No crop/zoom expansion - maintains natural face framing
-        result_format: "webm", // Use WebM to preserve transparency (alpha channel)
-        background: "transparent", // Try to request transparent background for better page blending
+        result_format: "mp4", // Ensure MP4 for consistent playback
+        background: "transparent", // Request transparent background (may be composited)
         driver_expressions: {
           expressions: [
             {

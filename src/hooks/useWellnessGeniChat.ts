@@ -109,7 +109,7 @@ const registerDidVideoElement = useCallback((el: HTMLVideoElement | null) => {
           const binary = atob(proxied.base64);
           const bytes = new Uint8Array(binary.length);
           for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: proxied.content_type || 'video/webm' });
+          const blob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
           const objectUrl = URL.createObjectURL(blob);
           didVideoObjectUrlRef.current = objectUrl;
           setDidVideoUrl(objectUrl);
