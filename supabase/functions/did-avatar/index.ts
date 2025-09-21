@@ -99,20 +99,19 @@ serve(async (req) => {
             }
           },
       config: {
-        stitch: true,
-        fluent: false, // OPTIMIZATION: Disable fluent for faster processing  
-        pad_audio: 0.0,
-        auto_match: false, // OPTIMIZATION: Disable auto-match for speed
-        normalization_factor: 1,
-        motion_factor: 1,
-        driver_expressions: {
-          expressions: [
-            {
-              start_frame: 0,
-              expression: "neutral",
-              intensity: 0.8
-            }
-          ]
+        // ULTRA-PERFORMANCE SETTINGS for sub-2-second generation
+        stitch: false,          // Skip stitching for maximum speed
+        fluent: false,          // Much faster processing
+        pad_audio: 0,           // Instant start, no padding
+        auto_match: false,      // Skip auto-matching delays
+        normalization_factor: 1, // Skip normalization processing
+        motion_factor: 0.5,     // Minimal motion for max speed
+        sharpen: false,         // Skip sharpening delays
+        align_driver: false,    // Skip alignment processing
+        align_expand_factor: 0, // No expansion delays
+        result_format: 'mp4',   // Fastest format
+        driver_expressions: {   // Minimal expressions for speed
+          expressions: []
         }
       }
     };
