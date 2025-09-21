@@ -37,6 +37,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
     toggleSpeaker,
     toggleMicrophone,
     initializeAudio,
+    registerDidVideoElement,
     narrate,
   } = useWellnessGeniChat();
 
@@ -56,6 +57,15 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
       return () => { v.removeEventListener('canplay', tryPlay as any); };
     }
   }, [videoUrl]);
+
+  useEffect(() => {
+    if (videoRef.current) {
+      registerDidVideoElement(videoRef.current);
+    }
+    return () => {
+      registerDidVideoElement(null);
+    };
+  }, [videoUrl, registerDidVideoElement]);
 
   useEffect(() => {
     // Show tooltip after delay but no auto-greeting - only when user clicks start
@@ -92,7 +102,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
     <div className="relative mx-auto lg:mx-0 z-50">
       {/* Avatar - Enlarged and centered without cropping */}
       <div 
-        className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative transition-all duration-300 hover:scale-105 shadow-2xl shadow-black/20 bg-transparent`}
+        className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative transition-all duration-300 hover:scale-105 bg-transparent`}
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Video (D-ID) - Natural face framing without zoom */}
@@ -112,7 +122,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
               style={{ 
                 objectFit: 'contain',
                 objectPosition: 'center top',
-                transform: 'scale(0.88)',
+                transform: 'scale(0.85)',
                 backgroundColor: 'transparent'
               }}
             />

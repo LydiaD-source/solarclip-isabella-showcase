@@ -60,10 +60,32 @@ export const useWellnessGeniChat = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const didAudioRef = useRef<HTMLAudioElement | null>(null);
-  // Queue for parallel D-ID sentence clips
-  const didClipQueueRef = useRef<{ url: string; duration: number }[]>([]);
-  const didPlayingRef = useRef(false);
-  const didNextIndexRef = useRef(0);
+// Manage D-ID video element lifecycle to avoid cutoffs
+const didVideoElementRef = useRef<HTMLVideoElement | null>(null);
+const registerDidVideoElement = useCallback((el: HTMLVideoElement | null) => {
+  // Detach previous
+  if (didVideoElementRef.current && didVideoElementRef.current !== el) {
+    try { didVideoElementRef.current.onended = null; } catch {}
+  }
+  didVideoElementRef.current = el;
+  if (el) {
+    el.onended = () => {
+      console.log('[D-ID] Video ended — hiding after 0.8s');
+      setTimeout(() => {
+        setDidVideoUrl(null);
+        if (didVideoObjectUrlRef.current) {
+          try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+          didVideoObjectUrlRef.current = null;
+        }
+      }, 800);
+    };
+  }
+}, []);
+
+// Queue for parallel D-ID sentence clips
+const didClipQueueRef = useRef<{ url: string; duration: number }[]>([]);
+const didPlayingRef = useRef(false);
+const didNextIndexRef = useRef(0);
 
   // Initialize Web Speech API for real-time transcription
   const [liveTranscript, setLiveTranscript] = useState('');
@@ -263,15 +285,7 @@ export const useWellnessGeniChat = () => {
           if (shouldShowMessage) {
             setIsThinking(false);
           }
-          const hideDelay = Math.round(((data.duration || 5) * 1000) + 800);
-          setTimeout(() => {
-            console.log('[D-ID] Auto-hiding video after', (hideDelay/1000).toFixed(1), 's (no cap)');
-            setDidVideoUrl(null);
-            if (didVideoObjectUrlRef.current) {
-              try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
-              didVideoObjectUrlRef.current = null;
-            }
-          }, hideDelay);
+console.log('[D-ID] Awaiting video end event to auto-hide (reported duration:', (data?.duration ?? 'unknown'), 's)');
           break;
         }
         if (data?.status === 'error') {
@@ -1309,6 +1323,7 @@ export const useWellnessGeniChat = () => {
     toggleSpeaker,
     toggleMicrophone,
     initializeAudio,
+    registerDidVideoElement,
     narrate,
   };
 };

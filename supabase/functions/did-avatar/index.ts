@@ -108,6 +108,7 @@ serve(async (req) => {
         align_driver: true, // CRITICAL: Prevent zoom distortion
         align_expand_factor: 0.0, // CRITICAL: No crop/zoom expansion - maintains natural face framing
         result_format: "mp4", // Ensure MP4 for consistent playback
+        background: "transparent", // Try to request transparent background for better page blending
         driver_expressions: {
           expressions: [
             {
