@@ -93,7 +93,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
         className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 shadow-black/20 hover:shadow-accent/20`}
         onClick={handleChatToggle}
       >
-        {/* Isabella Navia Video (D-ID) - Fixed distortion with proper oval mask */}
+        {/* Isabella Navia Video (D-ID) - Natural face framing without zoom */}
         {videoUrl && (
           <div className="absolute inset-0 w-full h-full rounded-full overflow-hidden z-20">
             <video
@@ -106,9 +106,12 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
               onLoadStart={() => console.log('[D-ID] Video loading started')}
               onCanPlay={() => console.log('[D-ID] Video can play')}
               onError={(e) => console.error('[D-ID] Video error:', e)}
-              className="w-full h-full object-contain"
+              className="w-full h-full"
               style={{ 
-                backgroundColor: 'black'
+                objectFit: 'cover',
+                objectPosition: 'center top',
+                transform: 'scale(0.85)',
+                backgroundColor: 'transparent'
               }}
             />
           </div>
@@ -216,14 +219,14 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
             <div className="flex gap-2">
               <input 
                 type="text" 
-                placeholder="Ask me about SolarClip™ installation, pricing, benefits..." 
+                placeholder={isWebSpeechActive ? "🎤 Listening..." : "Ask me about SolarClip™ installation, pricing, benefits..."}
                 className="flex-1 px-4 py-3 text-sm border border-border/50 rounded-xl bg-background/80 backdrop-blur-sm transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:bg-background"
                 value={isWebSpeechActive ? liveTranscript : inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={isProcessing}
                 style={{ 
-                  color: isWebSpeechActive ? '#059669' : undefined,
+                  color: isWebSpeechActive ? '#10b981' : undefined,
                   fontStyle: isWebSpeechActive ? 'italic' : undefined
                 }}
               />

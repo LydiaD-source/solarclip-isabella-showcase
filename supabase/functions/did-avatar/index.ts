@@ -104,19 +104,19 @@ serve(async (req) => {
         pad_audio: 0.0, // SPEED: Zero padding for immediate start
         auto_match: false, // SPEED: No auto-matching for speed
         normalization_factor: 1,
-        motion_factor: 0.9, // NATURAL: Slightly reduced motion for realism
+        motion_factor: 1, // NATURAL: Full motion for realism
         align_driver: true, // CRITICAL: Prevent zoom distortion
-        align_expand_factor: 0.0, // CRITICAL: No crop/zoom expansion
+        align_expand_factor: 0.0, // CRITICAL: No crop/zoom expansion - maintains natural face framing
         result_format: "mp4", // Ensure MP4 for consistent playback
         driver_expressions: {
           expressions: [
             {
               start_frame: 0,
               expression: "neutral",
-              intensity: 0.8
+              intensity: 0.9
             }
           ],
-          transition_frames: 3 // SPEED: Ultra-fast transitions
+          transition_frames: 2 // SPEED: Ultra-fast transitions for real-time feel
         }
       }
     };

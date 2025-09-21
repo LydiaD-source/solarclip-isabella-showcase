@@ -16,9 +16,9 @@ export interface ChatMessage {
 }
 
 export const useWellnessGeniChat = () => {
-  // Temporary flag: disable ElevenLabs TTS while credits are exhausted.
-  // Set to true to re-enable without touching rest of the flow.
+  // Real-time optimization: D-ID only for speed
   const USE_ELEVENLABS_TTS = false;
+  const ENABLE_STREAMING = true;
   const { toast } = useToast();
   // Fresh messages on each page load for clean journey flow
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -263,16 +263,19 @@ export const useWellnessGeniChat = () => {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isProcessing) return;
 
-    // PERFORMANCE TRACKING: Start total user-to-response timer
+    // PERFORMANCE TRACKING: Start total user-to-response timer  
     const totalTimer = startTimer('user-to-response-total');
+    const sttStartTime = Date.now();
     
     const now = Date.now();
     const trimmed = text.trim();
     // Increased deduplication window to prevent triple responses
-    if (lastSentRef.current && lastSentRef.current.text === trimmed && now - lastSentRef.current.time < 5000) {
-      console.log('Deduped repeated message within 5 seconds');
+    if (lastSentRef.current && lastSentRef.current.text === trimmed && now - lastSentRef.current.time < 3000) {
+      console.log('Deduped repeated message within 3 seconds');
       return;
     }
+    
+    console.log(`[PERF] STT complete: ${Date.now() - sttStartTime}ms`);
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -422,41 +425,40 @@ export const useWellnessGeniChat = () => {
                   }
                 }
               } else {
-                console.log('[D-ID] FAST request → did-avatar (first sentence only, no parallel)');
-                const sentences = (responseText.match(/[^.!?]+[.!?]?/g) || [responseText])
-                  .map(s => s.trim())
-                  .filter(s => s.length > 2);
-                const firstSentence = sentences[0] || responseText.split(/[,;:]/)[0] || responseText;
+        console.log('[D-ID] ULTRA-FAST request → did-avatar with complete text for natural motion');
+        
+        // REAL-TIME OPTIMIZATION: Send complete response for natural motion
+        const didStartTime = Date.now();
+        startTimer('did-api-call');
+        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+          body: { text: responseText, source_url: DID_SOURCE_URL }
+        });
+        const didCreateMs = endTimer('did-api-call');
+        console.log(`[PERF] D-ID API call: ${Date.now() - didStartTime}ms`);
+        if (didCreateMs > 2000) console.warn('[PERF] D-ID create took ' + didCreateMs.toFixed(0) + 'ms (>2s)');
 
-                // Send ONLY the first sentence to D-ID to minimize generation time
-                console.log('[D-ID] creating talk for first sentence:', firstSentence.slice(0, 80));
-                startTimer('did-api-call');
-                const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-                  body: { text: firstSentence, source_url: DID_SOURCE_URL }
-                });
-                const didCreateMs = endTimer('did-api-call');
-                if (didCreateMs > 2000) console.warn('[PERF] D-ID create took', didCreateMs.toFixed(0),'ms (>2s)');
+        if (didError) {
+          console.error('[D-ID] error', didError);
+          setIsThinking(false);
+          endTimer('user-to-response-total');
+          return;
+        }
 
-                if (didError) {
-                  console.error('[D-ID] error', didError);
-                  setIsThinking(false);
-                  endTimer('user-to-response-total');
-                  return;
-                }
-
-                if (didData?.talk_id) {
-                  try {
-                    startTimer('did-polling');
-                    await pollDidTalk(didData.talk_id, true);
-                    const pollMs = endTimer('did-polling');
-                    if (pollMs > 2000) console.warn('[PERF] D-ID poll took', pollMs.toFixed(0),'ms (>2s)');
-                    endTimer('user-to-response-total');
-                  } catch (e) {
-                    console.error('[D-ID] poll start error', e);
-                    setIsThinking(false);
-                    endTimer('user-to-response-total');
-                  }
-                }
+        if (didData?.talk_id) {
+          try {
+            const pollStartTime = Date.now();
+            startTimer('did-polling');
+            await pollDidTalk(didData.talk_id, true);
+            const pollMs = endTimer('did-polling');
+            console.log(`[PERF] D-ID total polling: ${Date.now() - pollStartTime}ms`);
+            if (pollMs > 3000) console.warn('[PERF] D-ID poll took ' + pollMs.toFixed(0) + 'ms (>3s)');
+            endTimer('user-to-response-total');
+          } catch (e) {
+            console.error('[D-ID] poll start error', e);
+            setIsThinking(false);
+            endTimer('user-to-response-total');
+          }
+        }
               }
             } catch (error) {
               console.error('Speech synthesis error:', error);
