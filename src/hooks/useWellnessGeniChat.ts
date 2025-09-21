@@ -19,10 +19,13 @@ export const useWellnessGeniChat = () => {
   // Real-time optimization: D-ID only for speed
   const USE_ELEVENLABS_TTS = false;
   const ENABLE_STREAMING = true;
+  const ENABLE_FIRST_SENTENCE_DISPATCH = true;
   const { toast } = useToast();
   // Fresh messages on each page load for clean journey flow
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
+  const [streamingText, setStreamingText] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSpeakerEnabled, setIsSpeakerEnabled] = useState(true);
@@ -303,11 +306,11 @@ export const useWellnessGeniChat = () => {
     const trimmed = text.trim();
     // Increased deduplication window to prevent triple responses
     if (lastSentRef.current && lastSentRef.current.text === trimmed && now - lastSentRef.current.time < 3000) {
-      console.log('Deduped repeated message within 3 seconds');
+      console.log('[PERF] 🟡 Deduped repeated message within 3 seconds');
       return;
     }
     
-    console.log(`[PERF] STT complete: ${Date.now() - sttStartTime}ms`);
+    console.log(`[PERF] 🟢 STT complete: ${Date.now() - sttStartTime}ms`);
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -356,165 +359,263 @@ export const useWellnessGeniChat = () => {
         },
       };
 
-      console.log('[WellnessGeni] request → wellnessgeni-chat', payload);
+      console.log('[LLM] 🚀 Request → wellnessgeni-chat', { messageLen: text.length });
+      const llmStartTime = Date.now();
       startTimer('wellnessgeni-api-call');
-      const { data: chatData, error: chatError } = await supabase.functions.invoke('wellnessgeni-chat', {
-        body: payload,
-      });
-      endTimer('wellnessgeni-api-call');
 
-      if (chatError) {
-        console.error('[WellnessGeni] error', chatError);
-        throw chatError;
-      }
-
-      console.log('[WellnessGeni] response', chatData);
-
-      if (chatError) throw chatError;
-
-      let responseText = typeof chatData?.response === 'string' ? chatData.response : 
-                         typeof chatData?.text === 'string' ? chatData.text : '';
-      
-      if (!responseText || !responseText.trim()) {
-        throw new Error('Empty response from chat API');
-      }
-
-      // Start thinking indicator before processing D-ID
-      setIsThinking(true);
-
-      const isabellaMessage: ChatMessage = {
-        id: Date.now().toString() + '_isabella',
-        text: responseText,
-        sender: 'isabella',
-        timestamp: new Date(),
-      };
-      
-      // Show Isabella's text immediately for better UX
-      setMessages(prev => {
-        const updated = [...prev, isabellaMessage];
-        if (typeof window !== 'undefined') {
-          try {
-            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
-          } catch (error) {
-            console.error('Error saving messages:', error);
-          }
-        }
-        return updated;
-      });
-
-      // OPTIMIZATION 5: Start D-ID processing immediately, don't wait for message addition
-      if (isSpeakerEnabled && responseText.trim()) {
-        console.log('[OPTIMIZATION] Starting parallel D-ID processing immediately');
+      if (ENABLE_STREAMING) {
+        // Start streaming LLM response
+        setIsStreaming(true);
+        setStreamingText('');
+        let accumulatedText = '';
+        let firstSentenceSent = false;
         
-        // Fire-and-forget D-ID processing for maximum speed
+        // Create streaming Isabella message
+        const streamingMessageId = Date.now().toString() + '_streaming';
+        const isabellaMessage: ChatMessage = {
+          id: streamingMessageId,
+          text: '',
+          sender: 'isabella',
+          timestamp: new Date(),
+        };
+        
+        setMessages(prev => {
+          const updated = [...prev, isabellaMessage];
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+            } catch (error) {
+              console.error('Error saving messages:', error);
+            }
+          }
+          return updated;
+        });
+
+        const { data: chatData, error: chatError } = await supabase.functions.invoke('wellnessgeni-chat', {
+          body: payload,
+        });
+        const llmMs = endTimer('wellnessgeni-api-call');
+        console.log(`[PERF] 🟢 LLM API call: ${Date.now() - llmStartTime}ms`);
+        if (llmMs > 2000) console.warn('[PERF] 🟠 LLM took ' + llmMs.toFixed(0) + 'ms (>2s)');
+
+        if (chatError) {
+          console.error('[LLM] ❌ Error', chatError);
+          throw chatError;
+        }
+
+        let responseText = typeof chatData?.response === 'string' ? chatData.response : 
+                           typeof chatData?.text === 'string' ? chatData.text : '';
+        
+        if (!responseText || !responseText.trim()) {
+          throw new Error('Empty response from chat API');
+        }
+
+        console.log(`[LLM] ✅ Complete response received: ${responseText.length} chars`);
+
+        // Simulate token streaming for better UX (since WellnessGeni doesn't stream)
+        const words = responseText.split(' ');
+        let wordIndex = 0;
+
+        const streamWords = () => {
+          if (wordIndex < words.length) {
+            const word = words[wordIndex];
+            accumulatedText += (wordIndex > 0 ? ' ' : '') + word;
+            wordIndex++;
+
+            console.log(`[LLM] 📝 Token arrived: "${word}" (${wordIndex}/${words.length})`);
+            
+            // Update streaming text
+            setStreamingText(accumulatedText);
+            
+            // Update message in real-time
+            setMessages(prev => prev.map(msg => 
+              msg.id === streamingMessageId 
+                ? { ...msg, text: accumulatedText }
+                : msg
+            ));
+
+            // First sentence dispatch to D-ID
+            if (ENABLE_FIRST_SENTENCE_DISPATCH && !firstSentenceSent && 
+                (accumulatedText.includes('.') || accumulatedText.includes('!') || accumulatedText.includes('?'))) {
+              const firstSentence = accumulatedText.split(/[.!?]/)[0].trim() + '.';
+              if (firstSentence.length > 10) {
+                console.log(`[D-ID] 🎬 First sentence dispatch: "${firstSentence}"`);
+                firstSentenceSent = true;
+                
+                if (isSpeakerEnabled) {
+                  setIsThinking(true);
+                  (async () => {
+                    try {
+                      const didStartTime = Date.now();
+                      startTimer('did-first-sentence');
+                      const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                        body: { text: firstSentence, source_url: DID_SOURCE_URL }
+                      });
+                      const didCreateMs = endTimer('did-first-sentence');
+                      console.log(`[PERF] 🎬 D-ID first sentence: ${Date.now() - didStartTime}ms`);
+                      if (didCreateMs > 2000) console.warn('[PERF] 🟠 D-ID first sentence took ' + didCreateMs.toFixed(0) + 'ms (>2s)');
+
+                      if (!didError && didData?.talk_id) {
+                        console.log(`[D-ID] ✅ First sentence talk created: ${didData.talk_id}`);
+                        await pollDidTalk(didData.talk_id, true);
+                      }
+                    } catch (e) {
+                      console.error('[D-ID] ❌ First sentence error', e);
+                      setIsThinking(false);
+                    }
+                  })();
+                }
+              }
+            }
+
+            // Continue streaming with human-like delay
+            setTimeout(streamWords, 50 + Math.random() * 100);
+          } else {
+            // Streaming complete
+            setIsStreaming(false);
+            console.log(`[LLM] ✅ Streaming complete: ${accumulatedText.length} chars`);
+            
+            // Final message update
+            setMessages(prev => prev.map(msg => 
+              msg.id === streamingMessageId 
+                ? { ...msg, text: accumulatedText }
+                : msg
+            ));
+
+            // If no first sentence was sent or we have remaining text, send full response to D-ID
+            if (isSpeakerEnabled && (!firstSentenceSent || accumulatedText.length > 50)) {
+              setTimeout(async () => {
+                try {
+                  const fullDidStartTime = Date.now();
+                  startTimer('did-full-response');
+                  const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                    body: { text: accumulatedText, source_url: DID_SOURCE_URL }
+                  });
+                  const fullDidMs = endTimer('did-full-response');
+                  console.log(`[PERF] 🎭 D-ID full response: ${Date.now() - fullDidStartTime}ms`);
+                  if (fullDidMs > 2000) console.warn('[PERF] 🟠 D-ID full response took ' + fullDidMs.toFixed(0) + 'ms (>2s)');
+
+                  if (!didError && didData?.talk_id) {
+                    console.log(`[D-ID] ✅ Full response talk created: ${didData.talk_id}`);
+                    if (!firstSentenceSent) {
+                      setIsThinking(true);
+                    }
+                    await pollDidTalk(didData.talk_id, !firstSentenceSent);
+                  }
+                } catch (e) {
+                  console.error('[D-ID] ❌ Full response error', e);
+                  setIsThinking(false);
+                }
+              }, firstSentenceSent ? 2000 : 100);
+            } else {
+              setIsThinking(false);
+            }
+
+            endTimer('user-to-response-total');
+          }
+        };
+
+        // Start streaming
+        setTimeout(streamWords, 100);
+
+      } else {
+        // Fallback to non-streaming mode
+        const { data: chatData, error: chatError } = await supabase.functions.invoke('wellnessgeni-chat', {
+          body: payload,
+        });
+        endTimer('wellnessgeni-api-call');
+
+        if (chatError) {
+          console.error('[LLM] ❌ Error', chatError);
+          throw chatError;
+        }
+
+        let responseText = typeof chatData?.response === 'string' ? chatData.response : 
+                           typeof chatData?.text === 'string' ? chatData.text : '';
+        
+        if (!responseText || !responseText.trim()) {
+          throw new Error('Empty response from chat API');
+        }
+
+        // Start thinking indicator before processing D-ID
+        setIsThinking(true);
+
+        const isabellaMessage: ChatMessage = {
+          id: Date.now().toString() + '_isabella',
+          text: responseText,
+          sender: 'isabella',
+          timestamp: new Date(),
+        };
+        
+        // Show Isabella's text immediately for better UX
+        setMessages(prev => {
+          const updated = [...prev, isabellaMessage];
+          if (typeof window !== 'undefined') {
+            try {
+              sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+            } catch (error) {
+              console.error('Error saving messages:', error);
+            }
+          }
+          return updated;
+        });
+
+        // Process D-ID for complete response
+        if (isSpeakerEnabled && responseText.trim()) {
           (async () => {
             try {
+              const didStartTime = Date.now();
               startTimer('did-api-call');
-              if (USE_ELEVENLABS_TTS) {
-                console.log('[TTS] request → elevenlabs-tts');
-                const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
-                  body: { text: responseText, voice_id: 't0IcnDolatli2xhqgLgn' }
-                });
-                if (ttsError) {
-                  console.error('[TTS] error', ttsError);
-                  console.log('[D-ID] Falling back to built-in TTS');
-                  const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-                    body: { text: responseText, source_url: DID_SOURCE_URL }
-                  });
-                  if (!didError && didData?.talk_id) {
-                    startTimer('did-polling');
-                    await pollDidTalk(didData.talk_id, true);
-                    endTimer('did-polling');
-                  }
-                  endTimer('did-api-call');
+              const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                body: { text: responseText, source_url: DID_SOURCE_URL }
+              });
+              const didCreateMs = endTimer('did-api-call');
+              console.log(`[PERF] 🎭 D-ID API call: ${Date.now() - didStartTime}ms`);
+              if (didCreateMs > 2000) console.warn('[PERF] 🟠 D-ID create took ' + didCreateMs.toFixed(0) + 'ms (>2s)');
+
+              if (didError) {
+                console.error('[D-ID] ❌ Error', didError);
+                setIsThinking(false);
+                endTimer('user-to-response-total');
+                return;
+              }
+
+              if (didData?.talk_id) {
+                try {
+                  const pollStartTime = Date.now();
+                  startTimer('did-polling');
+                  await pollDidTalk(didData.talk_id, true);
+                  const pollMs = endTimer('did-polling');
+                  console.log(`[PERF] 🔄 D-ID total polling: ${Date.now() - pollStartTime}ms`);
+                  if (pollMs > 3000) console.warn('[PERF] 🔴 D-ID poll took ' + pollMs.toFixed(0) + 'ms (>3s)');
                   endTimer('user-to-response-total');
-                  return;
+                } catch (e) {
+                  console.error('[D-ID] ❌ Poll error', e);
+                  setIsThinking(false);
+                  endTimer('user-to-response-total');
                 }
-
-                if (ttsData?.audio) {
-                  console.log('[D-ID] FAST request → did-avatar with audio');
-                  const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-                    body: { audio_base64: ttsData.audio, source_url: DID_SOURCE_URL }
-                  });
-                  endTimer('did-api-call');
-                  if (didError) {
-                    console.error('[D-ID] error', didError);
-                    setIsThinking(false);
-                    endTimer('user-to-response-total');
-                    return;
-                  }
-                  if (didData?.talk_id) {
-                    try {
-                      startTimer('did-polling');
-                      await pollDidTalk(didData.talk_id, true);
-                      endTimer('did-polling');
-                      endTimer('user-to-response-total');
-                    } catch (e) {
-                      console.error('[D-ID] poll start error', e);
-                      setIsThinking(false);
-                      endTimer('user-to-response-total');
-                    }
-                  }
-                }
-              } else {
-        console.log('[D-ID] ULTRA-FAST request → did-avatar with complete text for natural motion');
-        
-        // REAL-TIME OPTIMIZATION: Send complete response for natural motion
-        const didStartTime = Date.now();
-        startTimer('did-api-call');
-        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-          body: { text: responseText, source_url: DID_SOURCE_URL }
-        });
-        const didCreateMs = endTimer('did-api-call');
-        console.log(`[PERF] D-ID API call: ${Date.now() - didStartTime}ms`);
-        if (didCreateMs > 2000) console.warn('[PERF] D-ID create took ' + didCreateMs.toFixed(0) + 'ms (>2s)');
-
-        if (didError) {
-          console.error('[D-ID] error', didError);
-          setIsThinking(false);
-          endTimer('user-to-response-total');
-          return;
-        }
-
-        if (didData?.talk_id) {
-          try {
-            const pollStartTime = Date.now();
-            startTimer('did-polling');
-            await pollDidTalk(didData.talk_id, true);
-            const pollMs = endTimer('did-polling');
-            console.log(`[PERF] D-ID total polling: ${Date.now() - pollStartTime}ms`);
-            if (pollMs > 3000) console.warn('[PERF] D-ID poll took ' + pollMs.toFixed(0) + 'ms (>3s)');
-            endTimer('user-to-response-total');
-          } catch (e) {
-            console.error('[D-ID] poll start error', e);
-            setIsThinking(false);
-            endTimer('user-to-response-total');
-          }
-        }
               }
             } catch (error) {
-              console.error('Speech synthesis error:', error);
+              console.error('[D-ID] ❌ Processing error:', error);
               setIsThinking(false);
               endTimer('user-to-response-total');
             }
           })();
-      } else {
-        // No speech enabled, stop thinking immediately
-        setIsThinking(false);
+        } else {
+          setIsThinking(false);
+          endTimer('user-to-response-total');
+        }
       }
 
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('[ERROR] ❌ Sending message:', error);
       setIsThinking(false);
-      // Do not inject a static fallback message; rely on logs/UX to show failure state
+      setIsStreaming(false);
+      endTimer('user-to-response-total');
     } finally {
       setIsProcessing(false);
-      // Ensure timer ends even if D-ID isn't used
-      if (!isSpeakerEnabled) {
-        endTimer('user-to-response-total');
-      }
     }
-  }, [isProcessing, isSpeakerEnabled, playAudio, messages, sessionId]);
+  }, [isProcessing, isSpeakerEnabled, messages, sessionId, pollDidTalk, startTimer, endTimer]);
 
   const startListening = useCallback(async (force: boolean = false) => {
     if ((!isMicEnabled && !force) || isListening) return;
@@ -1192,10 +1293,12 @@ export const useWellnessGeniChat = () => {
   return {
     messages,
     isProcessing,
+    isThinking,
+    isStreaming,
+    streamingText,
     isSpeakerEnabled,
     isMicEnabled,
     isListening,
-    isThinking,
     didVideoUrl,
     liveTranscript,
     isWebSpeechActive,

@@ -23,6 +23,8 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
     messages,
     isProcessing,
     isThinking,
+    isStreaming,
+    streamingText,
     isSpeakerEnabled,
     isMicEnabled,
     isListening,
@@ -206,9 +208,11 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
                 </div>
               ))}
               
-              {isProcessing && (
+              {(isProcessing || isStreaming) && (
                 <div className="bg-secondary/50 rounded-lg p-3 mr-4">
-                  <p className="text-sm text-muted-foreground">Isabella is thinking...</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isStreaming ? "🔊 Isabella is responding..." : "Isabella is thinking..."}
+                  </p>
                 </div>
               )}
             </div>
@@ -218,12 +222,16 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
             <div className="flex gap-2">
               <input 
                 type="text" 
-                placeholder={isWebSpeechActive ? "🎤 Listening..." : "Ask me about SolarClip™ installation, pricing, benefits..."}
+                placeholder={
+                  isWebSpeechActive ? "🎤 Listening..." : 
+                  isStreaming ? "🔊 syncing voice..." :
+                  "Ask me about SolarClip™ installation, pricing, benefits..."
+                }
                 className="flex-1 px-4 py-3 text-sm border border-border/50 rounded-xl bg-background/80 backdrop-blur-sm transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:bg-background"
                 value={isWebSpeechActive ? liveTranscript : inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
-                disabled={isProcessing}
+                disabled={isProcessing || isStreaming}
                 style={{ 
                   color: isWebSpeechActive ? '#10b981' : undefined,
                   fontStyle: isWebSpeechActive ? 'italic' : undefined
@@ -238,7 +246,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
                 size="default" 
                 variant="default" 
                 onClick={handleSendMessage}
-                disabled={isProcessing || !inputText.trim()}
+                disabled={isProcessing || isStreaming || !inputText.trim()}
                 className="px-4 py-3 rounded-xl bg-gradient-to-r from-accent to-accent-light hover:from-accent-light hover:to-accent transition-all duration-200 shadow-lg hover:shadow-accent/20"
               >
                 <Send className="w-4 h-4" />

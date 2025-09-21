@@ -33,16 +33,18 @@ export const usePerformanceMonitor = () => {
     // Color code based on performance thresholds
     const getColorCode = (duration: number) => {
       if (duration < 1000) return '🟢'; // Green - Good (<1s)
-      if (duration < 3000) return '🟡'; // Yellow - Acceptable (1-3s)
-      if (duration < 5000) return '🟠'; // Orange - Slow (3-5s)
-      return '🔴'; // Red - Too slow (>5s)
+      if (duration < 2000) return '🟡'; // Yellow - Acceptable (1-2s)
+      if (duration < 3000) return '🟠'; // Orange - Slow (2-3s)
+      return '🔴'; // Red - Too slow (>3s)
     };
 
     console.log(`[PERF] ${getColorCode(duration)} Completed: ${name} in ${duration.toFixed(0)}ms`);
     
     // Alert if critical operations are too slow
-    if (name.includes('user-to-response') && duration > 5000) {
-      console.error(`[PERF] 🚨 CRITICAL: ${name} took ${(duration/1000).toFixed(1)}s - exceeds 5s target!`);
+    if (name.includes('user-to-response') && duration > 2000) {
+      console.error(`[PERF] 🚨 CRITICAL: ${name} took ${(duration/1000).toFixed(1)}s - exceeds 2s target!`);
+    } else if (duration > 3000) {
+      console.warn(`[PERF] ⚠️ SLOW: ${name} took ${(duration/1000).toFixed(1)}s - exceeds 3s threshold`);
     }
 
     return duration;
