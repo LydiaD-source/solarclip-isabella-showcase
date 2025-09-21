@@ -422,63 +422,41 @@ export const useWellnessGeniChat = () => {
                   }
                 }
               } else {
-                console.log('[D-ID] FAST request → did-avatar with built-in TTS (sentence-chunked)');
+                console.log('[D-ID] FAST request → did-avatar (first sentence only, no parallel)');
                 const sentences = (responseText.match(/[^.!?]+[.!?]?/g) || [responseText])
                   .map(s => s.trim())
                   .filter(s => s.length > 2);
+                const firstSentence = sentences[0] || responseText.split(/[,;:]/)[0] || responseText;
 
-                // Reset playback queue
-                didClipQueueRef.current = new Array(sentences.length).fill(null) as any;
-                didPlayingRef.current = false;
-                didNextIndexRef.current = 0;
+                // Send ONLY the first sentence to D-ID to minimize generation time
+                console.log('[D-ID] creating talk for first sentence:', firstSentence.slice(0, 80));
+                startTimer('did-api-call');
+                const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                  body: { text: firstSentence, source_url: DID_SOURCE_URL }
+                });
+                const didCreateMs = endTimer('did-api-call');
+                if (didCreateMs > 2000) console.warn('[PERF] D-ID create took', didCreateMs.toFixed(0),'ms (>2s)');
 
-                const pollForUrl = async (talkId: string): Promise<{ url: string; duration: number }> => {
-                  const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-                  for (let i = 0; i < 80; i++) {
-                    const { data, error } = await supabase.functions.invoke('did-avatar', { body: { talk_id: talkId } });
-                    if (!error && data?.result_url) {
-                      return { url: data.result_url, duration: Number(data?.duration || 5) };
-                    }
-                    await delay(i < 20 ? 100 : 150);
-                  }
-                  throw new Error('D-ID poll timeout');
-                };
-
-                const tryPlayNext = () => {
-                  const idx = didNextIndexRef.current;
-                  const clip = didClipQueueRef.current[idx];
-                  if (!clip || didPlayingRef.current) return;
-                  didPlayingRef.current = true;
+                if (didError) {
+                  console.error('[D-ID] error', didError);
                   setIsThinking(false);
-                  setDidVideoUrl(clip.url);
-                  const ms = Math.min((clip.duration || 5) * 1000 + 500, 15000);
-                  setTimeout(() => {
-                    didPlayingRef.current = false;
-                    didNextIndexRef.current = idx + 1;
-                    setDidVideoUrl(null);
-                    tryPlayNext();
-                  }, ms);
-                };
+                  endTimer('user-to-response-total');
+                  return;
+                }
 
-                await Promise.all(
-                  sentences.map(async (sentence, idx) => {
-                    const { data: create, error: createErr } = await supabase.functions.invoke('did-avatar', {
-                      body: { text: sentence, source_url: DID_SOURCE_URL }
-                    });
-                    if (createErr || !create?.talk_id) {
-                      console.error('[D-ID] create error for chunk', idx, createErr);
-                      return;
-                    }
-                    try {
-                      const clip = await pollForUrl(create.talk_id);
-                      didClipQueueRef.current[idx] = clip;
-                      tryPlayNext();
-                    } catch (e) {
-                      console.error('[D-ID] poll error for chunk', idx, e);
-                    }
-                  })
-                );
-                endTimer('did-api-call');
+                if (didData?.talk_id) {
+                  try {
+                    startTimer('did-polling');
+                    await pollDidTalk(didData.talk_id, true);
+                    const pollMs = endTimer('did-polling');
+                    if (pollMs > 2000) console.warn('[PERF] D-ID poll took', pollMs.toFixed(0),'ms (>2s)');
+                    endTimer('user-to-response-total');
+                  } catch (e) {
+                    console.error('[D-ID] poll start error', e);
+                    setIsThinking(false);
+                    endTimer('user-to-response-total');
+                  }
+                }
               }
             } catch (error) {
               console.error('Speech synthesis error:', error);
@@ -693,10 +671,14 @@ export const useWellnessGeniChat = () => {
       console.log('Converting audio and sending to speech-to-text function...');
       const audioBase64 = await base64Promise;
       
+      // PERF: Measure STT latency
+      startTimer('stt');
       // Use Supabase client for better performance
       const { data, error } = await supabase.functions.invoke('speech-to-text', {
         body: { audio: audioBase64 }
       });
+      const sttMs = endTimer('stt');
+      if (sttMs > 2000) console.warn('[PERF] STT took', sttMs.toFixed(0), 'ms (>2s)');
 
       if (error) {
         console.error('Speech-to-text error:', error);

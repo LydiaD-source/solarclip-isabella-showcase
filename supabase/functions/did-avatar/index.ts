@@ -104,7 +104,7 @@ serve(async (req) => {
         pad_audio: 0.0, // SPEED: Zero padding for immediate start
         auto_match: false, // SPEED: No auto-matching for speed
         normalization_factor: 1,
-        motion_factor: 1, // NATURAL: Full motion for realism
+        motion_factor: 0.9, // NATURAL: Slightly reduced motion for realism
         align_driver: true, // CRITICAL: Prevent zoom distortion
         align_expand_factor: 0.0, // CRITICAL: No crop/zoom expansion
         result_format: "mp4", // Ensure MP4 for consistent playback
