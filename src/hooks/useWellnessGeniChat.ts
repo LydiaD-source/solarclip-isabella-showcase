@@ -102,8 +102,15 @@ export const useWellnessGeniChat = () => {
           }
         };
         
-        recognitionInstance.onerror = (event) => {
-          console.log('Speech recognition error:', event.error);
+        recognitionInstance.onerror = (event: any) => {
+          const err = event?.error || 'unknown';
+          if (err === 'no-speech' || err === 'aborted' || err === 'audio-capture') {
+            console.warn('Speech recognition benign error:', err);
+            setIsListening(false);
+            setIsWebSpeechActive(false);
+            return;
+          }
+          console.log('Speech recognition error:', err);
           setIsListening(false);
           setIsWebSpeechActive(false);
           setLiveTranscript('');
@@ -225,17 +232,42 @@ export const useWellnessGeniChat = () => {
 
         // IMMEDIATE PLAYBACK: Start video as soon as result_url is available
         if (data?.result_url) {
-          console.log('[D-ID] Video ready - INSTANT playback');
-          setDidVideoUrl(data.result_url);
+          console.log('[D-ID] Video ready - preloading via proxy for instant playback');
+          try {
+            if (didVideoObjectUrlRef.current) {
+              try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+              didVideoObjectUrlRef.current = null;
+            }
+            const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
+              body: { proxy_url: data.result_url, media_type: 'video' }
+            });
+            if (!proxyErr && proxied?.base64) {
+              const binary = atob(proxied.base64);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              const blob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
+              const objectUrl = URL.createObjectURL(blob);
+              didVideoObjectUrlRef.current = objectUrl;
+              setDidVideoUrl(objectUrl);
+            } else {
+              console.warn('[D-ID] Proxy video failed, falling back to direct URL');
+              setDidVideoUrl(data.result_url);
+            }
+          } catch (e) {
+            console.error('[D-ID] video proxy exception, fallback to direct URL', e);
+            setDidVideoUrl(data.result_url);
+          }
           if (shouldShowMessage) {
             setIsThinking(false);
           }
-          
-          // FAST CYCLE: Quick auto-hide for rapid conversation flow
           const hideDelay = Math.min((data.duration || 5) * 1000 + 1000, 15000);
           setTimeout(() => {
             console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 's');
             setDidVideoUrl(null);
+            if (didVideoObjectUrlRef.current) {
+              try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+              didVideoObjectUrlRef.current = null;
+            }
           }, hideDelay);
           break;
         }
@@ -569,7 +601,7 @@ export const useWellnessGeniChat = () => {
       };
 
       // Start recording with faster chunks
-      mediaRecorder.start(500); // SPEED: Collect data every 500ms for responsiveness
+      mediaRecorder.start(300); // SPEED: Collect data every 300ms for faster interim results
       console.log('Started voice recording with mime type:', mimeType);
 
       // Auto-stop after 10 seconds for faster processing

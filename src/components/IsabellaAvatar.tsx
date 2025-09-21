@@ -95,23 +95,22 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
       >
         {/* Isabella Navia Video (D-ID) - Natural face framing without zoom */}
         {videoUrl && (
-          <div className="absolute inset-0 w-full h-full rounded-full overflow-hidden z-20">
+          <div className="absolute inset-0 w-full h-full rounded-full overflow-hidden z-20" style={{ backgroundColor: 'black' }}>
             <video
               ref={videoRef}
               src={videoUrl}
+              preload="auto"
               autoPlay
               playsInline
               muted={false}
-              preload="auto"
               onLoadStart={() => console.log('[D-ID] Video loading started')}
               onCanPlay={() => console.log('[D-ID] Video can play')}
               onError={(e) => console.error('[D-ID] Video error:', e)}
               className="w-full h-full"
               style={{ 
-                objectFit: 'cover',
-                objectPosition: 'center top',
-                transform: 'scale(0.85)',
-                backgroundColor: 'transparent'
+                objectFit: 'contain',
+                objectPosition: 'center center',
+                backgroundColor: 'black'
               }}
             />
           </div>

@@ -32,7 +32,7 @@ export const IdleAvatar = ({ imageUrl, alt, className = "", isVisible }: IdleAva
       setMicroMovement((prev) => (prev + 1) % 6);
 
       // Human-like random cadence 2.8s - 4.8s
-      const delay = 2800 + Math.floor(Math.random() * 2000);
+      const delay = 3000 + Math.floor(Math.random() * 2000);
       timeoutRef.current = window.setTimeout(scheduleNext, delay);
     };
 
@@ -54,10 +54,10 @@ export const IdleAvatar = ({ imageUrl, alt, className = "", isVisible }: IdleAva
 
     switch (microMovement) {
       case 0: return { transform: 'translateX(0px) translateY(0px) rotate(0deg)', opacity: 1 };
-      case 1: return { transform: 'translateX(-1px) translateY(-0.5px) rotate(-1.1deg)', opacity: 0.99 };
-      case 2: return { transform: 'translateX(1px) translateY(-0.5px) rotate(1.2deg)', opacity: 0.99 };
-      case 3: return { transform: 'translateX(0px) translateY(0px) rotate(0deg)', opacity: 0.94 }; // soft blink
-      case 4: return { transform: 'translateX(0px) translateY(0px) rotate(0deg)', opacity: 1, filter: 'brightness(1.03)' }; // subtle smile
+      case 1: return { transform: 'translateX(-0.5px) translateY(-0.25px) rotate(-0.5deg)', opacity: 0.995 };
+      case 2: return { transform: 'translateX(0.5px) translateY(-0.25px) rotate(0.5deg)', opacity: 0.995 };
+      case 3: return { transform: 'translateX(0px) translateY(0px) rotate(0deg)', opacity: 0.92 }; // soft blink
+      case 4: return { transform: 'translateX(0px) translateY(0px) rotate(0deg)', opacity: 1, filter: 'brightness(1.02)' }; // subtle smile
       case 5: return { transform: 'translateX(0px) translateY(0px) rotate(0deg)', opacity: 1 };
       default: return { transform: 'translateX(0px) translateY(0px) rotate(0deg)', opacity: 1 };
     }
