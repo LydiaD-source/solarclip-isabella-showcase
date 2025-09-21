@@ -99,20 +99,21 @@ serve(async (req) => {
             }
           },
       config: {
-        stitch: true,
-        fluent: false, // OPTIMIZATION: Disable fluent for faster processing  
-        pad_audio: 0.0,
-        auto_match: false, // OPTIMIZATION: Disable auto-match for speed
+        stitch: false, // SPEED: Disable stitching for faster processing
+        fluent: false, // SPEED: Disable fluent for faster processing  
+        pad_audio: 0.0, // SPEED: No padding for immediate start
+        auto_match: false, // SPEED: Disable auto-match for speed
         normalization_factor: 1,
-        motion_factor: 1,
+        motion_factor: 0.9, // SPEED: Slightly reduced motion for faster rendering
         driver_expressions: {
           expressions: [
             {
               start_frame: 0,
-              expression: "neutral",
-              intensity: 0.8
+              expression: "happy",
+              intensity: 0.75
             }
-          ]
+          ],
+          transition_frames: 5 // SPEED: Faster transitions
         }
       }
     };

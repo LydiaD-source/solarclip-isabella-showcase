@@ -181,19 +181,19 @@ export const useWellnessGeniChat = () => {
     
     console.log('[D-ID] Starting OPTIMIZED poll for talk:', talkId);
     
-    // OPTIMIZATION 1: Much more aggressive polling with exponential backoff
-    for (let i = 0; i < 60; i++) { // Reduced max polls but faster
+    // OPTIMIZATION 1: Ultra-aggressive polling for real-time feel
+    for (let i = 0; i < 50; i++) { // Faster polling cycle
       try {
         const { data, error } = await supabase.functions.invoke('did-avatar', {
           body: { talk_id: talkId }
         });
         if (error) {
           console.error('[D-ID] poll error', error);
-          await delay(200); // Much faster initial polling
+          await delay(150); // Ultra-fast initial polling
           continue;
         }
         
-        const pollInterval = i < 10 ? 200 : i < 20 ? 300 : 500; // Progressive backoff
+        const pollInterval = i < 5 ? 150 : i < 15 ? 200 : i < 25 ? 300 : 400; // Aggressive progressive backoff
         console.log('[D-ID] poll #' + i, { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, nextPoll: pollInterval });
 
         // OPTIMIZATION 2: Process video immediately when ready
@@ -205,8 +205,8 @@ export const useWellnessGeniChat = () => {
           }
           console.log('[D-ID] Video set successfully, duration:', data.duration);
           
-          // OPTIMIZATION 3: Shorter auto-hide delay for faster UX
-          const hideDelay = Math.min((data.duration || 30) * 1000 + 2000, 35000); // Cap at 35s max
+          // OPTIMIZATION 3: Smart auto-hide based on content length  
+          const hideDelay = Math.min((data.duration || 10) * 1000 + 1500, 20000); // Much faster cycles
           setTimeout(() => {
             console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 'seconds');
             setDidVideoUrl(null);
@@ -219,11 +219,11 @@ export const useWellnessGeniChat = () => {
           break;
         }
         
-        // OPTIMIZATION 4: Dynamic polling based on progress
+        // OPTIMIZATION 4: Dynamic polling for speed
         await delay(pollInterval);
       } catch (e) {
         console.error('[D-ID] poll exception', e);
-        await delay(300); // Faster error recovery
+        await delay(200); // Ultra-fast error recovery
       }
     }
   }, [playDidAudio]);
@@ -404,10 +404,10 @@ export const useWellnessGeniChat = () => {
       //   }
       // }
       
-      // Enhanced microphone access with better error handling
+      // OPTIMIZED: Enhanced microphone access with better audio quality
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          sampleRate: 24000,
+          sampleRate: 16000, // SPEED: Lower sample rate for faster processing
           channelCount: 1,
           echoCancellation: true,
           noiseSuppression: true,
@@ -439,7 +439,7 @@ export const useWellnessGeniChat = () => {
 
       const mediaRecorder = new MediaRecorder(stream, { 
         mimeType,
-        audioBitsPerSecond: 128000
+        audioBitsPerSecond: 64000 // SPEED: Lower bitrate for faster processing
       });
       mediaRecorderRef.current = mediaRecorder;
 
@@ -470,17 +470,17 @@ export const useWellnessGeniChat = () => {
         stream.getTracks().forEach(track => track.stop());
       };
 
-      // Start recording
-      mediaRecorder.start(1000); // Collect data every second
+      // Start recording with faster chunks
+      mediaRecorder.start(500); // SPEED: Collect data every 500ms for responsiveness
       console.log('Started voice recording with mime type:', mimeType);
 
-      // Auto-stop after 15 seconds to prevent cutoffs
+      // Auto-stop after 10 seconds for faster processing
       setTimeout(() => {
         if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          console.log('Auto-stopping recording after 15 seconds');
+          console.log('Auto-stopping recording after 10 seconds');
           mediaRecorderRef.current.stop();
         }
-      }, 15000);
+      }, 10000);
 
     } catch (error) {
       console.error('Error starting voice input:', error);

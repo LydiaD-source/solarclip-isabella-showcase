@@ -3,6 +3,7 @@ import { MessageCircle, Volume2, VolumeX, Mic, MicOff, FileText, Calculator, Sen
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
+import { IdleAvatar } from './IdleAvatar';
 // Using approved Cloudinary image for Isabella Navia
 const isabellaNavia = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
 
@@ -21,6 +22,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
   const {
     messages,
     isProcessing,
+    isThinking,
     isSpeakerEnabled,
     isMicEnabled,
     isListening,
@@ -101,12 +103,20 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
             onLoadStart={() => console.log('[D-ID] Video loading started')}
             onCanPlay={() => console.log('[D-ID] Video can play')}
             onError={(e) => console.error('[D-ID] Video error:', e)}
-            className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-10 bg-transparent"
+            className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-20 bg-transparent"
             style={{ backgroundColor: 'transparent' }}
           />
         )}
         
-        {/* Isabella Navia Static Image - Always visible as background */}
+        {/* Animated Idle Avatar - Shows when processing or no video */}
+        <IdleAvatar
+          imageUrl={isabellaNavia}
+          alt="Isabella Navia - AI Solar Ambassador"
+          className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-10"
+          isVisible={isThinking || isProcessing || !videoUrl}
+        />
+        
+        {/* Static Background - Base layer */}
         <img 
           src={isabellaNavia} 
           alt="Isabella Navia - AI Solar Ambassador" 
