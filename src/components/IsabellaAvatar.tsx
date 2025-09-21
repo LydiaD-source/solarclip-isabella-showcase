@@ -129,6 +129,23 @@ useEffect(() => {
         className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative transition-all duration-300 bg-transparent`}
         onClick={handleChatToggle}
       >
+        {/* Static Isabella Image - Always visible until video starts playing */}
+        {!videoStarted && (
+          <div className="absolute inset-0 w-full h-full z-10">
+            <img 
+              src={isabellaNavia} 
+              alt="Isabella Navia" 
+              className="w-full h-full"
+              style={{ 
+                objectFit: 'contain',
+                objectPosition: 'center top',
+                transform: 'scale(0.85)',
+                backgroundColor: 'transparent'
+              }}
+            />
+          </div>
+        )}
+
         {/* Isabella Navia Video (D-ID) - Always use proxy for CORS compatibility */}
         {videoUrl && (
           <div className="absolute inset-0 w-full h-full z-20" style={{ backgroundColor: 'transparent' }}>
@@ -156,9 +173,6 @@ useEffect(() => {
             />
           </div>
         )}
-        
-        
-        {/* Static Background - Base layer (only when video is present to avoid double image) */}
       </div>
 
       {/* Removed tooltip to prevent collision during beta testing */}

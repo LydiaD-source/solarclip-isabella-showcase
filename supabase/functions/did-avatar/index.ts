@@ -95,11 +95,11 @@ serve(async (req) => {
             input: text,
             provider: {
               type: "microsoft",
-              voice_id: "en-US-AriaNeural"
+              voice_id: "en-US-JennyNeural"
             }
           },
       config: {
-        stitch: false, // SPEED: No stitching for instant processing
+        stitch: true, // Enable stitching for better quality
         fluent: false, // SPEED: No fluent processing for speed
         pad_audio: 0.0, // SPEED: Zero padding for immediate start
         auto_match: false, // SPEED: No auto-matching for speed
@@ -125,8 +125,10 @@ serve(async (req) => {
     console.log('Creating D-ID talk with:', {
       source_url: talkPayload.source_url,
       script_type: talkPayload.script.type,
-      has_audio: !!audio_base64,
-      has_text: !!text,
+      hasText: !!text,
+      hasAudio: !!audio_base64,
+      text_preview: text?.substring(0, 50),
+      voice_id: talkPayload.script.provider?.voice_id,
       api_key_length: DID_API_KEY?.length
     });
 
