@@ -8,34 +8,39 @@ interface IdleAvatarProps {
 }
 
 export const IdleAvatar = ({ imageUrl, alt, className = "", isVisible }: IdleAvatarProps) => {
-  const [animationPhase, setAnimationPhase] = useState(0);
+  const [microMovement, setMicroMovement] = useState(0);
 
   useEffect(() => {
     if (!isVisible) return;
 
+    // Humanlike micro-movements: subtle head turns, blinking, soft smiles
     const interval = setInterval(() => {
-      setAnimationPhase(prev => (prev + 1) % 4);
-    }, 3000); // Change animation every 3 seconds
+      setMicroMovement(prev => (prev + 1) % 6);
+    }, 4000); // Slower, more natural timing
 
     return () => clearInterval(interval);
   }, [isVisible]);
 
-  const getAnimationClass = () => {
-    switch (animationPhase) {
-      case 0: return 'animate-pulse duration-2000';
-      case 1: return 'animate-fade-in duration-1000';
-      case 2: return 'animate-pulse duration-2000';
-      case 3: return 'animate-fade-in duration-1000';
-      default: return '';
+  const getMicroMovementStyle = () => {
+    switch (microMovement) {
+      case 0: return { transform: 'translateX(0px) rotate(0deg)', opacity: 1 }; // neutral
+      case 1: return { transform: 'translateX(-1px) rotate(-0.5deg)', opacity: 0.98 }; // slight left turn
+      case 2: return { transform: 'translateX(1px) rotate(0.5deg)', opacity: 0.98 }; // slight right turn  
+      case 3: return { transform: 'translateX(0px) rotate(0deg)', opacity: 0.95 }; // soft blink
+      case 4: return { transform: 'translateX(0px) rotate(0deg)', opacity: 1, filter: 'brightness(1.02)' }; // subtle smile
+      case 5: return { transform: 'translateX(0px) rotate(0deg)', opacity: 1 }; // back to neutral
+      default: return { transform: 'translateX(0px) rotate(0deg)', opacity: 1 };
     }
   };
+
   if (!isVisible) return null;
 
   return (
     <img 
       src={imageUrl} 
       alt={alt}
-      className={`transition-all ${getAnimationClass()} ${className}`}
+      className={`transition-all duration-[2000ms] ease-in-out ${className}`}
+      style={getMicroMovementStyle()}
     />
   );
 };

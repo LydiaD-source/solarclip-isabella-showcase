@@ -99,23 +99,24 @@ serve(async (req) => {
             }
           },
       config: {
-        stitch: false, // SPEED: Disable stitching for faster processing
-        fluent: false, // SPEED: Disable fluent for faster processing  
-        pad_audio: 0.0, // SPEED: No padding for immediate start
-        auto_match: false, // SPEED: Disable auto-match for speed
+        stitch: false, // SPEED: No stitching for instant processing
+        fluent: false, // SPEED: No fluent processing for speed
+        pad_audio: 0.0, // SPEED: Zero padding for immediate start
+        auto_match: false, // SPEED: No auto-matching for speed
         normalization_factor: 1,
-        motion_factor: 0.9, // SPEED: Slightly reduced motion for faster rendering
-        align_driver: true, // Keep framing aligned to source
-        align_expand_factor: 0.0, // Prevent zoom-in cropping of the face
+        motion_factor: 1, // NATURAL: Full motion for realism
+        align_driver: true, // CRITICAL: Prevent zoom distortion
+        align_expand_factor: 0.0, // CRITICAL: No crop/zoom expansion
+        result_format: "mp4", // Ensure MP4 for consistent playback
         driver_expressions: {
           expressions: [
             {
               start_frame: 0,
-              expression: "happy",
-              intensity: 0.75
+              expression: "neutral",
+              intensity: 0.8
             }
           ],
-          transition_frames: 5 // SPEED: Faster transitions
+          transition_frames: 3 // SPEED: Ultra-fast transitions
         }
       }
     };

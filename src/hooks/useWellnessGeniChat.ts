@@ -58,33 +58,57 @@ export const useWellnessGeniChat = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const didAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Initialize audio context and speech recognition
+  // Initialize Web Speech API for real-time transcription
+  const [liveTranscript, setLiveTranscript] = useState('');
+  const [isWebSpeechActive, setIsWebSpeechActive] = useState(false);
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      // Initialize speech recognition
+      // Initialize Web Speech API for real-time transcription
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognitionInstance = new SpeechRecognition();
-        recognitionInstance.continuous = false;
-        recognitionInstance.interimResults = false;
+        recognitionInstance.continuous = true; // Real-time continuous recognition
+        recognitionInstance.interimResults = true; // Show words as user speaks
         recognitionInstance.lang = 'en-US';
         
         recognitionInstance.onresult = (event) => {
-          const transcript = event.results[0][0].transcript;
-          console.log('SpeechRecognition transcript:', transcript);
-          // Only use SpeechRecognition as backup - primary is MediaRecorder
-          if (!mediaRecorderRef.current || mediaRecorderRef.current.state !== 'recording') {
-            sendMessage(transcript);
+          let interimTranscript = '';
+          let finalTranscript = '';
+          
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
           }
-          setIsListening(false);
+          
+          // Show live transcript in input box
+          setLiveTranscript(interimTranscript || finalTranscript);
+          
+          // Send final transcript
+          if (finalTranscript.trim()) {
+            console.log('Final transcript:', finalTranscript);
+            sendMessage(finalTranscript);
+            setLiveTranscript('');
+            setIsListening(false);
+            setIsWebSpeechActive(false);
+          }
         };
         
-        recognitionInstance.onerror = () => {
+        recognitionInstance.onerror = (event) => {
+          console.log('Speech recognition error:', event.error);
           setIsListening(false);
+          setIsWebSpeechActive(false);
+          setLiveTranscript('');
         };
         
         recognitionInstance.onend = () => {
           setIsListening(false);
+          setIsWebSpeechActive(false);
+          setLiveTranscript('');
         };
         
         setRecognition(recognitionInstance);
@@ -176,39 +200,37 @@ export const useWellnessGeniChat = () => {
 
   const pollDidTalk = useCallback(async (talkId: string, shouldShowMessage = true) => {
     const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-    let receivedAudioUrl: string | null = null;
-    let started = false;
     
-    console.log('[D-ID] Starting OPTIMIZED poll for talk:', talkId);
+    console.log('[D-ID] Starting ULTRA-FAST poll for talk:', talkId);
     
-    // OPTIMIZATION 1: Ultra-aggressive polling for real-time feel
-    for (let i = 0; i < 50; i++) { // Faster polling cycle
+    // REAL-TIME OPTIMIZATION: Sub-second polling for immediate response
+    for (let i = 0; i < 60; i++) {
       try {
         const { data, error } = await supabase.functions.invoke('did-avatar', {
           body: { talk_id: talkId }
         });
         if (error) {
           console.error('[D-ID] poll error', error);
-          await delay(150); // Ultra-fast initial polling
+          await delay(100); // Ultra-aggressive polling
           continue;
         }
         
-        const pollInterval = i < 5 ? 150 : i < 15 ? 200 : i < 25 ? 300 : 400; // Aggressive progressive backoff
-        console.log('[D-ID] poll #' + i, { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, nextPoll: pollInterval });
+        // SPEED: Ultra-aggressive polling - 100-200ms for real-time feel
+        const pollInterval = i < 10 ? 100 : i < 20 ? 150 : 200;
+        console.log('[D-ID] poll #' + i, { status: data?.status, hasResultUrl: !!data?.result_url, nextPoll: pollInterval });
 
-        // OPTIMIZATION 2: Process video immediately when ready
+        // IMMEDIATE PLAYBACK: Start video as soon as result_url is available
         if (data?.result_url) {
-          console.log('[D-ID] Video ready - IMMEDIATE playback optimization');
+          console.log('[D-ID] Video ready - INSTANT playback');
           setDidVideoUrl(data.result_url);
           if (shouldShowMessage) {
-            setIsThinking(false); // Stop thinking when video is ready
+            setIsThinking(false);
           }
-          console.log('[D-ID] Video set successfully, duration:', data.duration);
           
-          // OPTIMIZATION 3: Smart auto-hide based on content length  
-          const hideDelay = Math.min((data.duration || 10) * 1000 + 1500, 20000); // Much faster cycles
+          // FAST CYCLE: Quick auto-hide for rapid conversation flow
+          const hideDelay = Math.min((data.duration || 5) * 1000 + 1000, 15000);
           setTimeout(() => {
-            console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 'seconds');
+            console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 's');
             setDidVideoUrl(null);
           }, hideDelay);
           break;
@@ -219,14 +241,13 @@ export const useWellnessGeniChat = () => {
           break;
         }
         
-        // OPTIMIZATION 4: Dynamic polling for speed
         await delay(pollInterval);
       } catch (e) {
         console.error('[D-ID] poll exception', e);
-        await delay(200); // Ultra-fast error recovery
+        await delay(100);
       }
     }
-  }, [playDidAudio]);
+  }, []);
 
   const stopAudio = useCallback(() => {
     if (currentSource) {
@@ -440,16 +461,18 @@ export const useWellnessGeniChat = () => {
     
     try {
       setIsListening(true);
+      setLiveTranscript('');
       
-      // Disable SpeechRecognition to prevent duplication - only use MediaRecorder
-      // if (recognition) {
-      //   try {
-      //     recognition.start();
-      //     console.log('SpeechRecognition started');
-      //   } catch (e) {
-      //     console.warn('SpeechRecognition start failed:', e);
-      //   }
-      // }
+      // Use Web Speech API for real-time transcription
+      if (recognition) {
+        try {
+          recognition.start();
+          setIsWebSpeechActive(true);
+          console.log('Web Speech API started for real-time transcription');
+        } catch (e) {
+          console.warn('Web Speech API start failed:', e);
+        }
+      }
       
       // OPTIMIZED: Enhanced microphone access with better audio quality
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -1110,6 +1133,8 @@ export const useWellnessGeniChat = () => {
     isListening,
     isThinking,
     didVideoUrl,
+    liveTranscript,
+    isWebSpeechActive,
     sendMessage,
     sendGreeting,
     startListening,

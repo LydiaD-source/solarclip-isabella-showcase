@@ -27,6 +27,8 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
     isMicEnabled,
     isListening,
     didVideoUrl: hookDidVideoUrl,
+    liveTranscript,
+    isWebSpeechActive,
     sendMessage,
     startListening,
     stopListening,
@@ -91,21 +93,27 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
         className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 shadow-black/20 hover:shadow-accent/20`}
         onClick={handleChatToggle}
       >
-        {/* Isabella Navia Video (D-ID) - Seamless overlay */}
+        {/* Isabella Navia Video (D-ID) - Fixed distortion with proper oval mask */}
         {videoUrl && (
-          <video
-            ref={videoRef}
-            src={videoUrl}
-            autoPlay
-            playsInline
-            muted={false}
-            preload="metadata"
-            onLoadStart={() => console.log('[D-ID] Video loading started')}
-            onCanPlay={() => console.log('[D-ID] Video can play')}
-            onError={(e) => console.error('[D-ID] Video error:', e)}
-            className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-20 bg-transparent"
-            style={{ backgroundColor: 'transparent' }}
-          />
+          <div className="absolute inset-0 w-full h-full rounded-full overflow-hidden z-20">
+            <video
+              ref={videoRef}
+              src={videoUrl}
+              autoPlay
+              playsInline
+              muted={false}
+              preload="metadata"
+              onLoadStart={() => console.log('[D-ID] Video loading started')}
+              onCanPlay={() => console.log('[D-ID] Video can play')}
+              onError={(e) => console.error('[D-ID] Video error:', e)}
+              className="w-full h-full object-cover"
+              style={{ 
+                backgroundColor: 'transparent',
+                transform: 'scale(1.1)', // Slight zoom to fill oval properly
+                transformOrigin: 'center center'
+              }}
+            />
+          </div>
         )}
         
         {/* Animated Idle Avatar - Shows when processing or no video */}
@@ -217,11 +225,20 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
                 type="text" 
                 placeholder="Ask me about SolarClip™ installation, pricing, benefits..." 
                 className="flex-1 px-4 py-3 text-sm border border-border/50 rounded-xl bg-background/80 backdrop-blur-sm transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:bg-background"
-                value={inputText}
+                value={isWebSpeechActive ? liveTranscript : inputText}
                 onChange={(e) => setInputText(e.target.value)}
                 onKeyPress={handleKeyPress}
                 disabled={isProcessing}
+                style={{ 
+                  color: isWebSpeechActive ? '#059669' : undefined,
+                  fontStyle: isWebSpeechActive ? 'italic' : undefined
+                }}
               />
+              {isWebSpeechActive && (
+                <div className="absolute -top-6 left-4 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
+                  🎤 Listening...
+                </div>
+              )}
               <Button 
                 size="default" 
                 variant="default" 
