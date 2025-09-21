@@ -18,6 +18,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
   const [inputText, setInputText] = useState('');
+  const [videoStarted, setVideoStarted] = useState(false);
   
   const {
     messages,
@@ -45,18 +46,32 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
   const videoUrl = didVideoUrl ?? hookDidVideoUrl;
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Ensure video and audio (embedded) start together without separate audio element
-  useEffect(() => {
-    if (videoUrl && videoRef.current) {
-      const v = videoRef.current;
-      const tryPlay = async () => {
-        try { await v.play(); } catch (e) { console.warn('Video play blocked, will retry on canplay', e); }
-      };
-      v.addEventListener('canplay', tryPlay, { once: true } as any);
-      tryPlay();
-      return () => { v.removeEventListener('canplay', tryPlay as any); };
+// Ensure video starts ASAP; keep Idle visible until actual playback
+useEffect(() => {
+  if (!videoRef.current) return;
+  const v = videoRef.current;
+  // reset start flag when source changes
+  setVideoStarted(false);
+  const onPlaying = () => {
+    console.log('[D-ID] Video started (playing)');
+    setVideoStarted(true);
+  };
+  const tryPlay = async () => {
+    try {
+      await v.play();
+    } catch (e) {
+      console.warn('Video play blocked, will retry on canplay', e);
     }
-  }, [videoUrl]);
+  };
+  v.addEventListener('playing', onPlaying, { once: true } as any);
+  v.addEventListener('canplay', tryPlay as any, { once: true } as any);
+  // kick it off
+  tryPlay();
+  return () => {
+    v.removeEventListener('playing', onPlaying as any);
+    v.removeEventListener('canplay', tryPlay as any);
+  };
+}, [videoUrl]);
 
   useEffect(() => {
     if (videoRef.current) {
@@ -115,10 +130,10 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
               autoPlay
               playsInline
               crossOrigin="anonymous"
-              muted={false}
+              muted
+              poster={isabellaNavia}
               onLoadStart={() => console.log('[D-ID] Video loading started')}
               onCanPlay={() => console.log('[D-ID] Video can play')}
-              onError={(e) => console.error('[D-ID] Video error:', e)}
               className="w-full h-full"
               style={{ 
                 objectFit: 'contain',
@@ -130,12 +145,12 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
           </div>
         )}
         
-        {/* Animated Idle Avatar - Shows when processing or no video */}
+        {/* Animated Idle Avatar - Shows until actual video playback begins */}
         <IdleAvatar
           imageUrl={isabellaNavia}
           alt="Isabella Navia - AI Solar Ambassador"
           className="absolute inset-0 w-full h-full object-contain z-10"
-          isVisible={!videoUrl}
+          isVisible={!videoStarted}
         />
         
         {/* Static Background - Base layer (only when video is present to avoid double image) */}
