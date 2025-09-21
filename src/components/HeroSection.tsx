@@ -231,7 +231,7 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
         {isExpanded && (
           <div className="static lg:absolute lg:top-1/2 lg:left-[55%] xl:left-[57%] 2xl:left-[58%] transform lg:-translate-x-1/2 lg:-translate-y-[40%] mx-auto lg:mx-0 mt-4 lg:mt-0 z-30">
             {useStreamingMode ? (
-              <StreamingChatBox isExpanded={isExpanded} />
+              <StreamingChatBox isExpanded={isExpanded} className="max-h-[calc(100vh-8rem)]" />
             ) : (
               <div className="w-[88vw] max-w-[340px] sm:w-[320px] lg:w-[320px] h-[460px] sm:h-[480px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium flex flex-col overflow-hidden chatbox-glow">
                 {/* Legacy Chat Header with Voice Controls */}

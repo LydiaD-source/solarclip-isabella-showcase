@@ -93,7 +93,8 @@ export const useWebSpeechRecognition = (
         setIsListening(false);
         setInterimTranscript('');
         
-        if (onError) {
+        // Only report meaningful errors, ignore "no-speech"
+        if (onError && event.error !== 'no-speech') {
           onError(event.error);
         }
       };

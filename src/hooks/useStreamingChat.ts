@@ -43,11 +43,14 @@ export const useStreamingChat = () => {
     },
     (error) => {
       console.error('[WebSpeech] Error:', error);
-      toast({
-        title: "Speech Recognition Error",
-        description: "There was an issue with speech recognition. Please try again.",
-        variant: "destructive",
-      });
+      // Only show error toast for serious errors, ignore "no-speech"
+      if (error !== 'no-speech') {
+        toast({
+          title: "Speech Recognition Error",
+          description: "There was an issue with speech recognition. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   );
   

@@ -62,7 +62,7 @@ export const StreamingChatBox: React.FC<StreamingChatBoxProps> = ({
   if (!isExpanded) return null;
 
   return (
-    <div className={`w-[88vw] max-w-[340px] sm:w-[320px] lg:w-[320px] h-[460px] sm:h-[480px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium flex flex-col overflow-hidden chatbox-glow ${className}`}>
+    <div className={`w-[88vw] max-w-[340px] sm:w-[320px] lg:w-[320px] h-[380px] sm:h-[400px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium flex flex-col overflow-hidden chatbox-glow ${className}`}>
       {/* Enhanced Chat Header */}
       <div className="flex justify-between items-center p-4 border-b border-accent/20">
         <div className="flex flex-col">
