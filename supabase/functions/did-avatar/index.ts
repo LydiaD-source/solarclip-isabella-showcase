@@ -96,7 +96,7 @@ serve(async (req) => {
             provider: {
               type: "microsoft",
               voice_id: "en-US-AriaNeural",
-              style: "chat",  // Conversational style for faster processing
+              style: "chat"
             }
           },
       config: {

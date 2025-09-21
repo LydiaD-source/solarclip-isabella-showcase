@@ -59,9 +59,13 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     // Initialize audio and start journey in parallel for faster response
     const [audioInit] = await Promise.all([
       initializeAudio(),
-      // Pre-warm the journey start to reduce delay
       Promise.resolve()
     ]);
+
+    // Signal user gesture so avatar can start playback as soon as video is ready
+    try {
+      window.dispatchEvent(new CustomEvent('isabella-user-gesture'));
+    } catch {}
     
     // Start journey only if it hasn't been started yet
     if (journey.stage === 'idle' && !journey.hasStarted) {

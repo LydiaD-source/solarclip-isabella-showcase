@@ -72,7 +72,7 @@ export const StreamingChatBox: React.FC<StreamingChatBoxProps> = ({
   if (!isExpanded) return null;
 
   return (
-    <div className={`w-[88vw] max-w-[340px] sm:w-[320px] lg:w-[320px] h-[500px] sm:h-[520px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium flex flex-col overflow-hidden chatbox-glow ${className}`}>
+    <div className={`w-[90vw] max-w-[400px] sm:w-[360px] lg:w-[380px] h-[620px] sm:h-[660px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium flex flex-col overflow-hidden chatbox-glow ${className}`}>
       {/* Enhanced Chat Header */}
       <div className="flex justify-between items-center p-4 border-b border-accent/20">
         <div className="flex flex-col">
@@ -169,7 +169,7 @@ export const StreamingChatBox: React.FC<StreamingChatBoxProps> = ({
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyDown={handleKeyPress}
             placeholder="Ask Isabella anything... (Shift+Enter for new line)"
-            className="flex-1 bg-white/10 border border-accent/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:border-accent resize-none min-h-[40px] max-h-[80px]"
+            className="flex-1 bg-white/10 border border-accent/30 rounded-lg px-3 py-3 text-white placeholder-white/50 text-sm focus:outline-none focus:border-accent resize-none min-h-[52px] max-h-[120px]"
             disabled={isProcessing}
           />
           <Button 

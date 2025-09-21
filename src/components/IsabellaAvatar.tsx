@@ -42,16 +42,35 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
 
   // Ensure video and audio (embedded) start together without separate audio element
   useEffect(() => {
-    if (videoUrl && videoRef.current) {
+    const tryPlay = async () => {
+      if (videoUrl && videoRef.current) {
+        try { await videoRef.current.play(); } catch (e) { console.warn('Video play blocked, will retry on canplay', e); }
+      }
+    };
+
+    // Play on URL change
+    tryPlay();
+
+    // Play when canplay fires
+    if (videoRef.current) {
       const v = videoRef.current;
-      const tryPlay = async () => {
-        try { await v.play(); } catch (e) { console.warn('Video play blocked, will retry on canplay', e); }
-      };
-      v.addEventListener('canplay', tryPlay, { once: true } as any);
-      tryPlay();
-      return () => { v.removeEventListener('canplay', tryPlay as any); };
+      const onCanPlay = () => tryPlay();
+      v.addEventListener('canplay', onCanPlay);
+      return () => v.removeEventListener('canplay', onCanPlay);
     }
+
   }, [videoUrl]);
+
+  // Also respond to explicit user-gesture signal from Start Assistant button
+  useEffect(() => {
+    const handler = () => {
+      if (videoRef.current) {
+        videoRef.current.play().catch(() => {});
+      }
+    };
+    window.addEventListener('isabella-user-gesture', handler);
+    return () => window.removeEventListener('isabella-user-gesture', handler);
+  }, []);
 
   useEffect(() => {
     // Show tooltip after delay but no auto-greeting - only when user clicks start

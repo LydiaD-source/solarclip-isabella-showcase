@@ -193,10 +193,18 @@ export const useWellnessGeniChat = () => {
           continue;
         }
         
-        const pollInterval = i < 10 ? 200 : i < 20 ? 300 : 500; // Progressive backoff
+        const pollInterval = i < 6 ? 150 : i < 20 ? 250 : 400; // Faster
         console.log('[D-ID] poll #' + i, { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, nextPoll: pollInterval });
 
-        // OPTIMIZATION 2: Process video immediately when ready
+        // Start audio as soon as it's ready (no need to wait for video)
+        if (data?.audio_url && !receivedAudioUrl) {
+          receivedAudioUrl = data.audio_url;
+          console.log('[D-ID] Starting audio early');
+          playDidAudio(receivedAudioUrl);
+          started = true;
+        }
+
+        // Process video immediately when ready
         if (data?.result_url) {
           console.log('[D-ID] Video ready - IMMEDIATE playback optimization');
           setDidVideoUrl(data.result_url);
@@ -331,10 +339,16 @@ export const useWellnessGeniChat = () => {
         timestamp: new Date(),
       };
       
-      // Only add message to state when D-ID is ready, for now just queue it
-      let pendingMessage = isabellaMessage;
+      // Immediately show Isabella's message in the chat (don't wait for D-ID)
+      setMessages(prev => {
+        const updated = [...prev, isabellaMessage];
+        if (typeof window !== 'undefined') {
+          try { sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated)); } catch {}
+        }
+        return updated;
+      });
 
-      // OPTIMIZATION 5: Start D-ID processing immediately, don't wait for message addition
+      // Start D-ID processing in parallel for voice+video
       if (isSpeakerEnabled && responseText.trim()) {
         console.log('[OPTIMIZATION] Starting parallel D-ID processing immediately');
         
