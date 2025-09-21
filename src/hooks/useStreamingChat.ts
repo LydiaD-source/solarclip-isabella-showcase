@@ -84,13 +84,18 @@ export const useStreamingChat = () => {
     return newId;
   });
 
-  // Auto-send greeting when session starts
+  // Auto-send greeting when session starts (prevent duplicates across app)
   useEffect(() => {
     if (messages.length === 0) {
-      // Send Isabella's greeting immediately when chat initializes
+      if (typeof window !== 'undefined') {
+        const w: any = window;
+        if (w.__ISABELLA_GREETING_SENT) return;
+        w.__ISABELLA_GREETING_SENT = true;
+      }
+      // Small delay to ensure proper initialization
       setTimeout(() => {
         sendStreamingMessage("Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly and I will do the same.");
-      }, 500); // Small delay to ensure proper initialization
+      }, 200);
     }
   }, []);
 
