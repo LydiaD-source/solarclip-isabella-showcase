@@ -77,6 +77,8 @@ const registerDidVideoElement = useCallback((el: HTMLVideoElement | null) => {
           try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
           didVideoObjectUrlRef.current = null;
         }
+        // Allow next queued clip to start
+        setIsDidProcessing(false);
       }, 800);
     };
   }
@@ -270,7 +272,7 @@ const didNextIndexRef = useRef(0);
               const binary = atob(proxied.base64);
               const bytes = new Uint8Array(binary.length);
               for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              const blob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
+              const blob = new Blob([bytes], { type: proxied.content_type || 'video/webm' });
               const objectUrl = URL.createObjectURL(blob);
               didVideoObjectUrlRef.current = objectUrl;
               setDidVideoUrl(objectUrl);
@@ -285,7 +287,8 @@ const didNextIndexRef = useRef(0);
           if (shouldShowMessage) {
             setIsThinking(false);
           }
-console.log('[D-ID] Awaiting video end event to auto-hide (reported duration:', (data?.duration ?? 'unknown'), 's)');
+          console.log('[D-ID] Awaiting video end event to auto-hide (reported duration:', (data?.duration ?? 'unknown'), 's)');
+          return { duration: data?.duration } as any;
           break;
         }
         if (data?.status === 'error') {
@@ -383,6 +386,8 @@ console.log('[D-ID] Awaiting video end event to auto-hide (reported duration:', 
         setStreamingText('');
         let accumulatedText = '';
         let firstSentenceSent = false;
+        let firstSentenceValue: string | null = null;
+        let firstClipDurationMs: number = 0;
         
         // Create streaming Isabella message
         const streamingMessageId = Date.now().toString() + '_streaming';
@@ -450,7 +455,7 @@ console.log('[D-ID] Awaiting video end event to auto-hide (reported duration:', 
 
             // First sentence dispatch to D-ID
             if (ENABLE_FIRST_SENTENCE_DISPATCH && !firstSentenceSent && 
-                (accumulatedText.includes('.') || accumulatedText.includes('!') || accumulatedText.includes('?'))) {
+                ((accumulatedText.includes('.') || accumulatedText.includes('!') || accumulatedText.includes('?')) || wordIndex >= 12)) {
               const firstSentence = accumulatedText.split(/[.!?]/)[0].trim() + '.';
               if (firstSentence.length > 10) {
                 console.log(`[D-ID] 🎬 First sentence dispatch: "${firstSentence}"`);
@@ -462,6 +467,9 @@ console.log('[D-ID] Awaiting video end event to auto-hide (reported duration:', 
                     try {
                       const didStartTime = Date.now();
                       startTimer('did-first-sentence');
+                      // Mark D-ID busy and remember the sentence
+                      firstSentenceValue = firstSentence;
+                      setIsDidProcessing(true);
                       const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
                         body: { text: firstSentence, source_url: DID_SOURCE_URL }
                       });
@@ -471,11 +479,14 @@ console.log('[D-ID] Awaiting video end event to auto-hide (reported duration:', 
 
                       if (!didError && didData?.talk_id) {
                         console.log(`[D-ID] ✅ First sentence talk created: ${didData.talk_id}`);
-                        await pollDidTalk(didData.talk_id, true);
+                        const pollRes: any = await pollDidTalk(didData.talk_id, true);
+                        // Estimate remaining delay to queue next clip
+                        firstClipDurationMs = Math.max(800, Math.round(((pollRes?.duration ?? 0) * 1000) + 800));
                       }
                     } catch (e) {
                       console.error('[D-ID] ❌ First sentence error', e);
                       setIsThinking(false);
+                      setIsDidProcessing(false);
                     }
                   })();
                 }
