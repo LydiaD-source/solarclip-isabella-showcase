@@ -296,13 +296,33 @@ const didNextIndexRef = useRef(0);
         const pollInterval = i < 10 ? 100 : i < 20 ? 150 : 200;
         // REAL-TIME: Prefer direct playback immediately; proxy only on error
         if (data?.result_url) {
-          console.log('[D-ID] Video ready - using DIRECT result_url playback');
+          console.log('[D-ID] Video ready - fetching via PROXY for playback');
           try {
             lastDirectUrlRef.current = data.result_url as string;
-            // Set the direct URL immediately to minimize delay
-            setDidVideoUrl(data.result_url);
+            const t0 = performance.now();
+            const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
+              body: { proxy_url: data.result_url, media_type: 'video' }
+            });
+            if (proxyErr || !proxied?.base64) {
+              console.error('[D-ID] Proxy fetch failed, falling back to direct URL', proxyErr);
+              setDidVideoUrl(data.result_url);
+            } else {
+              if (didVideoObjectUrlRef.current) {
+                try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+              }
+              const binary = atob(proxied.base64);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              const blob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
+              const objectUrl = URL.createObjectURL(blob);
+              didVideoObjectUrlRef.current = objectUrl;
+              setDidVideoUrl(objectUrl);
+              const dt = performance.now() - t0;
+              console.log(`[PERF] 🟢 Proxy video ready in ${dt.toFixed(0)}ms`);
+            }
           } catch (e) {
-            console.error('[D-ID] Failed to set direct video URL', e);
+            console.error('[D-ID] Failed to set proxied video URL', e);
+            setDidVideoUrl(data.result_url);
           }
           if (shouldShowMessage) {
             setIsThinking(false);
@@ -526,34 +546,41 @@ const didNextIndexRef = useRef(0);
                 : msg
             ));
 
-            // If no first sentence was sent, send full response to D-ID
-            if (isSpeakerEnabled && !firstSentenceSent) {
-              setTimeout(async () => {
-                try {
-                  const fullDidStartTime = Date.now();
-                  startTimer('did-full-response');
-                  const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-                    body: { text: accumulatedText, source_url: DID_SOURCE_URL }
-                  });
-                  const fullDidMs = endTimer('did-full-response');
-                  console.log(`[PERF] 🎭 D-ID full response: ${Date.now() - fullDidStartTime}ms`);
-                  if (fullDidMs > 2000) console.warn('[PERF] 🟠 D-ID full response took ' + fullDidMs.toFixed(0) + 'ms (>2s)');
-
-                  if (!didError && didData?.talk_id) {
-                    console.log(`[D-ID] ✅ Full response talk created: ${didData.talk_id}`);
-                    setIsThinking(true);
-                    await pollDidTalk(didData.talk_id, true);
+            if (isSpeakerEnabled) {
+              if (!firstSentenceSent) {
+                // No early dispatch happened → send full response to D-ID
+                setTimeout(async () => {
+                  try {
+                    const fullDidStartTime = Date.now();
+                    startTimer('did-full-response');
+                    const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                      body: { text: accumulatedText, source_url: DID_SOURCE_URL }
+                    });
+                    const fullDidMs = endTimer('did-full-response');
+                    console.log(`[PERF] 🎭 D-ID full response: ${Date.now() - fullDidStartTime}ms`);
+                    if (fullDidMs > 2000) console.warn('[PERF] 🟠 D-ID full response took ' + fullDidMs.toFixed(0) + 'ms (>2s)');
+  
+                    if (!didError && didData?.talk_id) {
+                      console.log(`[D-ID] ✅ Full response talk created: ${didData.talk_id}`);
+                      setIsThinking(true);
+                      await pollDidTalk(didData.talk_id, true);
+                    }
+                  } catch (e) {
+                    console.error('[D-ID] ❌ Full response error', e);
+                    setIsThinking(false);
                   }
-                } catch (e) {
-                  console.error('[D-ID] ❌ Full response error', e);
-                  setIsThinking(false);
+                }, 100);
+              } else {
+                // Early dispatch happened → queue remaining text sequentially
+                const remaining = (firstSentenceValue ? accumulatedText.slice(firstSentenceValue.length) : '').trim();
+                if (remaining.length > 10) {
+                  console.log('[D-ID] ➕ Queueing remaining text for sequential clip:', remaining.substring(0, 60) + '...');
+                  setDidQueue(prev => [...prev, remaining]);
                 }
-              }, 100);
+              }
             } else {
               setIsThinking(false);
             }
-
-            endTimer('user-to-response-total');
 
             endTimer('user-to-response-total');
           }

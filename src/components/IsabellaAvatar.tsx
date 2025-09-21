@@ -3,7 +3,7 @@ import { MessageCircle, Volume2, VolumeX, Mic, MicOff, FileText, Calculator, Sen
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
-import { IdleAvatar } from './IdleAvatar';
+// IdleAvatar removed for single-video architecture
 // Using approved Cloudinary image for Isabella Navia
 const isabellaNavia = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
 
@@ -149,20 +149,14 @@ useEffect(() => {
               className="w-full h-full"
               style={{ 
                 objectFit: 'contain',
-                objectPosition: 'center',
+                objectPosition: 'center top',
+                transform: 'scale(0.85)',
                 backgroundColor: 'transparent'
               }}
             />
           </div>
         )}
         
-        {/* Animated Idle Avatar - Shows until actual video playback begins */}
-        <IdleAvatar
-          imageUrl={isabellaNavia}
-          alt="Isabella Navia - AI Solar Ambassador"
-          className="absolute inset-0 w-full h-full object-contain z-10"
-          isVisible={!videoStarted}
-        />
         
         {/* Static Background - Base layer (only when video is present to avoid double image) */}
       </div>
