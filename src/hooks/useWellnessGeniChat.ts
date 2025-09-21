@@ -92,35 +92,7 @@ const registerDidVideoElement = useCallback((el: HTMLVideoElement | null) => {
       }, 800);
     };
 
-    el.onerror = async () => {
-      const failingUrl = lastDirectUrlRef.current;
-      if (!failingUrl) return;
-      console.warn('[D-ID] Video element error — attempting proxy fallback');
-      try {
-        const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
-          body: { proxy_url: failingUrl, media_type: 'video' }
-        });
-        if (!proxyErr && proxied?.base64) {
-          // Revoke any previous object URL
-          if (didVideoObjectUrlRef.current) {
-            try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
-            didVideoObjectUrlRef.current = null;
-          }
-          const binary = atob(proxied.base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-          const blob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
-          const objectUrl = URL.createObjectURL(blob);
-          didVideoObjectUrlRef.current = objectUrl;
-          setDidVideoUrl(objectUrl);
-          console.log('[D-ID] Proxy fallback succeeded, switched to object URL');
-        } else {
-          console.error('[D-ID] Proxy fallback failed', proxyErr);
-        }
-      } catch (e) {
-        console.error('[D-ID] Proxy fallback exception', e);
-      }
-    };
+    // No longer needed since we always proxy
   }
 }, []);
 
@@ -297,14 +269,35 @@ const didNextIndexRef = useRef(0);
         const pollInterval = i < 10 ? 100 : i < 20 ? 150 : 200;
         console.log('[D-ID] poll #' + i, { status: data?.status, hasResultUrl: !!data?.result_url, nextPoll: pollInterval });
 
-        // IMMEDIATE PLAYBACK: Start video as soon as result_url is available
+        // PROXY PLAYBACK: Always use proxy to avoid CORS issues
         if (data?.result_url) {
-          console.log('[D-ID] Video ready - using direct result_url for immediate playback');
+          console.log('[D-ID] Video ready - using proxy for CORS-safe playback');
           try {
-            lastDirectUrlRef.current = data.result_url;
-            setDidVideoUrl(data.result_url);
+            // Always proxy to avoid CORS issues with direct S3 URLs
+            const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
+              body: { proxy_url: data.result_url, media_type: 'video' }
+            });
+            if (!proxyErr && proxied?.base64) {
+              // Clean up previous object URL
+              if (didVideoObjectUrlRef.current) {
+                try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+                didVideoObjectUrlRef.current = null;
+              }
+              const binary = atob(proxied.base64);
+              const bytes = new Uint8Array(binary.length);
+              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+              const blob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
+              const objectUrl = URL.createObjectURL(blob);
+              didVideoObjectUrlRef.current = objectUrl;
+              setDidVideoUrl(objectUrl);
+              console.log('[D-ID] Proxy video ready for playback');
+            } else {
+              console.error('[D-ID] Proxy failed', proxyErr);
+              return;
+            }
           } catch (e) {
-            console.error('[D-ID] Failed to set direct URL, will rely on video.onerror to trigger proxy fallback', e);
+            console.error('[D-ID] Proxy exception', e);
+            return;
           }
           if (shouldShowMessage) {
             setIsThinking(false);
