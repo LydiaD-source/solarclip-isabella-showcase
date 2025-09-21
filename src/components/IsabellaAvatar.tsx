@@ -107,7 +107,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
             style={{ backgroundColor: 'transparent' }}
           />
         ) : (isProcessing || isListening || isThinking) ? (
-          <div className="absolute inset-0 rounded-full p-2 z-5">
+          <div className="absolute inset-0 rounded-full p-2 z-10">
             <IdleAvatar className="w-full h-full rounded-full" />
           </div>
         ) : (

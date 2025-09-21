@@ -216,6 +216,8 @@ export const useWellnessGeniChat = () => {
         if (data?.status === 'error') {
           console.error('[D-ID] poll status error', data);
           if (shouldShowMessage) setIsThinking(false);
+          // Show idle animation instead of breaking on error
+          setDidVideoUrl(null);
           break;
         }
         

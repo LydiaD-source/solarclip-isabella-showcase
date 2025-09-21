@@ -203,8 +203,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           </div>
         </div>
 
-        {/* Right Column - Isabella Avatar - Lifted for better balance */}
-        <div className="flex justify-center lg:justify-end items-center relative" style={{ transform: 'translateY(-8mm)' }}>
+        {/* Right Column - Isabella Avatar */}
+        <div className="flex justify-center lg:justify-end items-center relative">
           <div className="relative">
             <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} didVideoUrl={didVideoUrl} showInlineChat={false} />
             {showMeetButton && (

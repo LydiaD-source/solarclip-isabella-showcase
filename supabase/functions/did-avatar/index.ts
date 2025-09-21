@@ -106,7 +106,7 @@ serve(async (req) => {
         pad_audio: 0,               // Instant start, no padding
         auto_match: false,          // Skip auto-matching delays
         normalization_factor: 1,    // Skip normalization processing
-        motion_factor: 1.0,         // Optimal motion factor for speed
+        motion_factor: 1,         // Fixed: use 1 instead of decimal
         sharpen: false,             // Skip sharpening delays
         align_driver: false,        // Skip alignment processing
         align_expand_factor: 0,     // No expansion delays
