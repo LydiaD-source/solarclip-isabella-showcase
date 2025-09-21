@@ -957,13 +957,7 @@ export const useWellnessGeniChat = () => {
         // Set D-ID as busy to prevent concurrent calls
         setIsDidProcessing(true);
         
-        // Only clear existing video if there actually is one to avoid white flash
-        if (didVideoUrl && didVideoObjectUrlRef.current) {
-          console.log('[Isabella] clearing existing video before new D-ID call');
-          setDidVideoUrl(null);
-          try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
-          didVideoObjectUrlRef.current = null;
-        }
+        // Don't clear existing video to prevent cutouts - let new video replace smoothly
         
         const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
           body: { text, source_url: DID_SOURCE_URL }
