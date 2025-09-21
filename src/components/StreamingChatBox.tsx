@@ -38,6 +38,16 @@ export const StreamingChatBox: React.FC<StreamingChatBoxProps> = ({
     }
   }, [messages, isThinking, liveTranscript]);
 
+  // Update live transcript in input box for real-time feedback
+  useEffect(() => {
+    if (liveTranscript && isListening) {
+      setInputMessage(liveTranscript);
+    } else if (!isListening && liveTranscript) {
+      // Keep transcript when listening stops but don't clear it immediately
+      setInputMessage(liveTranscript);
+    }
+  }, [liveTranscript, isListening]);
+
   const handleSendMessage = async () => {
     if (!inputMessage.trim() || isProcessing) return;
     await sendMessage(inputMessage.trim());

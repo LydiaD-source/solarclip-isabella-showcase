@@ -84,6 +84,16 @@ export const useStreamingChat = () => {
     return newId;
   });
 
+  // Auto-send greeting when session starts
+  useEffect(() => {
+    if (messages.length === 0) {
+      // Send Isabella's greeting immediately when chat initializes
+      setTimeout(() => {
+        sendStreamingMessage("Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly and I will do the same.");
+      }, 500); // Small delay to ensure proper initialization
+    }
+  }, []);
+
   // Web Speech API is handled by the custom hook
 
   // Initialize audio context
@@ -172,8 +182,9 @@ export const useStreamingChat = () => {
                     : msg
                 ));
                 
-                // Check if we have a complete sentence (basic heuristic)
-                if (/[.!?]\s*$/.test(sentenceBuffer.trim()) && sentenceBuffer.trim().length > 20) {
+                // Check if we have a complete sentence or enough content (optimized for speed)
+                if ((/[.!?]\s*$/.test(sentenceBuffer.trim()) && sentenceBuffer.trim().length > 15) || 
+                    sentenceBuffer.trim().length > 80) {
                   // Send to D-ID immediately for partial generation
                   const sentenceText = sentenceBuffer.trim();
                   console.log('[Streaming] Sending sentence to D-ID:', sentenceText);
@@ -262,11 +273,11 @@ export const useStreamingChat = () => {
     }
   }, [didQueue, isDidProcessing, startTimer]);
 
-  // Ultra-fast D-ID polling with immediate playback
+  // Ultra-fast D-ID polling with immediate playback and error recovery
   const pollDidTalkFast = useCallback(async (talkId: string, priority: number) => {
     console.log('[D-ID] Starting ULTRA-FAST polling for:', talkId);
     
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
       try {
         const { data, error } = await supabase.functions.invoke('did-avatar', {
           body: { talk_id: talkId }
@@ -274,19 +285,20 @@ export const useStreamingChat = () => {
         
         if (error) {
           console.error('[D-ID] Poll error:', error);
-          await new Promise(res => setTimeout(res, 100));
+          // Skip failed polls quickly
+          await new Promise(res => setTimeout(res, 50));
           continue;
         }
         
         if (data?.result_url) {
-          console.log('[D-ID] Video ready in', i * 100, 'ms');
+          console.log('[D-ID] Video ready in', i * 50, 'ms');
           endTimer(`did-generation-${priority}`);
           
           // Set video immediately for instant playback
           setDidVideoUrl(data.result_url);
           
-          // Auto-hide after duration
-          const hideDelay = Math.min((data.duration || 5) * 1000 + 1000, 8000);
+          // Auto-hide after duration (with buffer)
+          const hideDelay = Math.min((data.duration || 5) * 1000 + 500, 6000);
           setTimeout(() => {
             setDidVideoUrl(null);
           }, hideDelay);
@@ -295,17 +307,18 @@ export const useStreamingChat = () => {
         }
         
         if (data?.status === 'error') {
-          console.error('[D-ID] Generation failed:', data);
-          break;
+          console.error('[D-ID] Generation failed - retrying with fallback:', data);
+          // Don't break on error, retry a few times
+          if (i > 10) break;
         }
         
-        // Progressive polling: start very fast, then slow down
-        const delay = i < 5 ? 100 : i < 10 ? 200 : 300;
+        // Ultra-aggressive polling: start at 50ms, gradually increase
+        const delay = i < 3 ? 50 : i < 8 ? 100 : i < 15 ? 150 : 200;
         await new Promise(res => setTimeout(res, delay));
         
       } catch (error) {
         console.error('[D-ID] Polling error:', error);
-        await new Promise(res => setTimeout(res, 200));
+        await new Promise(res => setTimeout(res, 100));
       }
     }
   }, [endTimer]);
@@ -375,15 +388,20 @@ export const useStreamingChat = () => {
     console.log('[Streaming] Sending message:', text);
     startTimer('total-response-time');
     
-    // Add user message immediately
-    const userMessage: StreamingMessage = {
-      id: `user_${Date.now()}`,
-      text: text.trim(),
-      sender: 'user',
-      timestamp: new Date(),
-    };
+    // For Isabella's greeting, don't add as user message
+    const isGreeting = text.includes("Hello, I'm Isabella");
     
-    setMessages(prev => [...prev, userMessage]);
+    if (!isGreeting) {
+      // Add user message immediately
+      const userMessage: StreamingMessage = {
+        id: `user_${Date.now()}`,
+        text: text.trim(),
+        sender: 'user',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, userMessage]);
+    }
+    
     setIsProcessing(true);
     setIsThinking(true); // Show thinking only briefly until streaming starts
     

@@ -7,6 +7,7 @@ import { useIsabella } from '@/hooks/useIsabella';
 import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
 import { StreamingChatBox } from './StreamingChatBox';
 import { useIsabellaJourney } from '@/hooks/useIsabellaJourney';
+import { IdleAvatar } from './IdleAvatar';
 import solarclipLogo from '@/assets/solarclip-logo.png';
 
 interface HeroSectionProps { 

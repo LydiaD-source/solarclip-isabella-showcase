@@ -67,7 +67,7 @@ export const useWebSpeechRecognition = (
         
         setInterimTranscript(interimText);
         
-        // Call onResult callback with interim result
+        // Call onResult callback with interim result for real-time feedback
         if (interimText && onResult) {
           onResult({
             transcript: interimText,

@@ -82,7 +82,7 @@ serve(async (req) => {
       });
     }
 
-    // OPTIMIZED: Create talk with D-ID API - faster processing config
+    // ULTRA-OPTIMIZED: Create talk with D-ID API - maximum speed configuration
     const talkPayload = {
       source_url: source_url || 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg',
       script: audio_base64
@@ -95,23 +95,27 @@ serve(async (req) => {
             input: text,
             provider: {
               type: "microsoft",
-              voice_id: "en-US-AriaNeural"
+              voice_id: "en-US-AriaNeural",
+              style: "chat",  // Conversational style for faster processing
             }
           },
       config: {
-        // ULTRA-PERFORMANCE SETTINGS for sub-2-second generation
-        stitch: false,          // Skip stitching for maximum speed
-        fluent: false,          // Much faster processing
-        pad_audio: 0,           // Instant start, no padding
-        auto_match: false,      // Skip auto-matching delays
-        normalization_factor: 1, // Skip normalization processing
-        motion_factor: 0.75,    // Fixed: must be 0.5-1.5 range
-        sharpen: false,         // Skip sharpening delays
-        align_driver: false,    // Skip alignment processing
-        align_expand_factor: 0, // No expansion delays
-        result_format: 'mp4',   // Fastest format
-        driver_expressions: {   // Minimal expressions for speed
-          expressions: []
+        // MAXIMUM PERFORMANCE SETTINGS for sub-1-second generation
+        stitch: false,              // Skip stitching for maximum speed
+        fluent: false,              // Much faster processing
+        pad_audio: 0,               // Instant start, no padding
+        auto_match: false,          // Skip auto-matching delays
+        normalization_factor: 1,    // Skip normalization processing
+        motion_factor: 1.0,         // Optimal motion factor for speed
+        sharpen: false,             // Skip sharpening delays
+        align_driver: false,        // Skip alignment processing
+        align_expand_factor: 0,     // No expansion delays
+        result_format: 'mp4',       // Fastest format
+        reduce_noise: false,        // Skip noise reduction for speed
+        optimize_audio: false,      // Skip audio optimization for speed
+        driver_expressions: {       // Minimal expressions for speed
+          expressions: [],
+          transition_frames: 10     // Minimal transition frames
         }
       }
     };
