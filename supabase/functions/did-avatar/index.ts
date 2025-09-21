@@ -13,9 +13,51 @@ serve(async (req) => {
   }
 
   try {
-    const body = await req.json();
+    // Support GET streaming proxy before attempting to read JSON
+    const url = new URL(req.url);
+
+    // STREAMING MEDIA PROXY (GET): avoids buffering entire file in memory
+    if (req.method === 'GET' && url.searchParams.get('proxy_url') && (url.searchParams.get('media_type') === 'audio' || url.searchParams.get('media_type') === 'video')) {
+      const proxyUrl = url.searchParams.get('proxy_url') as string;
+      const mediaType = url.searchParams.get('media_type') as 'audio' | 'video';
+      const rangeHeader = req.headers.get('Range') || undefined;
+
+      console.log('Proxying media (STREAM) via GET:', { media_type: mediaType, hasRange: !!rangeHeader, proxy_url: proxyUrl?.slice(0, 80) + '...' });
+
+      const mediaRes = await fetch(proxyUrl, {
+        method: 'GET',
+        headers: rangeHeader ? { Range: rangeHeader } : undefined,
+      });
+
+      if (!mediaRes.ok) {
+        const errText = await mediaRes.text();
+        console.error('Proxy GET fetch failed:', mediaRes.status, errText);
+        return new Response(JSON.stringify({ error: `Proxy GET failed: ${mediaRes.status}` }), {
+          status: 502,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Pass-through streaming response with important headers
+      const contentType = mediaRes.headers.get('Content-Type') || (mediaType === 'audio' ? 'audio/mpeg' : 'video/mp4');
+      const contentRange = mediaRes.headers.get('Content-Range');
+      const contentLength = mediaRes.headers.get('Content-Length');
+      const acceptRanges = mediaRes.headers.get('Accept-Ranges') || 'bytes';
+
+      const headers: Record<string, string> = { ...corsHeaders, 'Content-Type': contentType, 'Accept-Ranges': acceptRanges };
+      if (contentRange) headers['Content-Range'] = contentRange;
+      if (contentLength) headers['Content-Length'] = contentLength;
+
+      return new Response(mediaRes.body, {
+        status: mediaRes.status,
+        headers,
+      });
+    }
+
+    // Fallback to JSON body for POST-based operations
+    const body = await req.json().catch(() => ({}));
     const { text, audio_base64, talk_id, source_url } = body || {};
-    
+
     const DID_API_KEY = Deno.env.get('DID_API_KEY');
     if (!DID_API_KEY) {
       console.error('D-ID API key not configured in environment');
@@ -63,7 +105,27 @@ serve(async (req) => {
     // Proxy remote media (audio/video) to bypass CORS
     const { proxy_url, media_type } = body || {};
     if (proxy_url && (media_type === 'audio' || media_type === 'video')) {
-      console.log('Proxying media from URL:', { media_type, proxy_url: proxy_url?.slice(0, 60) + '...' });
+      console.log('Proxying media (POST) from URL:', { media_type, proxy_url: proxy_url?.slice(0, 80) + '...' });
+
+      // Try to detect size to avoid memory blowups
+      let contentLengthNum: number | undefined;
+      try {
+        const headRes = await fetch(proxy_url, { method: 'HEAD' });
+        const cl = headRes.headers.get('Content-Length');
+        if (cl) contentLengthNum = Number(cl);
+      } catch (e) {
+        console.warn('HEAD request for proxy_url failed, continuing without size check');
+      }
+
+      // If file is large (> ~8MB), avoid base64 and return a streaming proxied URL instead
+      if (contentLengthNum && contentLengthNum > 8 * 1024 * 1024) {
+        const proxiedUrl = `${url.origin}${url.pathname}?proxy_url=${encodeURIComponent(proxy_url)}&media_type=${media_type}`;
+        console.warn('Large media detected, returning streaming proxied URL instead of base64 JSON');
+        return new Response(JSON.stringify({ proxied_url: proxiedUrl, content_type: media_type === 'audio' ? 'audio/mpeg' : 'video/mp4' }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       const mediaRes = await fetch(proxy_url);
       if (!mediaRes.ok) {
         const errText = await mediaRes.text();
@@ -71,13 +133,22 @@ serve(async (req) => {
         throw new Error(`Proxy fetch failed: ${mediaRes.status}`);
       }
       const arrayBuffer = await mediaRes.arrayBuffer();
-      // Convert to base64 to return safely with CORS headers
+      // Convert to base64 to return safely with CORS headers (for small clips only)
       const bytes = new Uint8Array(arrayBuffer);
       let binary = '';
       for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
       const base64 = btoa(binary);
       const contentType = mediaRes.headers.get('Content-Type') || (media_type === 'audio' ? 'audio/mpeg' : 'video/mp4');
       return new Response(JSON.stringify({ base64, content_type: contentType }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Validate input - require text or audio when creating a new talk
+    if (!talk_id && !text && !audio_base64) {
+      console.error('No text or audio provided for D-ID talk creation');
+      return new Response(JSON.stringify({ error: 'No text or audio provided' }), {
+        status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
