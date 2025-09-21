@@ -18,7 +18,7 @@ export interface ChatMessage {
 export const useWellnessGeniChat = () => {
   // Temporary flag: disable ElevenLabs TTS while credits are exhausted.
   // Set to true to re-enable without touching rest of the flow.
-  const USE_ELEVENLABS_TTS = false;
+  const USE_ELEVENLABS_TTS = true;
   const { toast } = useToast();
   // Fresh messages on each page load for clean journey flow
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -337,39 +337,86 @@ export const useWellnessGeniChat = () => {
         console.log('[OPTIMIZATION] Starting parallel D-ID processing immediately');
         
         // Fire-and-forget D-ID processing for maximum speed
-        (async () => {
-          try {
-            console.log('[D-ID] FAST request → did-avatar with built-in TTS');
-            startTimer('did-api-call');
-            const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-              body: { text: responseText, source_url: DID_SOURCE_URL }
-            });
-            endTimer('did-api-call');
-            
-            if (didError) {
-              console.error('[D-ID] error', didError);
-              setIsThinking(false);
-              return;
-            }
-            console.log('[D-ID] animation created (built-in TTS):', didData);
-            if (didData?.talk_id) {
-              try { 
-                startTimer('did-polling');
-                await pollDidTalk(didData.talk_id, true);
-                endTimer('did-polling');
-                endTimer('user-to-response-total'); // End total timer when video is ready
-              } catch (e) { 
-                console.error('[D-ID] poll start error', e);
-                setIsThinking(false);
-                endTimer('user-to-response-total');
+          (async () => {
+            try {
+              startTimer('did-api-call');
+              if (USE_ELEVENLABS_TTS) {
+                console.log('[TTS] request → elevenlabs-tts');
+                const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
+                  body: { text: responseText, voice_id: 't0IcnDolatli2xhqgLgn' }
+                });
+                if (ttsError) {
+                  console.error('[TTS] error', ttsError);
+                  console.log('[D-ID] Falling back to built-in TTS');
+                  const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                    body: { text: responseText, source_url: DID_SOURCE_URL }
+                  });
+                  if (!didError && didData?.talk_id) {
+                    startTimer('did-polling');
+                    await pollDidTalk(didData.talk_id, true);
+                    endTimer('did-polling');
+                  }
+                  endTimer('did-api-call');
+                  endTimer('user-to-response-total');
+                  return;
+                }
+
+                if (ttsData?.audio) {
+                  console.log('[D-ID] FAST request → did-avatar with audio');
+                  const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                    body: { audio_base64: ttsData.audio, source_url: DID_SOURCE_URL }
+                  });
+                  endTimer('did-api-call');
+                  if (didError) {
+                    console.error('[D-ID] error', didError);
+                    setIsThinking(false);
+                    endTimer('user-to-response-total');
+                    return;
+                  }
+                  if (didData?.talk_id) {
+                    try {
+                      startTimer('did-polling');
+                      await pollDidTalk(didData.talk_id, true);
+                      endTimer('did-polling');
+                      endTimer('user-to-response-total');
+                    } catch (e) {
+                      console.error('[D-ID] poll start error', e);
+                      setIsThinking(false);
+                      endTimer('user-to-response-total');
+                    }
+                  }
+                }
+              } else {
+                console.log('[D-ID] FAST request → did-avatar with built-in TTS');
+                const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                  body: { text: responseText, source_url: DID_SOURCE_URL }
+                });
+                endTimer('did-api-call');
+                if (didError) {
+                  console.error('[D-ID] error', didError);
+                  setIsThinking(false);
+                  return;
+                }
+                console.log('[D-ID] animation created (built-in TTS):', didData);
+                if (didData?.talk_id) {
+                  try {
+                    startTimer('did-polling');
+                    await pollDidTalk(didData.talk_id, true);
+                    endTimer('did-polling');
+                    endTimer('user-to-response-total');
+                  } catch (e) {
+                    console.error('[D-ID] poll start error', e);
+                    setIsThinking(false);
+                    endTimer('user-to-response-total');
+                  }
+                }
               }
+            } catch (error) {
+              console.error('Speech synthesis error:', error);
+              setIsThinking(false);
+              endTimer('user-to-response-total');
             }
-          } catch (error) {
-            console.error('Speech synthesis error:', error);
-            setIsThinking(false);
-            endTimer('user-to-response-total');
-          }
-        })();
+          })();
       } else {
         // No speech enabled, stop thinking immediately
         setIsThinking(false);
@@ -717,19 +764,39 @@ export const useWellnessGeniChat = () => {
         
         (async () => {
           try {
-            console.log('[D-ID] VOICE request → did-avatar with built-in TTS');
-            const voiceDidStart = performance.now();
-            const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-              body: { text: responseText, source_url: DID_SOURCE_URL }
-            });
-            console.log('[D-ID] Voice API call completed in:', (performance.now() - voiceDidStart).toFixed(0), 'ms');
-            
-            if (didError) {
-              console.error('[D-ID] voice error', didError);
-              return;
-            }
-            if (didData?.talk_id) {
-              try { await pollDidTalk(didData.talk_id, true); } catch (e) { console.error('[D-ID] voice poll error', e); }
+            if (USE_ELEVENLABS_TTS) {
+              console.log('[TTS] VOICE request → elevenlabs-tts');
+              const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
+                body: { text: responseText, voice_id: 't0IcnDolatli2xhqgLgn' }
+              });
+              if (ttsError) {
+                console.error('[TTS] voice error', ttsError);
+                // Fallback to built-in TTS
+                const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                  body: { text: responseText, source_url: DID_SOURCE_URL }
+                });
+                if (!didError && didData?.talk_id) {
+                  await pollDidTalk(didData.talk_id, true);
+                }
+              } else if (ttsData?.audio) {
+                console.log('[D-ID] VOICE → did-avatar with audio');
+                const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                  body: { audio_base64: ttsData.audio, source_url: DID_SOURCE_URL }
+                });
+                if (!didError && didData?.talk_id) {
+                  await pollDidTalk(didData.talk_id, true);
+                }
+              }
+            } else {
+              console.log('[D-ID] VOICE request → did-avatar with built-in TTS');
+              const voiceDidStart = performance.now();
+              const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+                body: { text: responseText, source_url: DID_SOURCE_URL }
+              });
+              console.log('[D-ID] Voice API call completed in:', (performance.now() - voiceDidStart).toFixed(0), 'ms');
+              if (!didError && didData?.talk_id) {
+                try { await pollDidTalk(didData.talk_id, true); } catch (e) { console.error('[D-ID] voice poll error', e); }
+              }
             }
           } catch (error) {
             console.error('Voice speech synthesis error:', error);
@@ -973,11 +1040,21 @@ export const useWellnessGeniChat = () => {
     try {
       if (USE_ELEVENLABS_TTS) {
         console.log('[Isabella] using ElevenLabs TTS');
-        const { data } = await supabase.functions.invoke('elevenlabs-tts', {
+        const { data, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
           body: { text, voice_id: 't0IcnDolatli2xhqgLgn' }
         });
+        if (ttsError) {
+          console.error('[TTS] narrate error', ttsError);
+        }
         if (data?.audio) {
-          await playAudio(data.audio);
+          // Play audio immediately and animate avatar in parallel for speed
+          void playAudio(data.audio);
+          const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+            body: { audio_base64: data.audio, source_url: DID_SOURCE_URL }
+          });
+          if (!didError && didData?.talk_id) {
+            await pollDidTalk(didData.talk_id);
+          }
         }
       } else {
         // Use D-ID built-in TTS with video avatar

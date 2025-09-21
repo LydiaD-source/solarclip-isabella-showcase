@@ -23,13 +23,12 @@ export const IdleAvatar = ({ imageUrl, alt, className = "", isVisible }: IdleAva
   const getAnimationClass = () => {
     switch (animationPhase) {
       case 0: return 'animate-pulse duration-2000';
-      case 1: return 'animate-bounce duration-1000';
-      case 2: return 'scale-105 duration-500';
+      case 1: return 'animate-fade-in duration-1000';
+      case 2: return 'animate-pulse duration-2000';
       case 3: return 'animate-fade-in duration-1000';
       default: return '';
     }
   };
-
   if (!isVisible) return null;
 
   return (

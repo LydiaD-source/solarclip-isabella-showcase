@@ -113,7 +113,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
           imageUrl={isabellaNavia}
           alt="Isabella Navia - AI Solar Ambassador"
           className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-10"
-          isVisible={isThinking || isProcessing || !videoUrl}
+          isVisible={!videoUrl}
         />
         
         {/* Static Background - Base layer */}

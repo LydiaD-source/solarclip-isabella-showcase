@@ -105,6 +105,8 @@ serve(async (req) => {
         auto_match: false, // SPEED: Disable auto-match for speed
         normalization_factor: 1,
         motion_factor: 0.9, // SPEED: Slightly reduced motion for faster rendering
+        align_driver: true, // Keep framing aligned to source
+        align_expand_factor: 0.0, // Prevent zoom-in cropping of the face
         driver_expressions: {
           expressions: [
             {
