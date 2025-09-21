@@ -263,9 +263,9 @@ export const useWellnessGeniChat = () => {
           if (shouldShowMessage) {
             setIsThinking(false);
           }
-          const hideDelay = Math.min((data.duration || 5) * 1000 + 1000, 15000);
+          const hideDelay = Math.round(((data.duration || 5) * 1000) + 800);
           setTimeout(() => {
-            console.log('[D-ID] Auto-hiding video after', hideDelay/1000, 's');
+            console.log('[D-ID] Auto-hiding video after', (hideDelay/1000).toFixed(1), 's (no cap)');
             setDidVideoUrl(null);
             if (didVideoObjectUrlRef.current) {
               try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
@@ -482,8 +482,8 @@ export const useWellnessGeniChat = () => {
                 : msg
             ));
 
-            // If no first sentence was sent or we have remaining text, send full response to D-ID
-            if (isSpeakerEnabled && (!firstSentenceSent || accumulatedText.length > 50)) {
+            // If no first sentence was sent, send full response to D-ID
+            if (isSpeakerEnabled && !firstSentenceSent) {
               setTimeout(async () => {
                 try {
                   const fullDidStartTime = Date.now();
@@ -497,19 +497,19 @@ export const useWellnessGeniChat = () => {
 
                   if (!didError && didData?.talk_id) {
                     console.log(`[D-ID] ✅ Full response talk created: ${didData.talk_id}`);
-                    if (!firstSentenceSent) {
-                      setIsThinking(true);
-                    }
-                    await pollDidTalk(didData.talk_id, !firstSentenceSent);
+                    setIsThinking(true);
+                    await pollDidTalk(didData.talk_id, true);
                   }
                 } catch (e) {
                   console.error('[D-ID] ❌ Full response error', e);
                   setIsThinking(false);
                 }
-              }, firstSentenceSent ? 2000 : 100);
+              }, 100);
             } else {
               setIsThinking(false);
             }
+
+            endTimer('user-to-response-total');
 
             endTimer('user-to-response-total');
           }

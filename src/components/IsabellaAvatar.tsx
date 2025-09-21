@@ -92,12 +92,12 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
     <div className="relative mx-auto lg:mx-0 z-50">
       {/* Avatar - Enlarged and centered without cropping */}
       <div 
-        className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 shadow-black/20 hover:shadow-accent/20`}
+        className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative transition-all duration-300 hover:scale-105 shadow-2xl shadow-black/20 bg-transparent`}
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Video (D-ID) - Natural face framing without zoom */}
         {videoUrl && (
-          <div className="absolute inset-0 w-full h-full rounded-full overflow-hidden z-20" style={{ backgroundColor: 'black' }}>
+          <div className="absolute inset-0 w-full h-full z-20" style={{ backgroundColor: 'transparent' }}>
             <video
               ref={videoRef}
               src={videoUrl}
@@ -111,8 +111,9 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
               className="w-full h-full"
               style={{ 
                 objectFit: 'contain',
-                objectPosition: 'center center',
-                backgroundColor: 'black'
+                objectPosition: 'center top',
+                transform: 'scale(0.88)',
+                backgroundColor: 'transparent'
               }}
             />
           </div>
@@ -122,7 +123,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
         <IdleAvatar
           imageUrl={isabellaNavia}
           alt="Isabella Navia - AI Solar Ambassador"
-          className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-10"
+          className="absolute inset-0 w-full h-full object-contain z-10"
           isVisible={!videoUrl}
         />
         
