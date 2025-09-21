@@ -5,9 +5,7 @@ import { CinematicCard } from './CinematicCard';
 import { IsabellaAvatar } from './IsabellaAvatar';
 import { useIsabella } from '@/hooks/useIsabella';
 import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
-import { StreamingChatBox } from './StreamingChatBox';
 import { useIsabellaJourney } from '@/hooks/useIsabellaJourney';
-import { IdleAvatar } from './IdleAvatar';
 import solarclipLogo from '@/assets/solarclip-logo.png';
 
 interface HeroSectionProps { 
@@ -26,8 +24,6 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
   const [showMeetButton, setShowMeetButton] = useState(true);
   const [currentLanguage, setCurrentLanguage] = useState('EN');
   const [inputMessage, setInputMessage] = useState('');
-  const [useStreamingMode, setUseStreamingMode] = useState(true); // Toggle for A/B testing
-  
   const { currentCard, closeCard, handleCardAction, getSolarAnalysis, showCard } = useIsabella('solarclip');
   const { 
     messages, 
@@ -59,13 +55,9 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
     // Initialize audio and start journey in parallel for faster response
     const [audioInit] = await Promise.all([
       initializeAudio(),
+      // Pre-warm the journey start to reduce delay
       Promise.resolve()
     ]);
-
-    // Signal user gesture so avatar can start playback as soon as video is ready
-    try {
-      window.dispatchEvent(new CustomEvent('isabella-user-gesture'));
-    } catch {}
     
     // Start journey only if it hasn't been started yet
     if (journey.stage === 'idle' && !journey.hasStarted) {
@@ -207,8 +199,8 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           </div>
         </div>
 
-        {/* Right Column - Isabella Avatar */}
-        <div className="flex justify-center lg:justify-end items-center relative">
+        {/* Right Column - Isabella Avatar - Lifted for better balance */}
+        <div className="flex justify-center lg:justify-end items-center relative" style={{ transform: 'translateY(-8mm)' }}>
           <div className="relative">
             <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} didVideoUrl={didVideoUrl} showInlineChat={false} />
             {showMeetButton && (
@@ -234,144 +226,138 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
 
         {/* Enhanced Chatbox Panel - Positioned with proper spacing from Isabella */}
         {isExpanded && (
-          <div className="static lg:absolute lg:top-1/2 lg:left-[55%] xl:left-[57%] 2xl:left-[58%] transform lg:-translate-x-1/2 lg:-translate-y-[40%] mx-auto lg:mx-0 mt-4 lg:mt-0 z-30">
-            {useStreamingMode ? (
-              <StreamingChatBox isExpanded={isExpanded} className="max-h-[calc(100vh-8rem)]" />
-            ) : (
-              <div className="w-[88vw] max-w-[340px] sm:w-[320px] lg:w-[320px] h-[460px] sm:h-[480px] bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium flex flex-col overflow-hidden chatbox-glow">
-                {/* Legacy Chat Header with Voice Controls */}
-                <div className="flex justify-between items-center p-4 border-b border-accent/20">
-                  <h3 className="text-white font-medium">Isabella AI Assistant</h3>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={toggleSpeaker}
-                      className={`text-white/60 hover:text-white hover:bg-white/10 p-2 ${isSpeakerEnabled ? 'text-white' : 'text-white/40'}`}
-                    >
-                      {isSpeakerEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      onClick={toggleMicrophone}
-                      className={`text-white/60 hover:text-white hover:bg-white/10 p-2 ${isMicEnabled ? 'text-white' : 'text-white/40'} ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
-                    >
-                      <Mic className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Legacy Chat Messages Area */}
-                <div 
-                  className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent"
-                  ref={(el) => {
-                    if (el && messages.length > 0) {
-                      setTimeout(() => el.scrollTop = el.scrollHeight, 100);
-                    }
-                  }}
+          <div className="static lg:absolute lg:top-1/2 lg:left-[55%] xl:left-[57%] 2xl:left-[58%] transform lg:-translate-x-1/2 lg:-translate-y-[40%] w-[88vw] max-w-[340px] sm:w-[320px] lg:w-[320px] h-[460px] sm:h-[480px] mx-auto lg:mx-0 mt-4 lg:mt-0 bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
+            {/* Chat Header with Voice Controls */}
+            <div className="flex justify-between items-center p-4 border-b border-accent/20">
+              <h3 className="text-white font-medium">Isabella AI Assistant</h3>
+              <div className="flex gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={toggleSpeaker}
+                  className={`text-white/60 hover:text-white hover:bg-white/10 p-2 ${isSpeakerEnabled ? 'text-white' : 'text-white/40'}`}
                 >
-                  {messages.map((message) => (
-                    <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`px-4 py-2 rounded-lg max-w-[80%] text-sm ${
-                        message.sender === 'user' 
-                          ? 'bg-primary/20 text-white' 
-                          : 'bg-accent/20 text-white'
-                      }`}>
-                        {message.text}
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {isThinking && (
-                    <div className="flex justify-start">
-                      <div className="bg-accent/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
-                        <div className="flex items-center gap-2">
-                          <div>Isabella is thinking...</div>
-                          <div className="flex gap-1">
-                            <div className="w-1 h-1 bg-white rounded-full animate-bounce"></div>
-                            <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                            <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Legacy Input Area */}
-                <div className="p-4 border-t border-accent/20">
-                  <div className="flex gap-2">
-                    <textarea 
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      placeholder="Ask Isabella anything... (Shift+Enter for new line)"
-                      className="flex-1 bg-white/10 border border-accent/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:border-accent resize-none min-h-[40px] max-h-[80px]"
-                      disabled={isProcessing}
-                    />
-                    <Button 
-                      size="sm" 
-                      className="bg-accent/30 hover:bg-accent/50 text-white p-2"
-                      onClick={handleSendMessage}
-                      disabled={isProcessing || !inputMessage.trim()}
-                    >
-                      <Send className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex gap-1 mt-2 flex-wrap">
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
-                      onClick={() => sendMessage("Show me the SolarClip video presentation")}
-                      disabled={isProcessing}
-                    >
-                      🎥 Videos
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
-                      onClick={() => sendMessage("I need documentation about SolarClip")}
-                      disabled={isProcessing}
-                    >
-                      📄 Docs
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      variant="outline" 
-                      className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
-                      onClick={() => sendMessage("Analyze solar potential for my address")}
-                      disabled={isProcessing}
-                    >
-                      🗺️ Solar
-                    </Button>
-                  </div>
-                  
-                  {/* Legacy Voice Interface */}
-                  <div className="flex gap-2 mt-3 pt-2 border-t border-accent/20">
-                    <Button 
-                      size="sm" 
-                      className={`bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1 ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
-                      onClick={isListening ? stopListening : () => startListening()}
-                      disabled={!isMicEnabled || isProcessing}
-                    >
-                      <Mic className="w-4 h-4 mr-2" />
-                      {isListening ? 'Stop' : 'Voice Input'}
-                    </Button>
-                    <Button 
-                      size="sm" 
-                      className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1"
-                      onClick={() => sendMessage("Tell me about installation process")}
-                      disabled={isProcessing}
-                    >
-                      💬 Learn More
-                    </Button>
-                  </div>
-                </div>
+                  {isSpeakerEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={toggleMicrophone}
+                  className={`text-white/60 hover:text-white hover:bg-white/10 p-2 ${isMicEnabled ? 'text-white' : 'text-white/40'} ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
+                >
+                  <Mic className="w-4 h-4" />
+                </Button>
               </div>
-            )}
+            </div>
+            
+            {/* Chat Messages Area - Auto-scroll to bottom for new messages */}
+            <div 
+              className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent"
+              ref={(el) => {
+                if (el && messages.length > 0) {
+                  setTimeout(() => el.scrollTop = el.scrollHeight, 100);
+                }
+              }}
+            >
+              {messages.map((message) => (
+                <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`px-4 py-2 rounded-lg max-w-[80%] text-sm ${
+                    message.sender === 'user' 
+                      ? 'bg-primary/20 text-white' 
+                      : 'bg-accent/20 text-white'
+                  }`}>
+                    {message.text}
+                  </div>
+                </div>
+              ))}
+              
+              {isThinking && (
+                <div className="flex justify-start">
+                  <div className="bg-accent/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
+                    <div className="flex items-center gap-2">
+                      <div>Isabella is thinking...</div>
+                      <div className="flex gap-1">
+                        <div className="w-1 h-1 bg-white rounded-full animate-bounce"></div>
+                        <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                        <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Enhanced Input Area */}
+            <div className="p-4 border-t border-accent/20">
+              <div className="flex gap-2">
+                <textarea 
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Ask Isabella anything... (Shift+Enter for new line)"
+                  className="flex-1 bg-white/10 border border-accent/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:border-accent resize-none min-h-[40px] max-h-[80px]"
+                  disabled={isProcessing}
+                />
+                <Button 
+                  size="sm" 
+                  className="bg-accent/30 hover:bg-accent/50 text-white p-2"
+                  onClick={handleSendMessage}
+                  disabled={isProcessing || !inputMessage.trim()}
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+              <div className="flex gap-1 mt-2 flex-wrap">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
+                  onClick={() => sendMessage("Show me the SolarClip video presentation")}
+                  disabled={isProcessing}
+                >
+                  🎥 Videos
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
+                  onClick={() => sendMessage("I need documentation about SolarClip")}
+                  disabled={isProcessing}
+                >
+                  📄 Docs
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
+                  onClick={() => sendMessage("Analyze solar potential for my address")}
+                  disabled={isProcessing}
+                >
+                  🗺️ Solar
+                </Button>
+              </div>
+              
+              {/* Voice Interface */}
+              <div className="flex gap-2 mt-3 pt-2 border-t border-accent/20">
+                <Button 
+                  size="sm" 
+                  className={`bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1 ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
+                  onClick={isListening ? stopListening : () => startListening()}
+                  disabled={!isMicEnabled || isProcessing}
+                >
+                  <Mic className="w-4 h-4 mr-2" />
+                  {isListening ? 'Stop' : 'Voice Input'}
+                </Button>
+                <Button 
+                  size="sm" 
+                  className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1"
+                  onClick={() => sendMessage("Tell me about installation process")}
+                  disabled={isProcessing}
+                >
+                  💬 Learn More
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>

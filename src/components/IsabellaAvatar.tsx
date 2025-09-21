@@ -3,7 +3,6 @@ import { MessageCircle, Volume2, VolumeX, Mic, MicOff, FileText, Calculator, Sen
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
-import { IdleAvatar } from './IdleAvatar';
 // Using approved Cloudinary image for Isabella Navia
 const isabellaNavia = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
 
@@ -25,7 +24,6 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
     isSpeakerEnabled,
     isMicEnabled,
     isListening,
-    isThinking,
     didVideoUrl: hookDidVideoUrl,
     sendMessage,
     startListening,
@@ -42,35 +40,16 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
 
   // Ensure video and audio (embedded) start together without separate audio element
   useEffect(() => {
-    const tryPlay = async () => {
-      if (videoUrl && videoRef.current) {
-        try { await videoRef.current.play(); } catch (e) { console.warn('Video play blocked, will retry on canplay', e); }
-      }
-    };
-
-    // Play on URL change
-    tryPlay();
-
-    // Play when canplay fires
-    if (videoRef.current) {
+    if (videoUrl && videoRef.current) {
       const v = videoRef.current;
-      const onCanPlay = () => tryPlay();
-      v.addEventListener('canplay', onCanPlay);
-      return () => v.removeEventListener('canplay', onCanPlay);
+      const tryPlay = async () => {
+        try { await v.play(); } catch (e) { console.warn('Video play blocked, will retry on canplay', e); }
+      };
+      v.addEventListener('canplay', tryPlay, { once: true } as any);
+      tryPlay();
+      return () => { v.removeEventListener('canplay', tryPlay as any); };
     }
-
   }, [videoUrl]);
-
-  // Also respond to explicit user-gesture signal from Start Assistant button
-  useEffect(() => {
-    const handler = () => {
-      if (videoRef.current) {
-        videoRef.current.play().catch(() => {});
-      }
-    };
-    window.addEventListener('isabella-user-gesture', handler);
-    return () => window.removeEventListener('isabella-user-gesture', handler);
-  }, []);
 
   useEffect(() => {
     // Show tooltip after delay but no auto-greeting - only when user clicks start
@@ -111,7 +90,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Video (D-ID) - Seamless overlay */}
-        {videoUrl ? (
+        {videoUrl && (
           <video
             ref={videoRef}
             src={videoUrl}
@@ -125,17 +104,14 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
             className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-10 bg-transparent"
             style={{ backgroundColor: 'transparent' }}
           />
-        ) : (isProcessing || isListening || isThinking) ? (
-          <div className="absolute inset-0 rounded-full p-2 z-10">
-            <IdleAvatar className="w-full h-full rounded-full" />
-          </div>
-        ) : (
-          <img 
-            src={isabellaNavia} 
-            alt="Isabella Navia - AI Solar Ambassador" 
-            className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-0"
-          />
         )}
+        
+        {/* Isabella Navia Static Image - Always visible as background */}
+        <img 
+          src={isabellaNavia} 
+          alt="Isabella Navia - AI Solar Ambassador" 
+          className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-0"
+        />
       </div>
 
       {/* Removed tooltip to prevent collision during beta testing */}

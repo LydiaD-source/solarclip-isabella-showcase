@@ -193,18 +193,10 @@ export const useWellnessGeniChat = () => {
           continue;
         }
         
-        const pollInterval = i < 6 ? 150 : i < 20 ? 250 : 400; // Faster
+        const pollInterval = i < 10 ? 200 : i < 20 ? 300 : 500; // Progressive backoff
         console.log('[D-ID] poll #' + i, { status: data?.status, hasResultUrl: !!data?.result_url, hasAudioUrl: !!data?.audio_url, nextPoll: pollInterval });
 
-        // Start audio as soon as it's ready (no need to wait for video)
-        if (data?.audio_url && !receivedAudioUrl) {
-          receivedAudioUrl = data.audio_url;
-          console.log('[D-ID] Starting audio early');
-          playDidAudio(receivedAudioUrl);
-          started = true;
-        }
-
-        // Process video immediately when ready
+        // OPTIMIZATION 2: Process video immediately when ready
         if (data?.result_url) {
           console.log('[D-ID] Video ready - IMMEDIATE playback optimization');
           setDidVideoUrl(data.result_url);
@@ -224,8 +216,6 @@ export const useWellnessGeniChat = () => {
         if (data?.status === 'error') {
           console.error('[D-ID] poll status error', data);
           if (shouldShowMessage) setIsThinking(false);
-          // Show idle animation instead of breaking on error
-          setDidVideoUrl(null);
           break;
         }
         
@@ -339,16 +329,10 @@ export const useWellnessGeniChat = () => {
         timestamp: new Date(),
       };
       
-      // Immediately show Isabella's message in the chat (don't wait for D-ID)
-      setMessages(prev => {
-        const updated = [...prev, isabellaMessage];
-        if (typeof window !== 'undefined') {
-          try { sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated)); } catch {}
-        }
-        return updated;
-      });
+      // Only add message to state when D-ID is ready, for now just queue it
+      let pendingMessage = isabellaMessage;
 
-      // Start D-ID processing in parallel for voice+video
+      // OPTIMIZATION 5: Start D-ID processing immediately, don't wait for message addition
       if (isSpeakerEnabled && responseText.trim()) {
         console.log('[OPTIMIZATION] Starting parallel D-ID processing immediately');
         
@@ -843,28 +827,39 @@ export const useWellnessGeniChat = () => {
               await playAudio(ttsData.audio);
             }
           } else {
-            console.log('[D-ID] GREETING chunked playback → using narrate() for fast clips');
-            // Show full greeting text immediately in chat
-            setMessages(prev => {
-              const updated = [...prev, isabellaMessage];
-              if (typeof window !== 'undefined') {
-                try {
-                  sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
-                } catch (error) {
-                  console.error('Error saving messages:', error);
-                }
-              }
-              return updated;
+            console.log('[D-ID] GREETING request → did-avatar with built-in TTS');
+            const greetingStart = performance.now();
+            const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
+              body: { text: greetingText, source_url: DID_SOURCE_URL }
             });
+            console.log('[D-ID] Greeting API call completed in:', (performance.now() - greetingStart).toFixed(0), 'ms');
             
-            // Split into short sentences and animate each to avoid long-talk failures
-            const parts = greetingText.match(/[^.!?]+[.!?]?/g) || [greetingText];
-            for (const part of parts) {
-              const chunk = part.trim();
-              if (!chunk) continue;
-              // Use narrate without adding duplicate chat messages
-              // Fire and forget to start ASAP but preserve queueing inside narrate
-              void narrate(chunk, { addToChat: false });
+            if (didError) {
+              console.error('[D-ID] greeting error', didError);
+              setIsThinking(false);
+              return;
+            }
+            if (didData?.talk_id) {
+              // OPTIMIZATION 7: Immediate message display with optimized polling
+              setMessages(prev => {
+                const updated = [...prev, isabellaMessage];
+                if (typeof window !== 'undefined') {
+                  try {
+                    sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+                  } catch (error) {
+                    console.error('Error saving messages:', error);
+                  }
+                }
+                return updated;
+              });
+              
+              // Start optimized polling
+              try { 
+                await pollDidTalk(didData.talk_id, true); 
+              } catch (e) { 
+                console.error('[D-ID] greeting poll error', e);
+                setIsThinking(false);
+              }
             }
           }
         } catch (error) {
@@ -935,7 +930,7 @@ export const useWellnessGeniChat = () => {
   }, [isMicEnabled, isListening, recognition, startListening, stopListening]);
 
   // Narrate function - adds messages to chat and handles D-ID TTS with proper sequencing
-  const narrate = useCallback(async (text: string, options?: { addToChat?: boolean }) => {
+  const narrate = useCallback(async (text: string) => {
     console.log('[Isabella] narrate called:', text.substring(0, 50) + '...');
     
     // Prevent multiple identical messages
@@ -958,19 +953,17 @@ export const useWellnessGeniChat = () => {
       timestamp: new Date(),
     };
     
-    if (options?.addToChat !== false) {
-      setMessages(prev => {
-        const updated = [...prev, isabellaMessage];
-        if (typeof window !== 'undefined') {
-          try {
-            sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
-          } catch (error) {
-            console.error('Error saving messages:', error);
-          }
+    setMessages(prev => {
+      const updated = [...prev, isabellaMessage];
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+        } catch (error) {
+          console.error('Error saving messages:', error);
         }
-        return updated;
-      });
-    }
+      }
+      return updated;
+    });
 
     if (!isSpeakerEnabled || !text.trim()) {
       console.log('[Isabella] speaker disabled or empty text, skipping TTS');
