@@ -19,6 +19,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
   const [showTooltip, setShowTooltip] = useState(false);
   const [inputText, setInputText] = useState('');
   const [videoStarted, setVideoStarted] = useState(false);
+  const [hasInteracted, setHasInteracted] = useState(false);
   
   const {
     messages,
@@ -95,8 +96,16 @@ useEffect(() => {
 
   const handleChatToggle = async () => {
     setShowTooltip(false); // Hide tooltip after first interaction
+    setHasInteracted(true);
     // Initialize audio context to bypass browser restrictions
     await initializeAudio();
+    // Unmute and attempt playback after user gesture
+    if (videoRef.current) {
+      try {
+        videoRef.current.muted = false;
+        await videoRef.current.play().catch(() => {});
+      } catch {}
+    }
     onChatToggle?.();
   };
 
@@ -117,7 +126,7 @@ useEffect(() => {
     <div className="relative mx-auto lg:mx-0 z-50">
       {/* Avatar - Enlarged and centered without cropping */}
       <div 
-        className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative transition-all duration-300 hover:scale-105 bg-transparent`}
+        className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative transition-all duration-300 bg-transparent`}
         onClick={handleChatToggle}
       >
         {/* Isabella Navia Video (D-ID) - Always use proxy for CORS compatibility */}
@@ -129,22 +138,18 @@ useEffect(() => {
               preload="auto"
               autoPlay
               playsInline
-              muted
+              muted={!hasInteracted}
+              crossOrigin="anonymous"
               onLoadStart={() => console.log('[D-ID] Video loading started')}
               onCanPlay={() => console.log('[D-ID] Video can play')}
               onPlaying={() => {
                 console.log('[D-ID] Video started playing');
                 setVideoStarted(true);
               }}
-              onError={(e) => {
-                console.error('[D-ID] Video error:', e);
-                setVideoStarted(false);
-              }}
               className="w-full h-full"
               style={{ 
                 objectFit: 'contain',
-                objectPosition: 'center top',
-                transform: 'scale(0.85)',
+                objectPosition: 'center',
                 backgroundColor: 'transparent'
               }}
             />

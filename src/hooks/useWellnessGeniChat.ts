@@ -71,6 +71,7 @@ const registerDidVideoElement = useCallback((el: HTMLVideoElement | null) => {
   // Detach previous
   if (didVideoElementRef.current && didVideoElementRef.current !== el) {
     try { didVideoElementRef.current.onended = null; } catch {}
+    try { (didVideoElementRef.current as any).onerror = null; } catch {}
   }
   didVideoElementRef.current = el;
   if (el) {
@@ -92,7 +93,34 @@ const registerDidVideoElement = useCallback((el: HTMLVideoElement | null) => {
       }, 800);
     };
 
-    // No longer needed since we always proxy
+    // Fallback to proxy if direct playback fails
+    (el as any).onerror = async () => {
+      if (!lastDirectUrlRef.current) return;
+      try {
+        console.warn('[D-ID] Direct video failed — switching to proxy');
+        const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
+          body: { proxy_url: lastDirectUrlRef.current, media_type: 'video' }
+        });
+        if (!proxyErr && proxied?.base64) {
+          if (didVideoObjectUrlRef.current) {
+            try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+            didVideoObjectUrlRef.current = null;
+          }
+          const binary = atob(proxied.base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
+          const objectUrl = URL.createObjectURL(blob);
+          didVideoObjectUrlRef.current = objectUrl;
+          setDidVideoUrl(objectUrl);
+          console.log('[D-ID] Proxy fallback ready for playback');
+        } else {
+          console.error('[D-ID] Proxy fallback failed', proxyErr);
+        }
+      } catch (e) {
+        console.error('[D-ID] Proxy fallback exception', e);
+      }
+    };
   }
 }, []);
 
@@ -264,40 +292,17 @@ const didNextIndexRef = useRef(0);
           await delay(100); // Ultra-aggressive polling
           continue;
         }
-        
         // SPEED: Ultra-aggressive polling - 100-200ms for real-time feel
         const pollInterval = i < 10 ? 100 : i < 20 ? 150 : 200;
-        console.log('[D-ID] poll #' + i, { status: data?.status, hasResultUrl: !!data?.result_url, nextPoll: pollInterval });
-
-        // PROXY PLAYBACK: Always use proxy to avoid CORS issues
+        // REAL-TIME: Prefer direct playback immediately; proxy only on error
         if (data?.result_url) {
-          console.log('[D-ID] Video ready - using proxy for CORS-safe playback');
+          console.log('[D-ID] Video ready - using DIRECT result_url playback');
           try {
-            // Always proxy to avoid CORS issues with direct S3 URLs
-            const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
-              body: { proxy_url: data.result_url, media_type: 'video' }
-            });
-            if (!proxyErr && proxied?.base64) {
-              // Clean up previous object URL
-              if (didVideoObjectUrlRef.current) {
-                try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
-                didVideoObjectUrlRef.current = null;
-              }
-              const binary = atob(proxied.base64);
-              const bytes = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              const blob = new Blob([bytes], { type: proxied.content_type || 'video/mp4' });
-              const objectUrl = URL.createObjectURL(blob);
-              didVideoObjectUrlRef.current = objectUrl;
-              setDidVideoUrl(objectUrl);
-              console.log('[D-ID] Proxy video ready for playback');
-            } else {
-              console.error('[D-ID] Proxy failed', proxyErr);
-              return;
-            }
+            lastDirectUrlRef.current = data.result_url as string;
+            // Set the direct URL immediately to minimize delay
+            setDidVideoUrl(data.result_url);
           } catch (e) {
-            console.error('[D-ID] Proxy exception', e);
-            return;
+            console.error('[D-ID] Failed to set direct video URL', e);
           }
           if (shouldShowMessage) {
             setIsThinking(false);
@@ -310,7 +315,7 @@ const didNextIndexRef = useRef(0);
           if (shouldShowMessage) setIsThinking(false);
           break;
         }
-        
+        console.log('[D-ID] poll #' + i, { status: data?.status, hasResultUrl: !!data?.result_url, nextPoll: pollInterval });
         await delay(pollInterval);
       } catch (e) {
         console.error('[D-ID] poll exception', e);
@@ -1059,7 +1064,8 @@ const didNextIndexRef = useRef(0);
     greetingSentRef.current = true;
     
     // Use the structured journey greeting text
-    const greetingText = "Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly.";
+    const greetingFullText = "Hello, I'm Isabella, a SolarClip ambassador at ClearNanoTech. I'd like to take you on a short visual journey to present our product, its features, applications, and how it compares to others. Would you like that? You can use the chat box to write your messages or activate your microphone to speak directly.";
+    const firstSentence = greetingFullText.split(/[.!?]/)[0].trim() + '.';
     
     // Start thinking state for greeting
     setIsThinking(true);
@@ -1067,7 +1073,7 @@ const didNextIndexRef = useRef(0);
     // Prepare greeting message but don't show until D-ID is ready
     const isabellaMessage: ChatMessage = {
       id: Date.now().toString() + '_greeting',
-      text: greetingText,
+      text: greetingFullText,
       sender: 'isabella',
       timestamp: new Date(),
     };
@@ -1081,12 +1087,12 @@ const didNextIndexRef = useRef(0);
           if (USE_ELEVENLABS_TTS) {
             console.log('[TTS] request → elevenlabs-tts (greeting)');
             const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
-              body: { text: greetingText, voice_id: 't0IcnDolatli2xhqgLgn' }
+              body: { text: firstSentence, voice_id: 't0IcnDolatli2xhqgLgn' }
             });
 
             if (ttsError) {
               console.error('[TTS] error', ttsError);
-              const { error: didErr } = await supabase.functions.invoke('did-avatar', { body: { text: greetingText, source_url: DID_SOURCE_URL } });
+              const { error: didErr } = await supabase.functions.invoke('did-avatar', { body: { text: firstSentence, source_url: DID_SOURCE_URL } });
               if (didErr) console.error('[D-ID] greeting fallback (text) error', didErr);
               return;
             }
@@ -1124,7 +1130,7 @@ const didNextIndexRef = useRef(0);
             console.log('[D-ID] GREETING request → did-avatar with built-in TTS');
             const greetingStart = performance.now();
             const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-              body: { text: greetingText, source_url: DID_SOURCE_URL }
+              body: { text: firstSentence, source_url: DID_SOURCE_URL }
             });
             console.log('[D-ID] Greeting API call completed in:', (performance.now() - greetingStart).toFixed(0), 'ms');
             
