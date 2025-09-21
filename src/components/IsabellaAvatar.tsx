@@ -114,6 +114,7 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
               preload="auto"
               autoPlay
               playsInline
+              crossOrigin="anonymous"
               muted={false}
               onLoadStart={() => console.log('[D-ID] Video loading started')}
               onCanPlay={() => console.log('[D-ID] Video can play')}

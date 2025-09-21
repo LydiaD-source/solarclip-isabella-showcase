@@ -55,11 +55,16 @@ export const useWellnessGeniChat = () => {
   // D-ID Animation State Management
   const [isDidProcessing, setIsDidProcessing] = useState(false);
   const [didQueue, setDidQueue] = useState<string[]>([]);
+  const didQueueRef = useRef<string[]>([]);
+  useEffect(() => {
+    didQueueRef.current = didQueue;
+  }, [didQueue]);
   
   const didVideoObjectUrlRef = useRef<string | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const didAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastDirectUrlRef = useRef<string | null>(null);
 // Manage D-ID video element lifecycle to avoid cutoffs
 const didVideoElementRef = useRef<HTMLVideoElement | null>(null);
 const registerDidVideoElement = useCallback((el: HTMLVideoElement | null) => {
@@ -79,7 +84,42 @@ const registerDidVideoElement = useCallback((el: HTMLVideoElement | null) => {
         }
         // Allow next queued clip to start
         setIsDidProcessing(false);
+        const next = didQueueRef.current?.[0];
+        if (next) {
+          setDidQueue(prev => prev.slice(1));
+          setTimeout(() => narrate(next), 100);
+        }
       }, 800);
+    };
+
+    el.onerror = async () => {
+      const failingUrl = lastDirectUrlRef.current;
+      if (!failingUrl) return;
+      console.warn('[D-ID] Video element error — attempting proxy fallback');
+      try {
+        const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
+          body: { proxy_url: failingUrl, media_type: 'video' }
+        });
+        if (!proxyErr && proxied?.base64) {
+          // Revoke any previous object URL
+          if (didVideoObjectUrlRef.current) {
+            try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
+            didVideoObjectUrlRef.current = null;
+          }
+          const binary = atob(proxied.base64);
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+          const blob = new Blob([bytes], { type: proxied.content_type || 'video/webm' });
+          const objectUrl = URL.createObjectURL(blob);
+          didVideoObjectUrlRef.current = objectUrl;
+          setDidVideoUrl(objectUrl);
+          console.log('[D-ID] Proxy fallback succeeded, switched to object URL');
+        } else {
+          console.error('[D-ID] Proxy fallback failed', proxyErr);
+        }
+      } catch (e) {
+        console.error('[D-ID] Proxy fallback exception', e);
+      }
     };
   }
 }, []);
@@ -259,37 +299,18 @@ const didNextIndexRef = useRef(0);
 
         // IMMEDIATE PLAYBACK: Start video as soon as result_url is available
         if (data?.result_url) {
-          console.log('[D-ID] Video ready - preloading via proxy for instant playback');
+          console.log('[D-ID] Video ready - using direct result_url for immediate playback');
           try {
-            if (didVideoObjectUrlRef.current) {
-              try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
-              didVideoObjectUrlRef.current = null;
-            }
-            const { data: proxied, error: proxyErr } = await supabase.functions.invoke('did-avatar', {
-              body: { proxy_url: data.result_url, media_type: 'video' }
-            });
-            if (!proxyErr && proxied?.base64) {
-              const binary = atob(proxied.base64);
-              const bytes = new Uint8Array(binary.length);
-              for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-              const blob = new Blob([bytes], { type: proxied.content_type || 'video/webm' });
-              const objectUrl = URL.createObjectURL(blob);
-              didVideoObjectUrlRef.current = objectUrl;
-              setDidVideoUrl(objectUrl);
-            } else {
-              console.warn('[D-ID] Proxy video failed, falling back to direct URL');
-              setDidVideoUrl(data.result_url);
-            }
-          } catch (e) {
-            console.error('[D-ID] video proxy exception, fallback to direct URL', e);
+            lastDirectUrlRef.current = data.result_url;
             setDidVideoUrl(data.result_url);
+          } catch (e) {
+            console.error('[D-ID] Failed to set direct URL, will rely on video.onerror to trigger proxy fallback', e);
           }
           if (shouldShowMessage) {
             setIsThinking(false);
           }
           console.log('[D-ID] Awaiting video end event to auto-hide (reported duration:', (data?.duration ?? 'unknown'), 's)');
           return { duration: data?.duration } as any;
-          break;
         }
         if (data?.status === 'error') {
           console.error('[D-ID] poll status error', data);
