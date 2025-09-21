@@ -107,11 +107,9 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
               onCanPlay={() => console.log('[D-ID] Video can play')}
               onError={(e) => console.error('[D-ID] Video error:', e)}
               className="w-full h-full object-cover"
-              style={{ 
-                backgroundColor: 'transparent',
-                transform: 'scale(1.1)', // Slight zoom to fill oval properly
-                transformOrigin: 'center center'
-              }}
+                style={{ 
+                 backgroundColor: 'transparent'
+               }}
             />
           </div>
         )}
@@ -124,12 +122,14 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
           isVisible={!videoUrl}
         />
         
-        {/* Static Background - Base layer */}
-        <img 
-          src={isabellaNavia} 
-          alt="Isabella Navia - AI Solar Ambassador" 
-          className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-0"
-        />
+        {/* Static Background - Base layer (only when video is present to avoid double image) */}
+        {videoUrl && (
+          <img 
+            src={isabellaNavia} 
+            alt="Isabella Navia - AI Solar Ambassador" 
+            className="absolute inset-0 w-full h-full object-contain rounded-full p-2 z-0"
+          />
+        )}
       </div>
 
       {/* Removed tooltip to prevent collision during beta testing */}
