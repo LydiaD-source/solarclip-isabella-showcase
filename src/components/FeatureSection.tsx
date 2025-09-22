@@ -71,7 +71,7 @@ export const FeatureSection = () => {
             Download Comparison Guide
           </Button>
           <p className="text-sm text-muted-foreground mt-3">
-            Isabella can deliver this guide directly in our chat
+            Available in our comprehensive installation guide
           </p>
         </div>
       </div>

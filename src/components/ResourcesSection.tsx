@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { FileText, Download, BookOpen } from 'lucide-react';
+import { QuoteForm } from '@/components/QuoteForm';
 
 export const ResourcesSection = () => {
   const resources = [
@@ -66,14 +67,16 @@ export const ResourcesSection = () => {
             Need More Information?
           </h3>
           <p className="text-muted-foreground mb-6">
-            Isabella can send PDFs directly via chat and answer any technical questions about SolarClip™.
+            Contact our team for technical documents and detailed SolarClip™ specifications.
           </p>
-          <Button 
-            size="lg" 
-            className="bg-accent hover:bg-accent-light text-accent-foreground font-semibold px-8 py-4"
-          >
-            Chat with Isabella Now
-          </Button>
+          <QuoteForm>
+            <Button 
+              size="lg" 
+              className="bg-accent hover:bg-accent-light text-accent-foreground font-semibold px-8 py-4"
+            >
+              Request Technical Documents
+            </Button>
+          </QuoteForm>
         </div>
       </div>
     </section>

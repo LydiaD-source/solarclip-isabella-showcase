@@ -67,7 +67,7 @@ export const PricingSection = () => {
               Get Your Quote
             </Button>
             <p className="text-sm text-muted-foreground mt-4">
-              Isabella guides you through the multi-step quote form
+              Contact our sales team for detailed pricing
             </p>
           </div>
         </div>

@@ -65,7 +65,7 @@ export const ROISection = () => {
             Check Your Subsidy Eligibility
           </Button>
           <p className="text-sm text-muted-foreground mt-4">
-            Isabella can explain subsidies interactively
+            Our team can explain subsidies and financing options
           </p>
         </div>
       </div>
