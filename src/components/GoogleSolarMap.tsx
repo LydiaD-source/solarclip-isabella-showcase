@@ -7,6 +7,7 @@ import { MapPin, Zap, BarChart3, Home, Loader2, Plus, Minus } from 'lucide-react
 import { useToast } from '@/hooks/use-toast';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { supabase } from '@/integrations/supabase/client';
 interface SolarData {
   name?: string;
   center?: {
@@ -179,59 +180,54 @@ export const GoogleSolarMap = () => {
     const container = mapRef.current;
     if (!container) return;
 
-    // Use a public Mapbox token for demo
-    mapboxgl.accessToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
-
-    // Compute center
-    const defaultCenter: [number, number] = solarData?.center 
-      ? [solarData.center.longitude, solarData.center.latitude]
-      : [-122.0842, 37.4220]; // Mountain View, CA
-
-    // Safely destroy any previous instance
-    if (map.current) {
-      try {
-        map.current.remove();
-      } catch (err) {
-        console.warn('Map remove error:', err);
-      } finally {
-        map.current = null;
-      }
-    }
-
     let instance: mapboxgl.Map | null = null;
+    let destroyed = false;
 
-    try {
-      instance = new mapboxgl.Map({
-        container,
-        style: 'mapbox://styles/mapbox/satellite-v9',
-        center: defaultCenter,
-        zoom: solarData ? 19 : 15,
-        pitch: 0,
-        bearing: 0
-      });
+    const init = async () => {
+      try {
+        // Get Mapbox token from Supabase Edge Function (falls back to demo token)
+        const { data: tokenData } = await supabase.functions.invoke('mapbox-token');
+        const fallbackToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
+        mapboxgl.accessToken = tokenData?.token || fallbackToken;
 
-      map.current = instance;
+        // Compute center
+        const defaultCenter: [number, number] = solarData?.center
+          ? [solarData.center.longitude, solarData.center.latitude]
+          : [-122.0842, 37.4220];
 
-      instance.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        // Safely destroy any previous instance
+        if (map.current) {
+          try { map.current.remove(); } catch (err) { console.warn('Map remove error:', err); } finally { map.current = null; }
+        }
 
-      // Add marker if we have solar data
-      if (solarData?.center) {
-        new mapboxgl.Marker({ color: '#ff6b35' })
-          .setLngLat([solarData.center.longitude, solarData.center.latitude])
-          .addTo(instance);
-      }
+        if (destroyed) return;
+        instance = new mapboxgl.Map({
+          container,
+          style: 'mapbox://styles/mapbox/dark-v11',
+          center: defaultCenter,
+          zoom: solarData ? 19 : 15,
+          pitch: 0,
+          bearing: 0,
+        });
 
-      // Draw roof segment overlays from bounding boxes
-      instance.on('load', () => {
-        try {
-          const segments = solarData?.roofSegmentStats || [];
-          const features: GeoJSON.Feature<GeoJSON.Polygon>[] = segments.map(
-            (seg, idx): GeoJSON.Feature<GeoJSON.Polygon> => {
-              const sw = seg.boundingBox.sw;
-              const ne = seg.boundingBox.ne;
+        map.current = instance;
+        instance.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+        // Add marker at center
+        if (solarData?.center) {
+          new mapboxgl.Marker({ color: '#ff6b35' })
+            .setLngLat([solarData.center.longitude, solarData.center.latitude])
+            .addTo(instance);
+        }
+
+        // Draw roof overlays when style is ready
+        instance.on('load', () => {
+          try {
+            const segments = solarData?.roofSegmentStats || [];
+            const features: GeoJSON.Feature<GeoJSON.Polygon>[] = segments.map((seg, idx) => {
+              const { sw, ne } = seg.boundingBox;
               const nw = { latitude: ne.latitude, longitude: sw.longitude };
               const se = { latitude: sw.latitude, longitude: ne.longitude };
-
               const ring: [number, number][] = [
                 [sw.longitude, sw.latitude],
                 [se.longitude, se.latitude],
@@ -239,61 +235,32 @@ export const GoogleSolarMap = () => {
                 [nw.longitude, nw.latitude],
                 [sw.longitude, sw.latitude],
               ];
-
               return {
                 type: 'Feature',
-                properties: {
-                  index: idx,
-                  pitch: seg.pitchDegrees,
-                  azimuth: seg.azimuthDegrees,
-                  area: seg.stats.areaMeters2,
-                },
+                properties: { index: idx, pitch: seg.pitchDegrees, azimuth: seg.azimuthDegrees, area: seg.stats.areaMeters2 },
                 geometry: { type: 'Polygon', coordinates: [ring] },
               };
-            }
-          );
+            });
 
-          if (features.length > 0) {
+            if (features.length === 0) return;
+
             const sourceId = 'roof-segments';
+            const data = { type: 'FeatureCollection', features } as GeoJSON.FeatureCollection<GeoJSON.Polygon>;
+
             if (instance.getSource(sourceId)) {
-              (instance.getSource(sourceId) as mapboxgl.GeoJSONSource).setData({
-                type: 'FeatureCollection',
-                features,
-              });
+              (instance.getSource(sourceId) as mapboxgl.GeoJSONSource).setData(data);
             } else {
-              instance.addSource(sourceId, {
-                type: 'geojson',
-                data: { type: 'FeatureCollection', features },
-              });
+              instance.addSource(sourceId, { type: 'geojson', data });
 
-              // Fill layer
               if (!instance.getLayer('roof-fill')) {
-                instance.addLayer({
-                  id: 'roof-fill',
-                  type: 'fill',
-                  source: sourceId,
-                  paint: {
-                    'fill-color': 'rgba(34,197,94,0.28)', // soft green
-                    'fill-outline-color': 'rgba(34,197,94,0.8)',
-                  },
-                });
+                instance.addLayer({ id: 'roof-fill', type: 'fill', source: sourceId, paint: { 'fill-color': 'rgba(34,197,94,0.28)', 'fill-outline-color': 'rgba(34,197,94,0.8)' } });
               }
-
-              // Outline layer for crisp borders
               if (!instance.getLayer('roof-outline')) {
-                instance.addLayer({
-                  id: 'roof-outline',
-                  type: 'line',
-                  source: sourceId,
-                  paint: {
-                    'line-color': 'rgba(16,94,47,0.9)',
-                    'line-width': 1.5,
-                  },
-                });
+                instance.addLayer({ id: 'roof-outline', type: 'line', source: sourceId, paint: { 'line-color': 'rgba(16,94,47,0.9)', 'line-width': 1.5 } });
               }
             }
 
-            // Fit bounds to all segment polygons
+            // Fit to overlays
             let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
             for (const f of features) {
               for (const [lng, lat] of f.geometry.coordinates[0]) {
@@ -304,29 +271,23 @@ export const GoogleSolarMap = () => {
               }
             }
             if (isFinite(minLng) && isFinite(minLat) && isFinite(maxLng) && isFinite(maxLat)) {
-              instance.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
-                padding: 28,
-                maxZoom: 19,
-              });
+              instance.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 28, maxZoom: 19 });
             }
+          } catch (e) {
+            console.warn('Failed to render roof overlays:', e);
           }
-        } catch (e) {
-          console.warn('Failed to render roof overlays:', e);
-        }
-      });
-    } catch (error) {
-      console.error('Error initializing map:', error);
-    }
+        });
+      } catch (e) {
+        console.error('Map init failed:', e);
+      }
+    };
+
+    init();
 
     return () => {
+      destroyed = true;
       if (instance) {
-        try {
-          instance.remove();
-        } catch (error) {
-          console.warn('Error removing map instance:', error);
-        } finally {
-          if (map.current === instance) map.current = null;
-        }
+        try { instance.remove(); } catch (err) { console.warn('Error removing map instance:', err); } finally { if (map.current === instance) map.current = null; }
       }
     };
   }, [solarData?.center?.latitude, solarData?.center?.longitude]);
