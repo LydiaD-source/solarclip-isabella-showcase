@@ -122,6 +122,18 @@ serve(async (req) => {
       });
     }
 
+    // Guard clause: prevent too-short inputs that cause D-ID validation errors
+    if (!talk_id && typeof text === 'string') {
+      const trimmed = text.trim();
+      if (trimmed.length < 3) {
+        console.warn('D-ID input too short, rejecting early (length < 3)');
+        return new Response(JSON.stringify({ error: 'Input too short for D-ID' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     // OPTIMIZED: Create talk with D-ID API - faster processing config
     const talkPayload = {
       source_url: source_url || 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg',
@@ -183,10 +195,20 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
+      const errorText = await response.text().catch(() => '');
       console.error('D-ID create talk error:', response.status, errorText);
       console.error('Request payload was:', talkPayload);
-      throw new Error(`D-ID API error: ${response.status} - ${errorText}`);
+
+      // Pass through rate limit and validation to the client for proper backoff
+      const status = response.status;
+      const body = status === 429
+        ? { error: 'rate_limited', retry_after_ms: 3000 }
+        : { error: errorText || 'D-ID API error', upstream_status: status };
+
+      return new Response(JSON.stringify(body), {
+        status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const data = await response.json();

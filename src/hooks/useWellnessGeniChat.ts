@@ -56,7 +56,7 @@ export const useWellnessGeniChat = () => {
         console.log('[D-ID] Pre-warming session...');
         const { data } = await supabase.functions.invoke('did-avatar', {
           body: {
-            text: 'Hi',
+            text: 'Hello there',
             source_url: DID_SOURCE_URL,
           }
         });
@@ -100,7 +100,8 @@ export const useWellnessGeniChat = () => {
   const audioChunksRef = useRef<Blob[]>([]);
   const didAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastDirectUrlRef = useRef<string | null>(null);
-
+  const lastDidTalkAtRef = useRef<number>(0);
+  
   // Manage D-ID video element lifecycle to avoid cutoffs
   const didVideoElementRef = useRef<HTMLVideoElement | null>(null);
   const registerDidVideoElement = useCallback((el: HTMLVideoElement | null) => {
@@ -343,7 +344,6 @@ export const useWellnessGeniChat = () => {
             if (useDirect) {
               console.log(`[D-ID] Direct playback (${Math.round(contentLength/1024)}KB)`);
               setDidVideoUrl(data.result_url);
-              logPerf('Video_playback_start', Date.now() - pollStart, { proxy_used: false, content_length: contentLength });
             } else {
               // Ask Edge Function for proxied streaming URL
               try {
@@ -353,17 +353,14 @@ export const useWellnessGeniChat = () => {
                 const proxiedUrl = proxyData?.proxied_url || data.result_url;
                 console.log(`[D-ID] Streaming proxy (${contentLength ? Math.round(contentLength/1024) : 'unknown'}KB)`);
                 setDidVideoUrl(proxiedUrl);
-                logPerf('Video_playback_start', Date.now() - pollStart, { proxy_used: !!proxyData?.proxied_url, content_length: contentLength || undefined });
               } catch (e) {
                 console.warn('[D-ID] Proxy request failed, falling back to direct URL', e);
                 setDidVideoUrl(data.result_url);
-                logPerf('Video_playback_start', Date.now() - pollStart, { proxy_used: false, content_length: contentLength || undefined, fallback: true });
               }
             }
           } catch (e) {
             console.error('[D-ID] Failed to set streaming proxied URL', e);
             setDidVideoUrl(data.result_url);
-            logPerf('Video_playback_start', Date.now() - pollStart, { proxy_used: false, fallback: true });
           }
           
           if (shouldShowMessage) {
@@ -756,16 +753,44 @@ export const useWellnessGeniChat = () => {
       } else {
         console.log('[Isabella] using D-ID TTS + avatar:', text.substring(0, 50) + '...');
         
-        // Create D-ID talk with text-to-speech
-        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-          body: {
-            text: text,
-            source_url: DID_SOURCE_URL,
+        const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+        // Throttle: at most one talk creation every 5 seconds
+        const nowTs = Date.now();
+        const since = nowTs - lastDidTalkAtRef.current;
+        if (since < 5000) {
+          const waitMs = 5000 - since;
+          console.log(`[D-ID] ⏳ Throttling talk creation, waiting ${waitMs}ms`);
+          await delay(waitMs);
+        }
+        
+        // Create D-ID talk with text-to-speech (retry on 429)
+        let attempts = 0;
+        let didData: any = null;
+        while (attempts < 3) {
+          const { data, error } = await supabase.functions.invoke('did-avatar', {
+            body: {
+              text: text,
+              source_url: DID_SOURCE_URL,
+            }
+          });
+          if (error) {
+            const status = (error as any)?.status;
+            const msg = (error as any)?.message || String(error);
+            if (status === 429 || /429|rate_limited/i.test(msg)) {
+              attempts++;
+              if (attempts >= 3) throw error;
+              console.warn('[D-ID] 429 Rate limited — backing off 3000ms before retry');
+              await delay(3000);
+              continue;
+            }
+            throw error;
           }
-        });
+          didData = data;
+          break;
+        }
 
-        if (didError) throw didError;
         if (!didData?.talk_id) throw new Error('No talk_id returned from D-ID');
+        lastDidTalkAtRef.current = Date.now();
 
         console.log(`[PERF] 🟢 DID_create=${Date.now() - didStart}ms`);
         console.log('[Isabella] D-ID talk created, polling for results:', didData.talk_id);
