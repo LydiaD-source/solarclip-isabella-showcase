@@ -160,7 +160,7 @@ useEffect(() => {
               onLoadStart={() => console.log('[D-ID] Video loading started')}
               onCanPlay={() => console.log('[D-ID] Video can play')}
               onPlaying={() => {
-                console.log('[PERF] 🟢 Video_playback_start');
+                console.log('[PERF] Video_playback_start');
                 console.log('[D-ID] Video started playing');
                 setVideoStarted(true);
               }}

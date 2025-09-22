@@ -3,6 +3,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/components/ui/use-toast';
 import { usePerformanceMonitor } from './usePerformanceMonitor';
 
+// Configuration - EMERGENCY KILL SWITCH
+const DISPATCH_THROTTLE_MS = 5000;
+const MIN_DISPATCH_LENGTH = 3;
+const ENABLE_EARLY_DISPATCH = false; // 🚨 EMERGENCY KILL SWITCH - stops loops
+
 // D-ID source image to animate (same as the website avatar)
 const DID_SOURCE_URL = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
 
@@ -49,20 +54,7 @@ export const useWellnessGeniChat = () => {
     return newId;
   });
 
-  // Pre-warm marker (no talk creation to avoid duplicate loops)
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const key = 'did-prewarm-done';
-        if (sessionStorage.getItem(key)) return;
-        sessionStorage.setItem(key, '1');
-      }
-      console.log('[D-ID] Pre-warm flagged (no talk created)');
-    } catch {
-      // ignore
-    }
-  }, []);
-
+  // REMOVED pre-warm to avoid initial duplicate talks
   const [currentSource, setCurrentSource] = useState<AudioBufferSourceNode | null>(null);
   const lastSentRef = useRef<{ text: string; time: number } | null>(null);
   const greetingSentRef = useRef(false);
@@ -90,8 +82,11 @@ export const useWellnessGeniChat = () => {
   const didAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastDirectUrlRef = useRef<string | null>(null);
   const lastDidTalkAtRef = useRef<number>(0);
+  
+  // STRICT single-talk management refs
   const lastDispatchedStrictRef = useRef<string>('');
-  const talkLockRef = useRef(false);
+  const talkLockRef = useRef<boolean>(false);
+  const pendingQueueRef = useRef<string[]>([]);
   const currentTalkIdRef = useRef<string | null>(null);
   
   // Manage D-ID video element lifecycle to avoid cutoffs
@@ -106,20 +101,20 @@ export const useWellnessGeniChat = () => {
     if (el) {
       el.onended = () => {
         console.log('[D-ID] Video ended — hiding after 0.8s');
-        console.log('[PERF] 🔵 Talk_end');
+        console.log('[PERF] Talk_end');
         talkLockRef.current = false;
+        currentTalkIdRef.current = null;
         setTimeout(() => {
           setDidVideoUrl(null);
           if (didVideoObjectUrlRef.current) {
             try { URL.revokeObjectURL(didVideoObjectUrlRef.current); } catch {}
             didVideoObjectUrlRef.current = null;
           }
-          // Allow next queued clip to start
-          setIsDidProcessing(false);
-          const next = didQueueRef.current?.[0];
-          if (next) {
-            setDidQueue(prev => prev.slice(1));
-            setTimeout(() => narrate(next), 100);
+          // Process next queued item
+          const nextQueued = pendingQueueRef.current.shift();
+          if (nextQueued) {
+            console.log('[PERF] Processing_queued_after_video_end:', nextQueued);
+            setTimeout(() => dispatchToDid(nextQueued), 250);
           }
         }, 800);
       };
@@ -246,6 +241,193 @@ export const useWellnessGeniChat = () => {
       console.error('Error playing audio:', error);
     }
   }, [isSpeakerEnabled, initializeAudio, currentSource]);
+
+  // Create session-based idempotency key
+  const makeIdempotencyKey = useCallback((text: string) => {
+    const sessionPart = sessionId.slice(-6); // Use last 6 chars of session
+    return btoa(unescape(encodeURIComponent(`${sessionPart}|${text.trim()}`)));
+  }, [sessionId]);
+
+  // STRICT single-talk dispatch with queue and lock
+  const dispatchToDid = useCallback(async (text: string) => {
+    const cleanText = text.trim();
+    console.log('[PERF] Dispatch_attempt:', cleanText);
+    
+    // Skip if too short
+    if (cleanText.length < MIN_DISPATCH_LENGTH) {
+      console.log('[PERF] Skipped_too_short:', cleanText);
+      return;
+    }
+
+    // STRICT deduplication - skip exact duplicates
+    if (cleanText === lastDispatchedStrictRef.current) {
+      console.log('[PERF] Skipped_duplicate:', cleanText);
+      return;
+    }
+
+    // If locked, add to queue (no duplicates in queue)
+    if (talkLockRef.current) {
+      if (!pendingQueueRef.current.includes(cleanText)) {
+        pendingQueueRef.current.push(cleanText);
+        console.log('[PERF] Enqueued_while_locked:', cleanText);
+      }
+      return;
+    }
+
+    // Acquire STRICT lock
+    talkLockRef.current = true;
+    lastDispatchedStrictRef.current = cleanText;
+
+    // Show text in chat immediately
+    const messageId = Date.now().toString() + '_dispatch';
+    const assistantMessage: ChatMessage = {
+      id: messageId,
+      text: cleanText,
+      sender: 'isabella',
+      timestamp: new Date(),
+    };
+    
+    setMessages(prev => {
+      const updated = [...prev, assistantMessage];
+      // Persist to sessionStorage
+      if (typeof window !== 'undefined') {
+        try {
+          sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+        } catch (error) {
+          console.error('Error saving messages:', error);
+        }
+      }
+      return updated;
+    });
+
+    try {
+      const idempotencyKey = makeIdempotencyKey(cleanText);
+
+      console.log('[PERF] Dispatch_text:', cleanText);
+      
+      const response = await fetch('/functions/v1/did-avatar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: cleanText,
+          session_id: sessionId,
+          idempotency_key: idempotencyKey
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[PERF] Dispatch_error:', response.status, errorText);
+        
+        if (response.status === 429) {
+          console.log('[PERF] Rate_limited, waiting 3s');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        throw new Error(`D-ID request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const talkId = data.talk_id;
+      
+      // Only set if this is still the active talk
+      if (talkLockRef.current) {
+        currentTalkIdRef.current = talkId;
+        console.log('[PERF] Talk_created:', talkId);
+        await pollTalkStatus(talkId);
+      }
+
+    } catch (error) {
+      console.error('[PERF] Dispatch_error:', error);
+    } finally {
+      // Release lock and drain queue
+      talkLockRef.current = false;
+      console.log('[PERF] Talk_end');
+      
+      const nextQueued = pendingQueueRef.current.shift();
+      if (nextQueued) {
+        console.log('[PERF] Processing_queued:', nextQueued);
+        setTimeout(() => dispatchToDid(nextQueued), 250);
+      }
+    }
+  }, [makeIdempotencyKey, sessionId]);
+
+  // Poll D-ID talk status with active talk binding
+  const pollTalkStatus = useCallback(async (talkId: string) => {
+    const pollStart = Date.now();
+    let retryCount = 0;
+    const maxRetries = 30; // 30s timeout
+
+    while (retryCount < maxRetries && currentTalkIdRef.current === talkId) {
+      try {
+        const response = await fetch(`/functions/v1/did-avatar?talk_id=${talkId}`, {
+          method: 'GET',
+        });
+
+        if (!response.ok) {
+          console.error('[PERF] Poll_error:', response.status);
+          break;
+        }
+
+        const data = await response.json();
+        console.log('[PERF] DID_poll_status:', talkId, data.status);
+
+        if (data.status === 'done' && data.result_url) {
+          // Only proceed if this is still the active talk
+          if (currentTalkIdRef.current !== talkId) {
+            console.log('[PERF] Discarding_old_talk:', talkId);
+            break;
+          }
+
+          const elapsed = Date.now() - pollStart;
+          console.log('[PERF] DID_poll_videoReady:', elapsed + 'ms', talkId);
+
+          // Create proxied video URL for streaming
+          const proxiedVideoUrl = `/functions/v1/did-avatar?proxy_url=${encodeURIComponent(data.result_url)}&media_type=video`;
+          setDidVideoUrl(proxiedVideoUrl);
+
+          // Auto-play if video element is available
+          if (didVideoElementRef.current) {
+            didVideoElementRef.current.src = proxiedVideoUrl;
+            didVideoElementRef.current.load();
+            try {
+              await didVideoElementRef.current.play();
+            } catch (playError) {
+              console.warn('[PERF] Autoplay_blocked:', playError);
+            }
+          }
+
+          break;
+        }
+
+        retryCount++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+      } catch (error) {
+        console.error('[PERF] Poll_network_error:', error);
+        retryCount++;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    if (retryCount >= maxRetries) {
+      console.error('[PERF] Poll_timeout:', talkId);
+    }
+  }, []);
+
+  // Attempt to dispatch partial text to D-ID (with kill switch)
+  const attemptDispatchPartial = useCallback((text: string) => {
+    // 🚨 EMERGENCY KILL SWITCH - disable early partial dispatch
+    if (!ENABLE_EARLY_DISPATCH) {
+      console.log('[PERF] Early_dispatch_disabled:', text);
+      return;
+    }
+    
+    if (text.length >= MIN_DISPATCH_LENGTH && 
+        (text.endsWith('.') || text.endsWith('!') || text.endsWith('?') || text.length > 50)) {
+      console.log('[PERF] Attempting partial dispatch:', text);
+      dispatchToDid(text);
+    }
+  }, [dispatchToDid]);
 
   // Play audio from a direct URL (e.g., D-ID audio_url)
   const playDidAudio = useCallback(async (url: string) => {
@@ -475,7 +657,8 @@ export const useWellnessGeniChat = () => {
           sender: 'isabella',
           timestamp: new Date(),
         };
-        
+
+        // Add empty message that will be updated during streaming
         setMessages(prev => {
           const updated = [...prev, isabellaMessage];
           if (typeof window !== 'undefined') {
@@ -488,180 +671,154 @@ export const useWellnessGeniChat = () => {
           return updated;
         });
 
-        const { data: chatData, error: chatError } = await supabase.functions.invoke('wellnessgeni-chat', {
+        const { data, error } = await supabase.functions.invoke('wellnessgeni-chat', {
           body: payload,
         });
-        const llmMs = endTimer('wellnessgeni-api-call');
-        console.log(`[PERF] 🟢 LLM API call=${Date.now() - llmStartTime}ms`);
-        if (llmMs > 2000) console.warn('[PERF] 🟠 LLM took ' + llmMs.toFixed(0) + 'ms (>2s)');
 
-        if (chatError) {
-          console.error('[LLM] ❌ Error', chatError);
-          throw chatError;
+        const apiCallTimer = startTimer('wellnessgeni-api-call');
+        endTimer('wellnessgeni-api-call');
+        
+        if (error) {
+          console.error('[LLM] 🔴 API error:', error);
+          setIsStreaming(false);
+          setIsProcessing(false);
+          toast({
+            title: "Connection Issue",
+            description: "I'm having trouble connecting right now. Please try again in a moment.",
+            variant: "destructive",
+          });
+          return;
         }
 
-        let responseText = typeof chatData?.response === 'string' ? chatData.response : 
-                           typeof chatData?.text === 'string' ? chatData.text : '';
-        
-        if (!responseText || !responseText.trim()) {
-          throw new Error('Empty response from chat API');
+        const response = data?.response;
+        if (!response) {
+          console.error('[LLM] 🔴 No response from API');
+          setIsStreaming(false);
+          setIsProcessing(false);
+          return;
         }
 
-        console.log(`[LLM] ✅ Complete response received: ${responseText.length} chars`);
+        console.log(`[PERF] 🟢 LLM=${Date.now() - llmStartTime}ms`);
 
-        // Real token streaming with early dispatch
-        const words = responseText.split(' ');
-        let wordIndex = 0;
-        const firstTokenTime = Date.now();
+        if (data.streamed && Array.isArray(response)) {
+          // Handle streaming response
+          console.log('[LLM] Processing streaming response chunks:', response.length);
+          
+          for (const chunk of response) {
+            if (chunk.choices?.[0]?.delta?.content) {
+              const newText = chunk.choices[0].delta.content;
+              accumulatedText += newText;
+              
+              // Add tokens for potential early dispatch with kill switch
+              if (ENABLE_EARLY_DISPATCH) {
+                setPartialTokens(prev => [...prev, newText]);
+                
+                // Clear timer and set new one for buffered dispatch
+                if (tokenTimerRef.current) {
+                  clearTimeout(tokenTimerRef.current);
+                }
+                
+                tokenTimerRef.current = setTimeout(() => {
+                  const combined = accumulatedText.trim();
+                  if (combined !== lastDispatchRef.current && combined.length > 20) {
+                    attemptDispatchPartial(combined);
+                    lastDispatchRef.current = combined;
+                  }
+                }, 3000); // Buffer for 3s before dispatching partial
+              }
+              
+              setStreamingText(accumulatedText);
+              
+              // Update the streaming message in real-time
+              setMessages(prev => prev.map(msg => 
+                msg.id === streamingMessageId 
+                  ? { ...msg, text: accumulatedText }
+                  : msg
+              ));
+            }
+          }
+        } else if (typeof response === 'string') {
+          // Handle non-streaming response
+          accumulatedText = response;
+          setStreamingText(accumulatedText);
+          
+          // Update the streaming message
+          setMessages(prev => prev.map(msg => 
+            msg.id === streamingMessageId 
+              ? { ...msg, text: accumulatedText }
+              : msg
+          ));
+        }
+
+        // Clear any pending token timer
+        if (tokenTimerRef.current) {
+          clearTimeout(tokenTimerRef.current);
+          tokenTimerRef.current = null;
+        }
+
+        // Dispatch final text when streaming ends (main dispatch point)
+        if (accumulatedText) {
+          console.log('[PERF] Final_streaming_dispatch:', accumulatedText);
+          dispatchToDid(accumulatedText);
+        }
+
+        setIsStreaming(false);
         
-        console.log(`[PERF] 🟢 LLM_first_token=${Date.now() - llmStartTime}ms`);
-
-        const onTokenArrived = (token: string) => {
-          setPartialTokens(prev => [...prev, token]);
-          
-          // Reset timer for long partial detection
-          if (tokenTimerRef.current) {
-            clearTimeout(tokenTimerRef.current);
-          }
-          tokenTimerRef.current = setTimeout(() => {
-            attemptDispatchPartial('timeout');
-          }, 1200); // 1.2s fallback
-          
-          // Check for early dispatch conditions  
-          const textSoFar = [...partialTokens, token].join(' ');
-          if (/[.?!]\s*$/.test(textSoFar) || textSoFar.split(/\s+/).length >= 12) {
-            attemptDispatchPartial('punctuation_or_length');
-          }
+        // Final message save
+        const finalMessage: ChatMessage = {
+          id: streamingMessageId,
+          text: accumulatedText,
+          sender: 'isabella',
+          timestamp: new Date(),
         };
-
-        const attemptDispatchPartial = (reason: string) => {
-          if (partialTokens.length === 0) return;
-          const textToSend = partialTokens.join(' ').trim();
-          if (!textToSend) return;
-          if (textToSend.length < 3) return;
-
-          // Dedup: avoid re-dispatching prefixes or same text
-          const alreadyDispatched = dispatchedTextsRef.current.some(prev => textToSend === prev || textToSend.startsWith(prev));
-          if (alreadyDispatched || textToSend === lastDispatchRef.current || textToSend === lastDispatchedStrictRef.current) {
-            console.log('[PERF] Skipped_duplicate', textToSend);
-            return;
-          }
-
-          console.log(`[PERF] 🟢 LLM_first_clause_dispatch=${Date.now() - firstTokenTime}ms (${reason})`);
-          console.log(`[D-ID] 🎬 Early dispatch: "${textToSend}" (${reason})`);
-
-          lastDispatchRef.current = textToSend;
-          lastDispatchedStrictRef.current = textToSend;
-          dispatchedTextsRef.current.push(textToSend);
-          setPartialTokens([]); // Clear tokens after dispatch
-          firstSentenceSent = true;
-          firstSentenceValue = textToSend;
-
-          // Clear timer
-          if (tokenTimerRef.current) {
-            clearTimeout(tokenTimerRef.current);
-            tokenTimerRef.current = null;
-          }
-
-          // CRITICAL: Add dispatched text to chat UI immediately
-          const partialMessage: ChatMessage = {
-            id: `partial-${Date.now()}`,
-            text: textToSend,
-            sender: 'isabella',
-            timestamp: new Date(),
-          };
-
-          setMessages(prev => {
-            const updated = [...prev, partialMessage];
+        
+        setMessages(prev => {
+          const updated = prev.map(msg => msg.id === streamingMessageId ? finalMessage : msg);
+          if (typeof window !== 'undefined') {
             try {
               sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
             } catch (error) {
-              console.error('Error saving partial message:', error);
+              console.error('Error saving messages:', error);
             }
-            return updated;
-          });
-
-          console.log('[PERF] Dispatch_text', textToSend);
-          // PERFORMANCE: Start narration immediately
-          narrate(textToSend);
-        };
-
-        const streamWords = () => {
-          if (wordIndex < words.length) {
-            const word = words[wordIndex];
-            accumulatedText += (wordIndex > 0 ? ' ' : '') + word;
-            wordIndex++;
-
-            console.log(`[LLM] 📝 Token: "${word}" (${wordIndex}/${words.length})`);
-            
-            // Token-level processing
-            onTokenArrived(word);
-            
-            // Update streaming text
-            setStreamingText(accumulatedText);
-            
-            // Update message in real-time
-            setMessages(prev => prev.map(msg => 
-              msg.id === streamingMessageId 
-                ? { ...msg, text: accumulatedText }
-                : msg
-            ));
-
-            // Continue streaming tokens
-            setTimeout(streamWords, 80); // 80ms per word for natural feel
-          } else {
-            // Finished streaming
-            setIsStreaming(false);
-            console.log(`[LLM] ✅ Complete streaming finished: ${accumulatedText.length} chars`);
-            
-            // Final dispatch check
-            if (!firstSentenceSent && partialTokens.length > 0) {
-              attemptDispatchPartial('final_fallback');
-            }
-            
-            // If we have a remaining portion after first sentence, queue it as second D-ID clip
-            if (firstSentenceValue && firstSentenceValue.length < accumulatedText.length) {
-              const remaining = accumulatedText.replace(firstSentenceValue, '').trim();
-              if (remaining && remaining.length > 10) {
-                console.log(`[D-ID] 🎬 Remaining text dispatch: "${remaining.substring(0, 50)}..."`);
-                setTimeout(() => narrate(remaining), firstClipDurationMs || 3000);
-              }
-            } else if (!firstSentenceSent) {
-              // Fallback: if no early dispatch happened, narrate the full response
-              console.log(`[D-ID] 🎬 Fallback full response: "${accumulatedText.substring(0, 50)}..."`);
-              narrate(accumulatedText);
-            }
-            
-            const totalMs = endTimer('user-to-response-total');
-            console.log(`[PERF] 🎯 total_perceived=${totalMs}ms`);
           }
-        };
+          return updated;
+        });
+        
+        endTimer('user-to-response-total');
+        setIsProcessing(false);
+        console.log(`[PERF] 🟢 Total_user_to_response=${Date.now() - sttStartTime}ms`);
 
-        // Start streaming after brief delay
-        setTimeout(streamWords, 100);
       } else {
         // Non-streaming fallback
-        const { data: chatData, error: chatError } = await supabase.functions.invoke('wellnessgeni-chat', {
+        const { data, error } = await supabase.functions.invoke('wellnessgeni-chat', {
           body: payload,
         });
 
-        if (chatError) {
-          console.error('[LLM] ❌ Error', chatError);
-          throw chatError;
-        }
-
-        let responseText = typeof chatData?.response === 'string' ? chatData.response : 
-                           typeof chatData?.text === 'string' ? chatData.text : '';
+        endTimer('wellnessgeni-api-call');
         
-        if (!responseText || !responseText.trim()) {
-          throw new Error('Empty response from chat API');
+        if (error) {
+          console.error('[LLM] API error:', error);
+          setIsProcessing(false);
+          toast({
+            title: "Connection Issue",
+            description: "I'm having trouble connecting right now. Please try again in a moment.",
+            variant: "destructive",
+          });
+          return;
         }
 
-        console.log(`[LLM] ✅ Complete response: ${responseText.length} chars`);
+        const response = data?.response;
+        if (!response) {
+          console.error('[LLM] No response from API');
+          setIsProcessing(false);
+          return;
+        }
+
+        console.log(`[PERF] 🟢 LLM=${Date.now() - llmStartTime}ms`);
 
         const isabellaMessage: ChatMessage = {
           id: Date.now().toString(),
-          text: responseText,
+          text: response,
           sender: 'isabella',
           timestamp: new Date(),
         };
@@ -677,176 +834,58 @@ export const useWellnessGeniChat = () => {
           }
           return updated;
         });
-
-        if (isSpeakerEnabled) {
-          narrate(responseText);
-        }
         
-        const totalMs = endTimer('user-to-response-total');
-        console.log(`[PERF] 🎯 total_perceived=${totalMs}ms`);
+        // Dispatch to D-ID for animation
+        dispatchToDid(response);
+        
+        endTimer('user-to-response-total');
+        setIsProcessing(false);
+        console.log(`[PERF] 🟢 Total_user_to_response=${Date.now() - sttStartTime}ms`);
       }
+
     } catch (error) {
       console.error('Error sending message:', error);
-      toast({
-        title: "Communication Error",
-        description: "Failed to connect to Isabella. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
       setIsProcessing(false);
-    }
-  }, [isProcessing, messages, sessionId, isSpeakerEnabled, toast, startTimer, endTimer, partialTokens]);
-
-  const narrate = useCallback(async (text: string) => {
-    const clean = text?.trim() || '';
-    if (!clean) return;
-    if (clean.length < 3) return;
-
-    // Strict dedup across dispatches
-    if (clean === lastDispatchedStrictRef.current) {
-      console.log('[PERF] Skipped_duplicate', clean);
-      return;
-    }
-
-    // Single-flight lock
-    if (talkLockRef.current || isDidProcessing) {
-      console.log('[PERF] Skipped_due_to_lock', clean);
-      setDidQueue(prev => [...prev, clean]);
-      return;
-    }
-
-    setIsDidProcessing(true);
-    talkLockRef.current = true;
-    setIsThinking(true); // Show thinking status
-    const didStart = Date.now();
-
-    console.log('[Isabella] narrate called:', clean.substring(0, 50) + '...');
-
-    try {
-      // Choose TTS method based on configuration
-      if (USE_ELEVENLABS_TTS) {
-        console.log('[Isabella] using ElevenLabs TTS + D-ID avatar:', text.substring(0, 50) + '...');
-        
-        const { data: ttsData, error: ttsError } = await supabase.functions.invoke('elevenlabs-tts', {
-          body: { text, voice: 'EXAVITQu4vr4xnSDxMaL' } // Sarah
-        });
-
-        if (ttsError) throw ttsError;
-        if (!ttsData?.audioContent) throw new Error('No audio content from ElevenLabs');
-
-        // Create D-ID talk with pre-generated audio
-        const { data: didData, error: didError } = await supabase.functions.invoke('did-avatar', {
-          body: {
-            audio_base64: ttsData.audioContent,
-            source_url: DID_SOURCE_URL,
-          }
-        });
-
-        if (didError) throw didError;
-        if (!didData?.talk_id) throw new Error('No talk_id returned from D-ID');
-
-        console.log(`[PERF] 🟢 DID_create=${Date.now() - didStart}ms`);
-        currentTalkIdRef.current = didData.talk_id;
-        console.log('[PERF] 🟢 Talk_start', didData.talk_id);
-        console.log('[Isabella] D-ID talk created, polling for results:', didData.talk_id);
-        await pollDidTalk(didData.talk_id);
-      } else {
-        console.log('[Isabella] using D-ID TTS + avatar:', text.substring(0, 50) + '...');
-        
-        const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-        // Throttle: at most one talk creation every 5 seconds
-        const nowTs = Date.now();
-        const since = nowTs - lastDidTalkAtRef.current;
-        if (since < 5000) {
-          const waitMs = 5000 - since;
-          console.log(`[D-ID] ⏳ Throttling talk creation, waiting ${waitMs}ms`);
-          await delay(waitMs);
-        }
-        
-        // Create D-ID talk with text-to-speech (retry on 429)
-        let attempts = 0;
-        let didData: any = null;
-        while (attempts < 3) {
-          const { data, error } = await supabase.functions.invoke('did-avatar', {
-            body: {
-              text: text,
-              source_url: DID_SOURCE_URL,
-            }
-          });
-          if (error) {
-            const status = (error as any)?.status;
-            const msg = (error as any)?.message || String(error);
-            if (status === 429 || /429|rate_limited/i.test(msg)) {
-              attempts++;
-              if (attempts >= 3) throw error;
-              console.warn('[D-ID] 429 Rate limited — backing off 3000ms before retry');
-              await delay(3000);
-              continue;
-            }
-            throw error;
-          }
-          didData = data;
-          break;
-        }
-
-        if (!didData?.talk_id) throw new Error('No talk_id returned from D-ID');
-        lastDidTalkAtRef.current = Date.now();
-
-        console.log(`[PERF] 🟢 DID_create=${Date.now() - didStart}ms`);
-        currentTalkIdRef.current = didData.talk_id;
-        console.log('[PERF] 🟢 Talk_start', didData.talk_id);
-        console.log('[Isabella] D-ID talk created, polling for results:', didData.talk_id);
-        await pollDidTalk(didData.talk_id);
-      }
-    } catch (error) {
-      console.error('[Isabella] Narration error:', error);
-      setIsThinking(false);
-      setIsDidProcessing(false);
-      talkLockRef.current = false;
-      
-      // Process next queued item
-      const next = didQueueRef.current?.[0];
-      if (next) {
-        setDidQueue(prev => prev.slice(1));
-        setTimeout(() => narrate(next), 100);
-      }
-    }
-  }, [isDidProcessing, pollDidTalk]);
-
-  const startListening = useCallback(async () => {
-    if (!recognition) {
+      setIsStreaming(false);
       toast({
-        title: "Speech Recognition Unavailable",
-        description: "Your browser doesn't support speech recognition.",
+        title: "Error",
+        description: "Failed to send message. Please try again.",
         variant: "destructive",
       });
-      return;
     }
+  }, [isProcessing, messages, sessionId, startTimer, endTimer, toast, attemptDispatchPartial, dispatchToDid]);
 
-    try {
-      setIsListening(true);
-      setIsWebSpeechActive(true);
-      setLiveTranscript('');
-      recognition.start();
-    } catch (error) {
-      console.error('Error starting speech recognition:', error);
-      setIsListening(false);
-      setIsWebSpeechActive(false);
+  const startListening = useCallback(() => {
+    if (recognition && !isListening) {
+      try {
+        setIsListening(true);
+        setIsWebSpeechActive(true);
+        setLiveTranscript('');
+        recognition.start();
+      } catch (error) {
+        console.error('Error starting speech recognition:', error);
+        setIsListening(false);
+        setIsWebSpeechActive(false);
+      }
     }
-  }, [recognition, toast]);
+  }, [recognition, isListening]);
 
   const stopListening = useCallback(() => {
     if (recognition && isListening) {
-      recognition.stop();
-      setIsListening(false);
-      setIsWebSpeechActive(false);
-      setLiveTranscript('');
+      try {
+        recognition.stop();
+        setIsListening(false);
+        setIsWebSpeechActive(false);
+        setLiveTranscript('');
+      } catch (error) {
+        console.error('Error stopping speech recognition:', error);
+      }
     }
   }, [recognition, isListening]);
 
   const toggleSpeaker = useCallback(() => {
     setIsSpeakerEnabled(prev => !prev);
-    if (isSpeakerEnabled) {
+    if (!isSpeakerEnabled) {
       stopAudio();
     }
   }, [isSpeakerEnabled, stopAudio]);
@@ -858,12 +897,23 @@ export const useWellnessGeniChat = () => {
     }
   }, [isMicEnabled, isListening, stopListening]);
 
+  // Legacy functions for compatibility
+  const narrate = useCallback(async (text: string) => {
+    console.log('[LEGACY] narrate called, delegating to dispatchToDid:', text);
+    await dispatchToDid(text);
+  }, [dispatchToDid]);
+
+  const sendGreeting = useCallback(async (greeting: string = "Hello there! I'm Isabella Navia from ClearNanoTech. How can I help you with SolarClip today?") => {
+    console.log('[LEGACY] sendGreeting called, delegating to dispatchToDid:', greeting);
+    await dispatchToDid(greeting);
+  }, [dispatchToDid]);
+
   return {
     messages,
+    isProcessing,
     isThinking,
     isStreaming,
     streamingText,
-    isProcessing,
     isSpeakerEnabled,
     isMicEnabled,
     isListening,
@@ -871,6 +921,7 @@ export const useWellnessGeniChat = () => {
     liveTranscript,
     isWebSpeechActive,
     sendMessage,
+    sendGreeting,
     startListening,
     stopListening,
     toggleSpeaker,
@@ -878,6 +929,5 @@ export const useWellnessGeniChat = () => {
     initializeAudio,
     registerDidVideoElement,
     narrate,
-    sendGreeting: () => narrate("Hello! I'm Isabella, your SolarClip assistant. How can I help you today?"),
   };
 };
