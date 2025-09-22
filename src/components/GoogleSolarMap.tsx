@@ -67,6 +67,18 @@ interface SolarData {
     };
     panelConfigIndex: number;
   }>;
+  dataLayers?: {
+    roofLayerUrls?: string[];
+    solarPotentialUrls?: string[];
+    imageryDate?: any;
+    imageryProcessedDate?: any;
+    dsmUrl?: string;
+    rgbUrl?: string;
+    maskUrl?: string;
+    annualFluxUrl?: string;
+    monthlyFluxUrl?: string;
+    hourlyShadeUrls?: string[];
+  };
 }
 export const GoogleSolarMap = () => {
   const [address, setAddress] = useState('');
@@ -235,23 +247,36 @@ export const GoogleSolarMap = () => {
           });
         }
 
-        // Draw roof segments if available with actual roof shapes
+        // Draw roof segments if available - check for actual polygon data first
+        if (solarData?.dataLayers?.roofLayerUrls?.length > 0) {
+          // TODO: Implement GeoTIFF roof layer visualization
+          console.log('Roof layer data available:', solarData.dataLayers.roofLayerUrls);
+          // For now, fall back to using roof segment stats as polygons
+        }
+        
+        // Draw roof segments as polygons using bounding box data
         if (solarData?.roofSegmentStats && solarData.roofSegmentStats.length > 0) {
           solarData.roofSegmentStats.forEach((segment, index) => {
-            // Create a more accurate representation of the roof area
-            // Use the center point and area to create a circular approximation
-            const areaRadius = Math.sqrt(segment.stats.areaMeters2 / Math.PI) * 0.00001; // Convert to degrees approximately
+            // Use bounding box to create a more accurate rectangular representation
+            const bounds = segment.boundingBox;
             
-            // Create a circle that better represents the actual roof area
-            const roofArea = new (window as any).google.maps.Circle({
-              center: { lat: segment.center.latitude, lng: segment.center.longitude },
-              radius: Math.sqrt(segment.stats.areaMeters2), // Radius in meters
+            // Create polygon coordinates from bounding box
+            const polygonCoords = [
+              { lat: bounds.sw.latitude, lng: bounds.sw.longitude }, // Southwest
+              { lat: bounds.ne.latitude, lng: bounds.sw.longitude }, // Northwest  
+              { lat: bounds.ne.latitude, lng: bounds.ne.longitude }, // Northeast
+              { lat: bounds.sw.latitude, lng: bounds.ne.longitude }, // Southeast
+            ];
+            
+            // Create a polygon for the roof segment
+            const roofPolygon = new (window as any).google.maps.Polygon({
+              paths: polygonCoords,
               map: map.current,
               fillColor: '#22c55e',
               fillOpacity: 0.4,
               strokeColor: '#16a34a',
               strokeOpacity: 0.9,
-              strokeWeight: 3,
+              strokeWeight: 2,
             });
 
             // Add info window for segment details
@@ -267,7 +292,7 @@ export const GoogleSolarMap = () => {
               `,
             });
 
-            roofArea.addListener('click', () => {
+            roofPolygon.addListener('click', () => {
               infoWindow.setPosition({ lat: segment.center.latitude, lng: segment.center.longitude });
               infoWindow.open(map.current);
             });
