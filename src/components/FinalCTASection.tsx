@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { ArrowRight, MessageSquare } from 'lucide-react';
+import { ArrowRight, Phone } from 'lucide-react';
+import { QuoteForm } from '@/components/QuoteForm';
 
 export const FinalCTASection = () => {
   return (
@@ -14,28 +15,30 @@ export const FinalCTASection = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
-            <Button 
-              size="lg" 
-              className="bg-primary hover:bg-primary-light text-primary-foreground font-semibold px-8 py-4 min-w-[200px]"
-            >
-              Get Your Quote
-              <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
+            <QuoteForm>
+              <Button 
+                size="lg" 
+                className="bg-primary hover:bg-primary-light text-primary-foreground font-semibold px-8 py-4 min-w-[200px]"
+              >
+                Get Your Quote
+                <ArrowRight className="ml-2 w-5 h-5" />
+              </Button>
+            </QuoteForm>
             
             <Button 
               size="lg" 
               variant="outline"
               className="border-2 border-accent text-accent hover:bg-accent hover:text-accent-foreground font-semibold px-8 py-4 min-w-[200px]"
             >
-              <MessageSquare className="mr-2 w-5 h-5" />
-              Talk to Isabella Now
+              <Phone className="mr-2 w-5 h-5" />
+              Contact Sales
             </Button>
           </div>
 
           <div className="mt-12 pt-8 border-t border-border">
             <p className="text-sm text-muted-foreground">
-              🚀 World's first AI-ambassador solar website • 
-              ⚡ Lightweight, reversible solar mounting • 
+              🚀 Revolutionary lightweight solar mounting • 
+              ⚡ Clip-on, clip-off installation • 
               🏢 Perfect for commercial buildings
             </p>
           </div>

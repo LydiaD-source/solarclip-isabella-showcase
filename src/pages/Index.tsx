@@ -1,4 +1,4 @@
-import { useState } from 'react';
+
 import { Navbar } from '@/components/Navbar';
 
 import { HeroSection } from '@/components/HeroSection';
@@ -13,7 +13,6 @@ import { FinalCTASection } from '@/components/FinalCTASection';
 import { Footer } from '@/components/Footer';
 
 const Index = () => {
-  const [isIsabellaExpanded, setIsIsabellaExpanded] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -24,7 +23,7 @@ const Index = () => {
       {/* Main Content - Add top padding for fixed navbar */}
       <div className="pt-16">
         {/* Hero Section */}
-        <HeroSection isExpanded={isIsabellaExpanded} onChatToggle={() => setIsIsabellaExpanded(!isIsabellaExpanded)} />
+        <HeroSection />
 
         {/* Problem Section */}
         <ProblemSection />

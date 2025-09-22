@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { ArrowRight, Play } from 'lucide-react';
-import { IsabellaAvatar } from '@/components/IsabellaAvatar';
+import { QuoteForm } from '@/components/QuoteForm';
 
-interface HeroSectionProps { isExpanded?: boolean; onChatToggle?: () => void }
+interface HeroSectionProps {}
 
-export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionProps) => {
+export const HeroSection = ({}: HeroSectionProps) => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Background Gradient */}
@@ -34,10 +34,12 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center mb-12">
-            <Button className="btn-hero group">
-              Get Your Quote
-              <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
-            </Button>
+            <QuoteForm>
+              <Button className="btn-hero group">
+                Get Your Quote
+                <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
+              </Button>
+            </QuoteForm>
             <Button variant="outline" className="btn-outline group">
               <Play className="mr-2 w-5 h-5" />
               See How It Works
@@ -61,9 +63,15 @@ export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionPro
           </div>
         </div>
 
-        {/* Right Column - Isabella Avatar (stacks below on mobile) */}
+        {/* Right Column - Product Image */}
         <div className="flex justify-center lg:justify-end items-start lg:items-center mt-10 lg:mt-8">
-          <IsabellaAvatar isExpanded={isExpanded} onChatToggle={onChatToggle} />
+          <div className="w-[300px] h-[300px] lg:w-[400px] lg:h-[400px] bg-gradient-to-br from-accent/10 to-accent/5 rounded-2xl flex items-center justify-center border-2 border-dashed border-accent/30">
+            <div className="text-center">
+              <div className="text-6xl mb-4">⚡</div>
+              <p className="text-accent font-semibold">SolarClip™</p>
+              <p className="text-sm text-muted-foreground">Product Image</p>
+            </div>
+          </div>
         </div>
       </div>
 
