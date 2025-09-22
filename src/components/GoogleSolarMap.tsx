@@ -160,23 +160,33 @@ export const GoogleSolarMap = () => {
 
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current) return;
+    const container = mapRef.current;
+    if (!container) return;
 
     // Use a public Mapbox token for demo
     mapboxgl.accessToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
 
-    if (map.current) {
-      map.current.remove();
-    }
-
-    // Default to Mountain View, CA or use solar data location
+    // Compute center
     const defaultCenter: [number, number] = solarData?.center 
       ? [solarData.center.longitude, solarData.center.latitude]
       : [-122.0842, 37.4220]; // Mountain View, CA
 
+    // Safely destroy any previous instance
+    if (map.current) {
+      try {
+        map.current.remove();
+      } catch (err) {
+        console.warn('Map remove error:', err);
+      } finally {
+        map.current = null;
+      }
+    }
+
+    let instance: mapboxgl.Map | null = null;
+
     try {
-      map.current = new mapboxgl.Map({
-        container: mapRef.current,
+      instance = new mapboxgl.Map({
+        container,
         style: 'mapbox://styles/mapbox/satellite-v9',
         center: defaultCenter,
         zoom: solarData ? 19 : 15,
@@ -184,28 +194,32 @@ export const GoogleSolarMap = () => {
         bearing: 0
       });
 
-      map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+      map.current = instance;
+
+      instance.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
       // Add marker if we have solar data
       if (solarData?.center) {
         new mapboxgl.Marker({ color: '#ff6b35' })
           .setLngLat([solarData.center.longitude, solarData.center.latitude])
-          .addTo(map.current);
+          .addTo(instance);
       }
     } catch (error) {
       console.error('Error initializing map:', error);
     }
 
     return () => {
-      if (map.current) {
+      if (instance) {
         try {
-          map.current.remove();
+          instance.remove();
         } catch (error) {
-          console.error('Error removing map:', error);
+          console.warn('Error removing map instance:', error);
+        } finally {
+          if (map.current === instance) map.current = null;
         }
       }
     };
-  }, [solarData]);
+  }, [solarData?.center?.latitude, solarData?.center?.longitude]);
   return (
     <div className="w-full">
       {/* Single row layout with map and compact controls */}
@@ -290,7 +304,7 @@ export const GoogleSolarMap = () => {
         {/* Right Panel - Full Width Interactive Map */}
         <div className="flex-1">
           <Card className="card-premium p-2">
-            <div ref={mapRef} className="w-full bg-secondary/20 rounded-lg overflow-hidden" style={{ height: '360px' }} />
+            <div ref={mapRef} className="w-full bg-secondary/20 rounded-lg overflow-hidden" style={{ height: '376px' }} />
           </Card>
         </div>
       </div>
@@ -301,7 +315,7 @@ export const GoogleSolarMap = () => {
           <div className="flex-1">
             <Input type="text" placeholder="Enter property address (e.g., 1600 Amphitheatre Parkway, Mountain View, CA)" 
               value={address} onChange={e => setAddress(e.target.value)} 
-              onKeyPress={e => e.key === 'Enter' && handleAnalyze()} className="w-full" />
+              onKeyDown={e => e.key === 'Enter' && handleAnalyze()} className="w-full" />
           </div>
           <Button onClick={handleAnalyze} disabled={isLoading} className="btn-hero min-w-[140px]">
             {isLoading ? (
