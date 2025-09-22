@@ -102,16 +102,9 @@ serve(async (req) => {
       });
     }
 
-    // Proxy remote media (audio/video) to bypass CORS - prefer streaming GET to avoid memory blowups
-    const { proxy_url, media_type } = body || {};
-    if (proxy_url && (media_type === 'audio' || media_type === 'video')) {
-      console.log('Proxying media (POST) from URL:', { media_type, proxy_url: proxy_url?.slice(0, 80) + '...' });
-      const proxiedUrl = `${url.origin}${url.pathname}?proxy_url=${encodeURIComponent(proxy_url)}&media_type=${media_type}`;
-      // Always return proxied streaming URL for the client to use with <video>/<audio> src
-      return new Response(JSON.stringify({ proxied_url: proxiedUrl, content_type: media_type === 'audio' ? 'audio/mpeg' : 'video/mp4' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // NOTE: POST proxying of media has been removed. Use GET with query params for streaming proxy.
+    // Any POST request without text/talk_id/audio will fall through to validation below.
+
 
     // Validate input - require text or audio when creating a new talk
     if (!talk_id && !text && !audio_base64) {

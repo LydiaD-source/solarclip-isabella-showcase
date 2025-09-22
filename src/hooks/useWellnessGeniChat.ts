@@ -262,16 +262,9 @@ export const useWellnessGeniChat = () => {
       }
       console.log('[D-ID] 🔊 Audio-first playback starting...');
       
-      // Request proxied streaming URL via Edge Function (no hardcoded domain)
-      let audioSrc = url;
-      try {
-        const { data: proxyData } = await supabase.functions.invoke('did-avatar', {
-          body: { proxy_url: url, media_type: 'audio' }
-        });
-        if (proxyData?.proxied_url) audioSrc = proxyData.proxied_url;
-      } catch (e) {
-        console.warn('[D-ID] Audio proxy request failed, using direct URL', e);
-      }
+      // Build GET streaming proxy URL for audio (no POST proxying)
+      let audioSrc = `https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/did-avatar?proxy_url=${encodeURIComponent(url)}&media_type=audio`;
+
       
       const audio = new Audio();
       audio.src = audioSrc;
@@ -345,18 +338,11 @@ export const useWellnessGeniChat = () => {
               console.log(`[D-ID] Direct playback (${Math.round(contentLength/1024)}KB)`);
               setDidVideoUrl(data.result_url);
             } else {
-              // Ask Edge Function for proxied streaming URL
-              try {
-                const { data: proxyData } = await supabase.functions.invoke('did-avatar', {
-                  body: { proxy_url: data.result_url, media_type: 'video' }
-                });
-                const proxiedUrl = proxyData?.proxied_url || data.result_url;
-                console.log(`[D-ID] Streaming proxy (${contentLength ? Math.round(contentLength/1024) : 'unknown'}KB)`);
-                setDidVideoUrl(proxiedUrl);
-              } catch (e) {
-                console.warn('[D-ID] Proxy request failed, falling back to direct URL', e);
-                setDidVideoUrl(data.result_url);
-              }
+              // Build GET streaming proxy URL for video (no POST proxying)
+              const proxiedUrl = `https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/did-avatar?proxy_url=${encodeURIComponent(data.result_url)}&media_type=video`;
+              console.log(`[D-ID] Streaming proxy (${contentLength ? Math.round(contentLength/1024) : 'unknown'}KB)`);
+              setDidVideoUrl(proxiedUrl);
+
             }
           } catch (e) {
             console.error('[D-ID] Failed to set streaming proxied URL', e);
