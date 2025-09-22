@@ -11,12 +11,12 @@ export const VisualizerSection = () => {
             <span className="text-gradient"> Instantly.</span>
           </h2>
           <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-            Find out amount of energy your roof can generate by typing property address.
+            Analyze your roof's solar potential with our interactive visualizer.
             <span className="block mt-2 font-medium text-foreground">Powered by Google Solar API</span>
           </p>
         </div>
 
-        <div className="max-w-6xl mx-auto">
+        <div className="w-full">
           <GoogleSolarMap />
         </div>
       </div>

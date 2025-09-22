@@ -185,133 +185,171 @@ export const GoogleSolarMap = () => {
     };
   }, [solarData]);
   return <div className="w-full">
-      {/* Input Section */}
+      {/* Full-width Interactive Solar Map - Displayed first */}
+      {solarData && (
+        <div className="mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            {/* Left Panel - Interactive Controls */}
+            <div className="lg:col-span-1 space-y-4">
+              <Card className="card-premium p-6">
+                <h3 className="font-heading font-semibold text-lg mb-4 text-foreground">
+                  Solar Configuration
+                </h3>
+                
+                {/* Panel Count Display */}
+                <div className="text-center mb-6">
+                  <div className="text-4xl font-bold text-accent mb-2">
+                    {selectedPanels}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Solar Panels</div>
+                </div>
+
+                {/* Panel Slider with +/- buttons */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        const newCount = Math.max(1, selectedPanels - 1);
+                        handlePanelChange(newCount);
+                      }} 
+                      disabled={selectedPanels <= 1}
+                    >
+                      <Minus className="w-4 h-4" />
+                    </Button>
+                    
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => {
+                        const newCount = Math.min(solarData.maxArrayPanelsCount, selectedPanels + 1);
+                        handlePanelChange(newCount);
+                      }} 
+                      disabled={selectedPanels >= solarData.maxArrayPanelsCount}
+                    >
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  
+                  <Slider 
+                    value={[selectedPanels]} 
+                    onValueChange={value => handlePanelChange(value[0])} 
+                    max={solarData.maxArrayPanelsCount} 
+                    min={1} 
+                    step={1} 
+                    className="w-full" 
+                  />
+                  
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>1</span>
+                    <span>{solarData.maxArrayPanelsCount}</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Energy Output */}
+              <Card className="card-premium p-6">
+                <h4 className="font-semibold text-foreground mb-4">Energy Output</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Annual Generation:</span>
+                    <span className="font-semibold text-accent">
+                      {currentConfig ? formatEnergy(currentConfig.yearlyEnergyDcKwh) : '0 kWh'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Panel Area:</span>
+                    <span className="font-medium">
+                      {formatNumber(selectedPanels / solarData.maxArrayPanelsCount * solarData.maxArrayAreaMeters2)} m²
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Sunshine Hours:</span>
+                    <span className="font-medium">{formatNumber(solarData.maxSunshineHoursPerYear)} hrs/year</span>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Environmental Impact */}
+              <Card className="card-premium p-6">
+                <h4 className="font-semibold text-foreground mb-4">Environmental Impact</h4>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-accent mb-2">
+                    {currentConfig ? formatNumber(currentConfig.yearlyEnergyDcKwh / 1000 * solarData.carbonOffsetFactorKgPerMwh) : 0} kg
+                  </div>
+                  <div className="text-sm text-muted-foreground">CO₂ offset per year</div>
+                </div>
+              </Card>
+            </div>
+
+            {/* Right Panel - Full-width Interactive Map */}
+            <div className="lg:col-span-3">
+              <Card className="card-premium p-6 h-full">
+                <h3 className="font-heading font-semibold text-xl mb-4 text-foreground">
+                  Interactive Solar Roof Analysis
+                </h3>
+                <div 
+                  ref={mapRef} 
+                  className="w-full bg-secondary/20 rounded-lg overflow-hidden" 
+                  style={{ minHeight: '600px' }} 
+                />
+                <div className="mt-4 text-sm text-muted-foreground text-center">
+                  Interactive satellite view showing solar potential and roof segments for: {address}
+                </div>
+              </Card>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Address Input Section - Now below the map */}
       <Card className="card-premium p-6 mb-6">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
-            <Input type="text" placeholder="Enter property address (e.g., 1600 Amphitheatre Parkway, Mountain View, CA)" value={address} onChange={e => setAddress(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleAnalyze()} className="w-full" />
+            <Input 
+              type="text" 
+              placeholder="Enter property address (e.g., 1600 Amphitheatre Parkway, Mountain View, CA)" 
+              value={address} 
+              onChange={e => setAddress(e.target.value)} 
+              onKeyPress={e => e.key === 'Enter' && handleAnalyze()} 
+              className="w-full" 
+            />
           </div>
           <Button onClick={handleAnalyze} disabled={isLoading} className="btn-hero min-w-[140px]">
-            {isLoading ? <>
+            {isLoading ? (
+              <>
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Analyzing...
-              </> : <>
+              </>
+            ) : (
+              <>
                 <MapPin className="w-4 h-4 mr-2" />
                 Analyze Roof
-              </>}
+              </>
+            )}
           </Button>
         </div>
       </Card>
 
       {/* Features Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        {features.map((feature, index) => {})}
+        {features.map((feature, index) => (
+          <Card key={index} className="card-premium p-6 text-center">
+            <feature.icon className="w-8 h-8 text-accent mx-auto mb-3" />
+            <p className="text-foreground font-medium">{feature.text}</p>
+          </Card>
+        ))}
       </div>
 
       {/* Error Display */}
-      {error && <Card className="p-6 mb-6 border-destructive/50 bg-destructive/5">
+      {error && (
+        <Card className="p-6 mb-6 border-destructive/50 bg-destructive/5">
           <div className="text-destructive font-medium">Error: {error}</div>
           <p className="text-sm text-muted-foreground mt-2">
             Please check the address and try again. Make sure you have a valid Google Solar API key.
           </p>
-        </Card>}
-
-      {/* Results Display */}
-      {solarData && <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Panel - Metrics */}
-          <div className="lg:col-span-1 space-y-4">
-            <Card className="card-premium p-6">
-              <h3 className="font-heading font-semibold text-lg mb-4 text-foreground">
-                Solar Configuration
-              </h3>
-              
-              {/* Panel Count Display */}
-              <div className="text-center mb-6">
-                <div className="text-4xl font-bold text-accent mb-2">
-                  {selectedPanels}
-                </div>
-                <div className="text-sm text-muted-foreground">Solar Panels</div>
-              </div>
-
-              {/* Panel Slider */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Button variant="outline" size="sm" onClick={() => {
-                const newCount = Math.max(1, selectedPanels - 1);
-                handlePanelChange(newCount);
-              }} disabled={selectedPanels <= 1}>
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                  
-                  <Button variant="outline" size="sm" onClick={() => {
-                const newCount = Math.min(solarData.maxArrayPanelsCount, selectedPanels + 1);
-                handlePanelChange(newCount);
-              }} disabled={selectedPanels >= solarData.maxArrayPanelsCount}>
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                
-                <Slider value={[selectedPanels]} onValueChange={value => handlePanelChange(value[0])} max={solarData.maxArrayPanelsCount} min={1} step={1} className="w-full" />
-                
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>1</span>
-                  <span>{solarData.maxArrayPanelsCount}</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Energy Output */}
-            <Card className="card-premium p-6">
-              <h4 className="font-semibold text-foreground mb-4">Energy Output</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Annual Generation:</span>
-                  <span className="font-semibold text-accent">
-                    {currentConfig ? formatEnergy(currentConfig.yearlyEnergyDcKwh) : '0 kWh'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Panel Area:</span>
-                  <span className="font-medium">
-                    {formatNumber(selectedPanels / solarData.maxArrayPanelsCount * solarData.maxArrayAreaMeters2)} m²
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Sunshine Hours:</span>
-                  <span className="font-medium">{formatNumber(solarData.maxSunshineHoursPerYear)} hrs/year</span>
-                </div>
-              </div>
-            </Card>
-
-            {/* Environmental Impact */}
-            <Card className="card-premium p-6">
-              <h4 className="font-semibold text-foreground mb-4">Environmental Impact</h4>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-accent mb-2">
-                  {currentConfig ? formatNumber(currentConfig.yearlyEnergyDcKwh / 1000 * solarData.carbonOffsetFactorKgPerMwh) : 0} kg
-                </div>
-                <div className="text-sm text-muted-foreground">CO₂ offset per year</div>
-              </div>
-            </Card>
-          </div>
-
-          {/* Right Panel - Map */}
-          <div className="lg:col-span-2">
-            <Card className="card-premium p-6 h-full">
-              <h3 className="font-heading font-semibold text-xl mb-4 text-foreground">
-                Solar Roof Analysis
-              </h3>
-              <div ref={mapRef} className="w-full h-96 bg-secondary/20 rounded-lg overflow-hidden" style={{
-            minHeight: '500px'
-          }} />
-              <div className="mt-4 text-sm text-muted-foreground text-center">
-                Satellite view showing solar potential for: {address}
-              </div>
-            </Card>
-          </div>
-        </div>}
-
-      {/* Instructions */}
-      
+        </Card>
+      )}
     </div>;
 };
