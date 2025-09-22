@@ -2,10 +2,18 @@ import { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card } from '@/components/ui/card';
-import { MapPin, Zap, BarChart3, Home, Loader2 } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
+import { MapPin, Zap, BarChart3, Home, Loader2, Plus, Minus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import mapboxgl from 'mapbox-gl';
+import 'mapbox-gl/dist/mapbox-gl.css';
 
 interface SolarData {
+  name?: string;
+  center?: {
+    latitude: number;
+    longitude: number;
+  };
   maxArrayPanelsCount: number;
   maxArrayAreaMeters2: number;
   maxSunshineHoursPerYear: number;
@@ -15,6 +23,23 @@ interface SolarData {
     sunshineQuantiles: number[];
     groundAreaMeters2: number;
   };
+  roofSegmentStats?: Array<{
+    pitchDegrees: number;
+    azimuthDegrees: number;
+    stats: {
+      areaMeters2: number;
+      sunshineQuantiles: number[];
+      groundAreaMeters2: number;
+    };
+    center: {
+      latitude: number;
+      longitude: number;
+    };
+    boundingBox: {
+      sw: { latitude: number; longitude: number };
+      ne: { latitude: number; longitude: number };
+    };
+  }>;
   solarPanelConfigs: Array<{
     panelsCount: number;
     yearlyEnergyDcKwh: number;
@@ -23,9 +48,10 @@ interface SolarData {
       azimuthDegrees: number;
       panelsCount: number;
       yearlyEnergyDcKwh: number;
+      segmentIndex?: number;
     }>;
   }>;
-  financialAnalyses: Array<{
+  financialAnalyses?: Array<{
     monthlyBill: {
       currencyCode: string;
       units: string;
@@ -39,7 +65,10 @@ export const GoogleSolarMap = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [solarData, setSolarData] = useState<SolarData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPanels, setSelectedPanels] = useState(0);
+  const [currentConfig, setCurrentConfig] = useState<any>(null);
   const mapRef = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
   const { toast } = useToast();
 
   const features = [
@@ -83,6 +112,10 @@ export const GoogleSolarMap = () => {
       }
 
       setSolarData(data);
+      if (data.solarPanelConfigs && data.solarPanelConfigs.length > 0) {
+        setSelectedPanels(data.solarPanelConfigs[0].panelsCount);
+        setCurrentConfig(data.solarPanelConfigs[0]);
+      }
       toast({
         title: "Analysis Complete",
         description: "Solar potential analysis completed successfully",
@@ -113,6 +146,48 @@ export const GoogleSolarMap = () => {
     }
     return `${Math.round(kwh)} kWh`;
   };
+
+  const handlePanelChange = (panelCount: number) => {
+    if (!solarData || !solarData.solarPanelConfigs) return;
+    
+    const config = solarData.solarPanelConfigs.find(c => c.panelsCount === panelCount) || 
+                   solarData.solarPanelConfigs[0];
+    setSelectedPanels(panelCount);
+    setCurrentConfig(config);
+  };
+
+  useEffect(() => {
+    if (!solarData || !solarData.center || !mapRef.current) return;
+
+    // Initialize Mapbox map
+    mapboxgl.accessToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw'; // This should be replaced with actual token
+    
+    if (map.current) {
+      map.current.remove();
+    }
+
+    map.current = new mapboxgl.Map({
+      container: mapRef.current,
+      style: 'mapbox://styles/mapbox/satellite-streets-v12',
+      center: [solarData.center.longitude, solarData.center.latitude],
+      zoom: 19,
+      pitch: 45,
+      bearing: 0
+    });
+
+    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    // Add a marker for the building
+    new mapboxgl.Marker({ color: '#ff6b35' })
+      .setLngLat([solarData.center.longitude, solarData.center.latitude])
+      .addTo(map.current);
+
+    return () => {
+      if (map.current) {
+        map.current.remove();
+      }
+    };
+  }, [solarData]);
 
   return (
     <div className="w-full">
@@ -173,103 +248,117 @@ export const GoogleSolarMap = () => {
 
       {/* Results Display */}
       {solarData && (
-        <div className="space-y-6">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="card-premium p-6 text-center">
-              <div className="text-3xl font-bold text-accent mb-2">
-                {formatNumber(solarData.maxArrayPanelsCount)}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Panel - Metrics */}
+          <div className="lg:col-span-1 space-y-4">
+            <Card className="card-premium p-6">
+              <h3 className="font-heading font-semibold text-lg mb-4 text-foreground">
+                Solar Configuration
+              </h3>
+              
+              {/* Panel Count Display */}
+              <div className="text-center mb-6">
+                <div className="text-4xl font-bold text-accent mb-2">
+                  {selectedPanels}
+                </div>
+                <div className="text-sm text-muted-foreground">Solar Panels</div>
               </div>
-              <div className="text-sm text-muted-foreground">Solar Panels</div>
+
+              {/* Panel Slider */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newCount = Math.max(1, selectedPanels - 1);
+                      handlePanelChange(newCount);
+                    }}
+                    disabled={selectedPanels <= 1}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newCount = Math.min(solarData.maxArrayPanelsCount, selectedPanels + 1);
+                      handlePanelChange(newCount);
+                    }}
+                    disabled={selectedPanels >= solarData.maxArrayPanelsCount}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
+                </div>
+                
+                <Slider
+                  value={[selectedPanels]}
+                  onValueChange={(value) => handlePanelChange(value[0])}
+                  max={solarData.maxArrayPanelsCount}
+                  min={1}
+                  step={1}
+                  className="w-full"
+                />
+                
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>1</span>
+                  <span>{solarData.maxArrayPanelsCount}</span>
+                </div>
+              </div>
             </Card>
-            
-            <Card className="card-premium p-6 text-center">
-              <div className="text-3xl font-bold text-accent mb-2">
-                {formatNumber(solarData.maxArrayAreaMeters2)} m²
+
+            {/* Energy Output */}
+            <Card className="card-premium p-6">
+              <h4 className="font-semibold text-foreground mb-4">Energy Output</h4>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Annual Generation:</span>
+                  <span className="font-semibold text-accent">
+                    {currentConfig ? formatEnergy(currentConfig.yearlyEnergyDcKwh) : '0 kWh'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Panel Area:</span>
+                  <span className="font-medium">
+                    {formatNumber((selectedPanels / solarData.maxArrayPanelsCount) * solarData.maxArrayAreaMeters2)} m²
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Sunshine Hours:</span>
+                  <span className="font-medium">{formatNumber(solarData.maxSunshineHoursPerYear)} hrs/year</span>
+                </div>
               </div>
-              <div className="text-sm text-muted-foreground">Panel Area</div>
             </Card>
-            
-            <Card className="card-premium p-6 text-center">
-              <div className="text-3xl font-bold text-accent mb-2">
-                {formatNumber(solarData.wholeRoofStats.areaMeters2)} m²
+
+            {/* Environmental Impact */}
+            <Card className="card-premium p-6">
+              <h4 className="font-semibold text-foreground mb-4">Environmental Impact</h4>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-accent mb-2">
+                  {currentConfig ? formatNumber((currentConfig.yearlyEnergyDcKwh / 1000) * solarData.carbonOffsetFactorKgPerMwh) : 0} kg
+                </div>
+                <div className="text-sm text-muted-foreground">CO₂ offset per year</div>
               </div>
-              <div className="text-sm text-muted-foreground">Total Roof Area</div>
-            </Card>
-            
-            <Card className="card-premium p-6 text-center">
-              <div className="text-3xl font-bold text-accent mb-2">
-                {formatNumber(solarData.maxSunshineHoursPerYear)} hrs
-              </div>
-              <div className="text-sm text-muted-foreground">Sunshine/Year</div>
             </Card>
           </div>
 
-          {/* Energy Generation */}
-          {solarData.solarPanelConfigs && solarData.solarPanelConfigs.length > 0 && (
-            <Card className="card-premium p-6">
+          {/* Right Panel - Map */}
+          <div className="lg:col-span-2">
+            <Card className="card-premium p-6 h-full">
               <h3 className="font-heading font-semibold text-xl mb-4 text-foreground">
-                Energy Generation Potential
+                Solar Roof Analysis
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {solarData.solarPanelConfigs.slice(0, 2).map((config, index) => (
-                  <div key={index} className="bg-secondary/30 rounded-lg p-4">
-                    <div className="text-lg font-semibold text-foreground mb-2">
-                      Configuration {index + 1}
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Panels:</span>
-                        <span className="font-medium">{formatNumber(config.panelsCount)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Annual Energy:</span>
-                        <span className="font-medium text-accent">
-                          {formatEnergy(config.yearlyEnergyDcKwh)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div 
+                ref={mapRef}
+                className="w-full h-96 bg-secondary/20 rounded-lg overflow-hidden"
+                style={{ minHeight: '500px' }}
+              />
+              <div className="mt-4 text-sm text-muted-foreground text-center">
+                Satellite view showing solar potential for: {address}
               </div>
             </Card>
-          )}
-
-          {/* Environmental Impact */}
-          <Card className="card-premium p-6">
-            <h3 className="font-heading font-semibold text-xl mb-4 text-foreground">
-              Environmental Impact
-            </h3>
-            <div className="bg-secondary/30 rounded-lg p-4">
-              <div className="text-2xl font-bold text-accent mb-2">
-                {formatNumber(solarData.carbonOffsetFactorKgPerMwh)} kg CO₂
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Carbon offset factor per MWh
-              </div>
-            </div>
-          </Card>
-
-          {/* Map Placeholder */}
-          <Card className="card-premium p-6">
-            <h3 className="font-heading font-semibold text-xl mb-4 text-foreground">
-              Roof Analysis Map
-            </h3>
-            <div 
-              ref={mapRef}
-              className="w-full h-64 bg-secondary/20 rounded-lg flex items-center justify-center border-2 border-dashed border-border"
-            >
-              <div className="text-center">
-                <MapPin className="w-12 h-12 text-accent mx-auto mb-2" />
-                <p className="text-muted-foreground">
-                  Interactive map visualization coming soon
-                </p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Address: {address}
-                </p>
-              </div>
-            </div>
-          </Card>
+          </div>
         </div>
       )}
 
