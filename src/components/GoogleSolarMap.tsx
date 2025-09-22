@@ -5,8 +5,6 @@ import { Card } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { MapPin, Zap, BarChart3, Home, Loader2, Plus, Minus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
 interface SolarData {
   name?: string;
@@ -78,7 +76,7 @@ export const GoogleSolarMap = () => {
   const [selectedPanels, setSelectedPanels] = useState(20); // Default value
   const [currentConfig, setCurrentConfig] = useState<any>(null);
   const mapRef = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
+  const map = useRef<any>(null);
   const { toast } = useToast();
 
   const features = [
@@ -174,84 +172,116 @@ export const GoogleSolarMap = () => {
     }
   };
 
-  // Initialize map
+  // Initialize Google Maps
   useEffect(() => {
     const container = mapRef.current;
     if (!container) return;
 
-    let instance: mapboxgl.Map | null = null;
-    let destroyed = false;
-
-    const init = async () => {
+    const initMap = async () => {
       try {
-        // Get Mapbox token from Supabase Edge Function
-        const { data: tokenData, error: tokenError } = await supabase.functions.invoke('mapbox-token');
+        // Load Google Maps API with API key from Supabase secrets
+        const { data: apiKeyData, error: apiKeyError } = await supabase.functions.invoke('get-google-maps-key');
         
-        if (tokenError || !tokenData?.token) {
-          console.error('Failed to get Mapbox token:', tokenError);
-          setError('Map configuration error. Please check your Mapbox token.');
+        if (apiKeyError || !apiKeyData?.apiKey) {
+          console.error('Failed to get Google Maps API key:', apiKeyError);
+          setError('Map configuration error. Please check your Google Maps API key.');
           return;
         }
-        
-        mapboxgl.accessToken = tokenData.token;
 
-        // Compute center
-        const defaultCenter: [number, number] = solarData?.center
-          ? [solarData.center.longitude, solarData.center.latitude]
-          : [-122.0842, 37.4220];
-
-        // Safely destroy any previous instance
-        if (map.current) {
-          try { map.current.remove(); } catch (err) { console.warn('Map remove error:', err); } finally { map.current = null; }
+        // Load Google Maps Script
+        if (!(window as any).google) {
+          const script = document.createElement('script');
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKeyData.apiKey}&libraries=maps`;
+          script.async = true;
+          script.defer = true;
+          document.head.appendChild(script);
+          
+          await new Promise((resolve) => {
+            script.onload = resolve;
+          });
         }
 
-        if (destroyed) return;
-        instance = new mapboxgl.Map({
-          container,
-          style: 'mapbox://styles/mapbox/satellite-v9', // Use satellite imagery
-          center: defaultCenter,
-          zoom: solarData ? 19 : 15,
-          pitch: 0,
-          bearing: 0,
-        });
+        // Initialize map
+        const center = solarData?.center 
+          ? { lat: solarData.center.latitude, lng: solarData.center.longitude }
+          : { lat: 37.4220, lng: -122.0842 };
 
-        map.current = instance;
-        instance.addControl(new mapboxgl.NavigationControl(), 'top-right');
+        map.current = new (window as any).google.maps.Map(container, {
+          center,
+          zoom: solarData ? 20 : 15,
+          mapTypeId: 'satellite',
+          tilt: 0,
+          mapTypeControl: true,
+          streetViewControl: false,
+          fullscreenControl: true,
+          zoomControl: true,
+        });
 
         // Add marker at center
         if (solarData?.center) {
-          new mapboxgl.Marker({ color: '#ff6b35' })
-            .setLngLat([solarData.center.longitude, solarData.center.latitude])
-            .addTo(instance);
+          new (window as any).google.maps.Marker({
+            position: { lat: solarData.center.latitude, lng: solarData.center.longitude },
+            map: map.current,
+            title: 'Solar Analysis Location',
+            icon: {
+              path: (window as any).google.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: '#ff6b35',
+              fillOpacity: 1,
+              strokeWeight: 2,
+              strokeColor: '#ffffff',
+            },
+          });
         }
 
-        // Fit to building when data is available
-        instance.on('load', () => {
-          if (solarData?.center) {
-            // Fit to the building area with appropriate padding
-            const center = [solarData.center.longitude, solarData.center.latitude] as [number, number];
-            instance.flyTo({
-              center,
-              zoom: 19,
-              essential: true
+        // Draw roof segments if available
+        if (solarData?.roofSegmentStats && solarData.roofSegmentStats.length > 0) {
+          solarData.roofSegmentStats.forEach((segment, index) => {
+            const { sw, ne } = segment.boundingBox;
+            
+            // Create rectangle for roof segment
+            const rectangle = new (window as any).google.maps.Rectangle({
+              bounds: {
+                north: ne.latitude,
+                south: sw.latitude,
+                east: ne.longitude,
+                west: sw.longitude,
+              },
+              map: map.current,
+              fillColor: '#22c55e',
+              fillOpacity: 0.3,
+              strokeColor: '#16a34a',
+              strokeOpacity: 0.8,
+              strokeWeight: 2,
             });
-          }
-        });
-      } catch (e) {
-        console.error('Map init failed:', e);
-        setError('Failed to initialize map. Please check your connection.');
+
+            // Add info window for segment details
+            const infoWindow = new (window as any).google.maps.InfoWindow({
+              content: `
+                <div style="font-size: 12px;">
+                  <strong>Roof Segment ${index + 1}</strong><br/>
+                  Area: ${segment.stats.areaMeters2.toFixed(1)} m²<br/>
+                  Pitch: ${segment.pitchDegrees.toFixed(1)}°<br/>
+                  Azimuth: ${segment.azimuthDegrees.toFixed(1)}°
+                </div>
+              `,
+            });
+
+            rectangle.addListener('click', () => {
+              infoWindow.setPosition({ lat: segment.center.latitude, lng: segment.center.longitude });
+              infoWindow.open(map.current);
+            });
+          });
+        }
+
+      } catch (error) {
+        console.error('Map initialization failed:', error);
+        setError('Failed to initialize Google Maps. Please check your API configuration.');
       }
     };
 
-    init();
-
-    return () => {
-      destroyed = true;
-      if (instance) {
-        try { instance.remove(); } catch (err) { console.warn('Error removing map instance:', err); } finally { if (map.current === instance) map.current = null; }
-      }
-    };
-  }, [solarData?.center?.latitude, solarData?.center?.longitude]);
+    initMap();
+  }, [solarData]);
   return (
     <div className="w-full">
       {/* Single row layout with map and compact controls */}
