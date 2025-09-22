@@ -89,6 +89,7 @@ export const useWellnessGeniChat = () => {
   const tokenTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [audioFirstStarted, setAudioFirstStarted] = useState(false);
   const lastDispatchRef = useRef<string>('');
+  const dispatchedTextsRef = useRef<string[]>([]);
   
   useEffect(() => {
     didQueueRef.current = didQueue;
@@ -260,11 +261,19 @@ export const useWellnessGeniChat = () => {
       }
       console.log('[D-ID] 🔊 Audio-first playback starting...');
       
-      // Use streaming proxy for audio
-      const proxiedUrl = `https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/did-avatar?proxy_url=${encodeURIComponent(url)}&media_type=audio`;
+      // Request proxied streaming URL via Edge Function (no hardcoded domain)
+      let audioSrc = url;
+      try {
+        const { data: proxyData } = await supabase.functions.invoke('did-avatar', {
+          body: { proxy_url: url, media_type: 'audio' }
+        });
+        if (proxyData?.proxied_url) audioSrc = proxyData.proxied_url;
+      } catch (e) {
+        console.warn('[D-ID] Audio proxy request failed, using direct URL', e);
+      }
       
       const audio = new Audio();
-      audio.src = proxiedUrl;
+      audio.src = audioSrc;
       audio.crossOrigin = 'anonymous';
       didAudioRef.current = audio;
 
@@ -320,21 +329,36 @@ export const useWellnessGeniChat = () => {
           try {
             lastDirectUrlRef.current = data.result_url as string;
             
-            // Check content length for proxy decision
-            const headResponse = await fetch(data.result_url, { method: 'HEAD' });
-            const contentLength = parseInt(headResponse.headers.get('content-length') || '0');
+            // Check content length for proxy decision (prefer direct if small)
+            let useDirect = false;
+            let contentLength = 0;
+            try {
+              const headResponse = await fetch(data.result_url, { method: 'HEAD' });
+              contentLength = parseInt(headResponse.headers.get('content-length') || '0');
+              useDirect = contentLength > 0 && contentLength < 10_000_000;
+            } catch (e) {
+              console.warn('[D-ID] HEAD failed, will prefer proxy', e);
+            }
             
-            if (contentLength > 0 && contentLength < 10_000_000) {
-              // Direct for small files (<10MB)
+            if (useDirect) {
               console.log(`[D-ID] Direct playback (${Math.round(contentLength/1024)}KB)`);
               setDidVideoUrl(data.result_url);
               logPerf('Video_playback_start', Date.now() - pollStart, { proxy_used: false, content_length: contentLength });
             } else {
-              // Streaming proxy for larger files
-              const proxiedUrl = `https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/did-avatar?proxy_url=${encodeURIComponent(data.result_url)}&media_type=video`;
-              console.log(`[D-ID] Streaming proxy (${Math.round(contentLength/1024)}KB)`);
-              setDidVideoUrl(proxiedUrl);
-              logPerf('Video_playback_start', Date.now() - pollStart, { proxy_used: true, content_length: contentLength });
+              // Ask Edge Function for proxied streaming URL
+              try {
+                const { data: proxyData } = await supabase.functions.invoke('did-avatar', {
+                  body: { proxy_url: data.result_url, media_type: 'video' }
+                });
+                const proxiedUrl = proxyData?.proxied_url || data.result_url;
+                console.log(`[D-ID] Streaming proxy (${contentLength ? Math.round(contentLength/1024) : 'unknown'}KB)`);
+                setDidVideoUrl(proxiedUrl);
+                logPerf('Video_playback_start', Date.now() - pollStart, { proxy_used: !!proxyData?.proxied_url, content_length: contentLength || undefined });
+              } catch (e) {
+                console.warn('[D-ID] Proxy request failed, falling back to direct URL', e);
+                setDidVideoUrl(data.result_url);
+                logPerf('Video_playback_start', Date.now() - pollStart, { proxy_used: false, content_length: contentLength || undefined, fallback: true });
+              }
             }
           } catch (e) {
             console.error('[D-ID] Failed to set streaming proxied URL', e);
@@ -521,32 +545,36 @@ export const useWellnessGeniChat = () => {
           // Check for early dispatch conditions  
           const textSoFar = [...partialTokens, token].join(' ');
           if (/[.?!]\s*$/.test(textSoFar) || textSoFar.split(/\s+/).length >= 12) {
-            // Clear current partialTokens before dispatch to prevent duplication
-            setPartialTokens(prev => [...prev, token]);
             attemptDispatchPartial('punctuation_or_length');
           }
         };
 
         const attemptDispatchPartial = (reason: string) => {
           if (partialTokens.length === 0) return;
-          
-          const textToSend = partialTokens.join(' ');
-          if (textToSend === lastDispatchRef.current) return; // Avoid duplicates
-          
+          const textToSend = partialTokens.join(' ').trim();
+          if (!textToSend) return;
+
+          // Dedup: avoid re-dispatching prefixes or same text
+          const alreadyDispatched = dispatchedTextsRef.current.some(prev => textToSend === prev || textToSend.startsWith(prev));
+          if (alreadyDispatched || textToSend === lastDispatchRef.current) {
+            return;
+          }
+
           console.log(`[PERF] 🟢 LLM_first_clause_dispatch=${Date.now() - firstTokenTime}ms (${reason})`);
           console.log(`[D-ID] 🎬 Early dispatch: "${textToSend}" (${reason})`);
-          
+
           lastDispatchRef.current = textToSend;
+          dispatchedTextsRef.current.push(textToSend);
           setPartialTokens([]); // Clear tokens after dispatch
           firstSentenceSent = true;
           firstSentenceValue = textToSend;
-          
+
           // Clear timer
           if (tokenTimerRef.current) {
             clearTimeout(tokenTimerRef.current);
             tokenTimerRef.current = null;
           }
-          
+
           // CRITICAL: Add dispatched text to chat UI immediately
           const partialMessage: ChatMessage = {
             id: `partial-${Date.now()}`,
@@ -554,7 +582,7 @@ export const useWellnessGeniChat = () => {
             sender: 'isabella',
             timestamp: new Date(),
           };
-          
+
           setMessages(prev => {
             const updated = [...prev, partialMessage];
             try {
@@ -564,7 +592,7 @@ export const useWellnessGeniChat = () => {
             }
             return updated;
           });
-          
+
           // PERFORMANCE: Start narration immediately
           narrate(textToSend);
         };
