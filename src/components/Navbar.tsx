@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Menu, X } from 'lucide-react';
+import solarClipLogo from '@/assets/solarclip-logo.png';
 
 
 export const Navbar = () => {
@@ -30,9 +31,9 @@ export const Navbar = () => {
           {/* Logo */}
           <div className="flex items-center py-2 mr-12">
             <img 
-              src="/lovable-uploads/84300188-bbb0-42e2-adda-fbe17d6590ae.png" 
-              alt="SolarClip - Revolutionary Solar Mounting Technology" 
-              className="w-[130px] lg:w-[200px] h-auto object-contain"
+              src={solarClipLogo} 
+              alt="SolarClip - Lightweight Solutions" 
+              className="h-8 w-auto object-contain"
             />
           </div>
 

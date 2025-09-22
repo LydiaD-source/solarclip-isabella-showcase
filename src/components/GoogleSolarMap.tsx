@@ -211,7 +211,7 @@ export const GoogleSolarMap = () => {
       {/* Single row layout with map and compact controls */}
       <div className="flex gap-4 mb-2">
         {/* Left Panel - Compact Solar Controls */}
-        <div className="w-80 space-y-2">
+        <div className="w-[340px] space-y-2">
           {/* Solar Configuration - Compact */}
           <Card className="card-premium p-2">
             <h3 className="font-semibold text-xs mb-1 text-foreground">Solar Configuration</h3>
