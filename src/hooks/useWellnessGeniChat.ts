@@ -49,29 +49,18 @@ export const useWellnessGeniChat = () => {
     return newId;
   });
 
-  // Pre-warm D-ID on page load
+  // Pre-warm marker (no talk creation to avoid duplicate loops)
   useEffect(() => {
-    const preWarm = async () => {
-      try {
-        console.log('[D-ID] Pre-warming session...');
-        const { data } = await supabase.functions.invoke('did-avatar', {
-          body: {
-            text: 'Hello there',
-            source_url: DID_SOURCE_URL,
-          }
-        });
-        if (data?.talk_id) {
-          console.log('[D-ID] Pre-warm talk created:', data.talk_id, '(will be discarded)');
-          // Don't poll or display this warmup talk
-        }
-      } catch (e) {
-        console.log('[D-ID] Pre-warm failed (not critical):', e);
+    try {
+      if (typeof window !== 'undefined') {
+        const key = 'did-prewarm-done';
+        if (sessionStorage.getItem(key)) return;
+        sessionStorage.setItem(key, '1');
       }
-    };
-    
-    // Pre-warm after 2s to let page settle
-    const timer = setTimeout(preWarm, 2000);
-    return () => clearTimeout(timer);
+      console.log('[D-ID] Pre-warm flagged (no talk created)');
+    } catch {
+      // ignore
+    }
   }, []);
 
   const [currentSource, setCurrentSource] = useState<AudioBufferSourceNode | null>(null);
@@ -101,6 +90,9 @@ export const useWellnessGeniChat = () => {
   const didAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastDirectUrlRef = useRef<string | null>(null);
   const lastDidTalkAtRef = useRef<number>(0);
+  const lastDispatchedStrictRef = useRef<string>('');
+  const talkLockRef = useRef(false);
+  const currentTalkIdRef = useRef<string | null>(null);
   
   // Manage D-ID video element lifecycle to avoid cutoffs
   const didVideoElementRef = useRef<HTMLVideoElement | null>(null);
@@ -114,6 +106,8 @@ export const useWellnessGeniChat = () => {
     if (el) {
       el.onended = () => {
         console.log('[D-ID] Video ended — hiding after 0.8s');
+        console.log('[PERF] 🔵 Talk_end');
+        talkLockRef.current = false;
         setTimeout(() => {
           setDidVideoUrl(null);
           if (didVideoObjectUrlRef.current) {
@@ -291,6 +285,10 @@ export const useWellnessGeniChat = () => {
     // REAL-TIME OPTIMIZATION: Sub-second polling for immediate response
     for (let i = 0; i < 60; i++) {
       try {
+        if (talkId !== currentTalkIdRef.current) {
+          console.log('[D-ID] Ignoring stale poll for', talkId);
+          return;
+        }
         const { data, error } = await supabase.functions.invoke('did-avatar', {
           body: { talk_id: talkId }
         });
@@ -317,6 +315,10 @@ export const useWellnessGeniChat = () => {
         
         // VIDEO: Set up streaming proxy
         if (data?.result_url && data?.status === 'done') {
+          if (talkId !== currentTalkIdRef.current) {
+            console.log('[D-ID] Stale ready result ignored for', talkId);
+            return;
+          }
           console.log(`[PERF] 🟢 DID_poll_videoReady=${Date.now() - pollStart}ms`);
           console.log('[D-ID] Video ready - using STREAMING proxy URL for playback');
           
@@ -536,10 +538,12 @@ export const useWellnessGeniChat = () => {
           if (partialTokens.length === 0) return;
           const textToSend = partialTokens.join(' ').trim();
           if (!textToSend) return;
+          if (textToSend.length < 3) return;
 
           // Dedup: avoid re-dispatching prefixes or same text
           const alreadyDispatched = dispatchedTextsRef.current.some(prev => textToSend === prev || textToSend.startsWith(prev));
-          if (alreadyDispatched || textToSend === lastDispatchRef.current) {
+          if (alreadyDispatched || textToSend === lastDispatchRef.current || textToSend === lastDispatchedStrictRef.current) {
+            console.log('[PERF] Skipped_duplicate', textToSend);
             return;
           }
 
@@ -547,6 +551,7 @@ export const useWellnessGeniChat = () => {
           console.log(`[D-ID] 🎬 Early dispatch: "${textToSend}" (${reason})`);
 
           lastDispatchRef.current = textToSend;
+          lastDispatchedStrictRef.current = textToSend;
           dispatchedTextsRef.current.push(textToSend);
           setPartialTokens([]); // Clear tokens after dispatch
           firstSentenceSent = true;
@@ -576,6 +581,7 @@ export const useWellnessGeniChat = () => {
             return updated;
           });
 
+          console.log('[PERF] Dispatch_text', textToSend);
           // PERFORMANCE: Start narration immediately
           narrate(textToSend);
         };
@@ -692,23 +698,29 @@ export const useWellnessGeniChat = () => {
   }, [isProcessing, messages, sessionId, isSpeakerEnabled, toast, startTimer, endTimer, partialTokens]);
 
   const narrate = useCallback(async (text: string) => {
-    if (!text?.trim()) return;
-    if (isDidProcessing && didQueueRef.current.length >= 2) {
-      console.log('[D-ID] Queue full, skipping narration:', text.substring(0, 30));
+    const clean = text?.trim() || '';
+    if (!clean) return;
+    if (clean.length < 3) return;
+
+    // Strict dedup across dispatches
+    if (clean === lastDispatchedStrictRef.current) {
+      console.log('[PERF] Skipped_duplicate', clean);
       return;
     }
 
-    if (isDidProcessing) {
-      console.log('[D-ID] Queueing for later:', text.substring(0, 30));
-      setDidQueue(prev => [...prev, text]);
+    // Single-flight lock
+    if (talkLockRef.current || isDidProcessing) {
+      console.log('[PERF] Skipped_due_to_lock', clean);
+      setDidQueue(prev => [...prev, clean]);
       return;
     }
 
     setIsDidProcessing(true);
+    talkLockRef.current = true;
     setIsThinking(true); // Show thinking status
     const didStart = Date.now();
 
-    console.log('[Isabella] narrate called:', text.substring(0, 50) + '...');
+    console.log('[Isabella] narrate called:', clean.substring(0, 50) + '...');
 
     try {
       // Choose TTS method based on configuration
@@ -734,6 +746,8 @@ export const useWellnessGeniChat = () => {
         if (!didData?.talk_id) throw new Error('No talk_id returned from D-ID');
 
         console.log(`[PERF] 🟢 DID_create=${Date.now() - didStart}ms`);
+        currentTalkIdRef.current = didData.talk_id;
+        console.log('[PERF] 🟢 Talk_start', didData.talk_id);
         console.log('[Isabella] D-ID talk created, polling for results:', didData.talk_id);
         await pollDidTalk(didData.talk_id);
       } else {
@@ -779,6 +793,8 @@ export const useWellnessGeniChat = () => {
         lastDidTalkAtRef.current = Date.now();
 
         console.log(`[PERF] 🟢 DID_create=${Date.now() - didStart}ms`);
+        currentTalkIdRef.current = didData.talk_id;
+        console.log('[PERF] 🟢 Talk_start', didData.talk_id);
         console.log('[Isabella] D-ID talk created, polling for results:', didData.talk_id);
         await pollDidTalk(didData.talk_id);
       }
@@ -786,6 +802,7 @@ export const useWellnessGeniChat = () => {
       console.error('[Isabella] Narration error:', error);
       setIsThinking(false);
       setIsDidProcessing(false);
+      talkLockRef.current = false;
       
       // Process next queued item
       const next = didQueueRef.current?.[0];

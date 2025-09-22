@@ -64,9 +64,11 @@ serve(async (req) => {
       throw new Error('D-ID API key not configured');
     }
 
+    // POST is only for creating talks or polling by talk_id; no POST proxying
+    const hasValidText = typeof text === 'string' && text.trim().length >= 3;
     console.log('D-ID avatar request', { 
-      hasText: !!text, 
-      hasAudio: !!audio_base64 || !!text, // hasAudio is true when text is present (TTS)
+      hasText: hasValidText, 
+      hasAudio: !!audio_base64 || hasValidText,
       poll: !!talk_id,
       textPreview: text?.substring(0, 50),
       audioSize: audio_base64?.length 
@@ -107,8 +109,8 @@ serve(async (req) => {
 
 
     // Validate input - require text or audio when creating a new talk
-    if (!talk_id && !text && !audio_base64) {
-      console.error('No text or audio provided for D-ID talk creation');
+    if (!talk_id && !hasValidText && !audio_base64) {
+      console.error('No valid text (>=3 chars) or audio provided for D-ID talk creation');
       return new Response(JSON.stringify({ error: 'No text or audio provided' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
