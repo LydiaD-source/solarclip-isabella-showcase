@@ -209,21 +209,21 @@ export const GoogleSolarMap = () => {
   return (
     <div className="w-full">
       {/* Single row layout with map and compact controls */}
-      <div className="flex gap-4 mb-4">
+      <div className="flex gap-4 mb-2">
         {/* Left Panel - Compact Solar Controls */}
-        <div className="w-80 space-y-3">
+        <div className="w-80 space-y-2">
           {/* Solar Configuration - Compact */}
-          <Card className="card-premium p-4">
-            <h3 className="font-semibold text-base mb-3 text-foreground">Solar Configuration</h3>
+          <Card className="card-premium p-3">
+            <h3 className="font-semibold text-sm mb-2 text-foreground">Solar Configuration</h3>
             
             {/* Panel Count Display */}
-            <div className="text-center mb-4">
-              <div className="text-3xl font-bold text-accent mb-1">{selectedPanels}</div>
+            <div className="text-center mb-2">
+              <div className="text-2xl font-bold text-accent mb-1">{selectedPanels}</div>
               <div className="text-xs text-muted-foreground">Solar Panels</div>
             </div>
 
             {/* Compact Panel Controls */}
-            <div className="space-y-3">
+            <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Button variant="outline" size="sm" onClick={() => {
                   const newCount = Math.max(1, selectedPanels - 1);
@@ -251,9 +251,9 @@ export const GoogleSolarMap = () => {
           </Card>
 
           {/* Energy Output - Compact */}
-          <Card className="card-premium p-4">
-            <h4 className="font-semibold text-sm text-foreground mb-3">Energy Output</h4>
-            <div className="space-y-2 text-sm">
+          <Card className="card-premium p-3">
+            <h4 className="font-semibold text-sm text-foreground mb-2">Energy Output</h4>
+            <div className="space-y-1 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Annual:</span>
                 <span className="font-semibold text-accent">
@@ -276,10 +276,10 @@ export const GoogleSolarMap = () => {
           </Card>
 
           {/* Environmental Impact - Compact */}
-          <Card className="card-premium p-4">
-            <h4 className="font-semibold text-sm text-foreground mb-3">Environmental Impact</h4>
+          <Card className="card-premium p-3">
+            <h4 className="font-semibold text-sm text-foreground mb-2">Environmental Impact</h4>
             <div className="text-center">
-              <div className="text-xl font-bold text-accent mb-1">
+              <div className="text-lg font-bold text-accent mb-1">
                 {currentConfig ? formatNumber(currentConfig.yearlyEnergyDcKwh / 1000 * (solarData?.carbonOffsetFactorKgPerMwh || 400)) : formatNumber(selectedPanels * 160)} kg
               </div>
               <div className="text-xs text-muted-foreground">CO₂ offset per year</div>
@@ -290,13 +290,13 @@ export const GoogleSolarMap = () => {
         {/* Right Panel - Full Width Interactive Map */}
         <div className="flex-1">
           <Card className="card-premium p-2">
-            <div ref={mapRef} className="w-full bg-secondary/20 rounded-lg overflow-hidden" style={{ height: '320px' }} />
+            <div ref={mapRef} className="w-full bg-secondary/20 rounded-lg overflow-hidden" style={{ height: '360px' }} />
           </Card>
         </div>
       </div>
 
       {/* Address Input Section - Directly below the map layout */}
-      <Card className="card-premium p-4 mb-6">
+      <Card className="card-premium p-3 mb-6">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
             <Input type="text" placeholder="Enter property address (e.g., 1600 Amphitheatre Parkway, Mountain View, CA)" 
