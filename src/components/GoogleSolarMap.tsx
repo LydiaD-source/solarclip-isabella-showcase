@@ -213,17 +213,17 @@ export const GoogleSolarMap = () => {
         {/* Left Panel - Compact Solar Controls */}
         <div className="w-80 space-y-2">
           {/* Solar Configuration - Compact */}
-          <Card className="card-premium p-3">
-            <h3 className="font-semibold text-sm mb-2 text-foreground">Solar Configuration</h3>
+          <Card className="card-premium p-2">
+            <h3 className="font-semibold text-xs mb-1 text-foreground">Solar Configuration</h3>
             
             {/* Panel Count Display */}
-            <div className="text-center mb-2">
-              <div className="text-2xl font-bold text-accent mb-1">{selectedPanels}</div>
+            <div className="text-center mb-1">
+              <div className="text-xl font-bold text-accent">{selectedPanels}</div>
               <div className="text-xs text-muted-foreground">Solar Panels</div>
             </div>
 
             {/* Compact Panel Controls */}
-            <div className="space-y-2">
+            <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <Button variant="outline" size="sm" onClick={() => {
                   const newCount = Math.max(1, selectedPanels - 1);
