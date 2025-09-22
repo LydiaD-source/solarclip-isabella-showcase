@@ -66,7 +66,7 @@ serve(async (req) => {
 
     console.log('D-ID avatar request', { 
       hasText: !!text, 
-      hasAudio: !!audio_base64, 
+      hasAudio: !!audio_base64 || !!text, 
       poll: !!talk_id,
       textPreview: text?.substring(0, 50),
       audioSize: audio_base64?.length 
@@ -102,44 +102,13 @@ serve(async (req) => {
       });
     }
 
-    // Proxy remote media (audio/video) to bypass CORS
+    // Proxy remote media (audio/video) to bypass CORS - prefer streaming GET to avoid memory blowups
     const { proxy_url, media_type } = body || {};
     if (proxy_url && (media_type === 'audio' || media_type === 'video')) {
       console.log('Proxying media (POST) from URL:', { media_type, proxy_url: proxy_url?.slice(0, 80) + '...' });
-
-      // Try to detect size to avoid memory blowups
-      let contentLengthNum: number | undefined;
-      try {
-        const headRes = await fetch(proxy_url, { method: 'HEAD' });
-        const cl = headRes.headers.get('Content-Length');
-        if (cl) contentLengthNum = Number(cl);
-      } catch (e) {
-        console.warn('HEAD request for proxy_url failed, continuing without size check');
-      }
-
-      // If file is large (> ~8MB), avoid base64 and return a streaming proxied URL instead
-      if (contentLengthNum && contentLengthNum > 8 * 1024 * 1024) {
-        const proxiedUrl = `${url.origin}${url.pathname}?proxy_url=${encodeURIComponent(proxy_url)}&media_type=${media_type}`;
-        console.warn('Large media detected, returning streaming proxied URL instead of base64 JSON');
-        return new Response(JSON.stringify({ proxied_url: proxiedUrl, content_type: media_type === 'audio' ? 'audio/mpeg' : 'video/mp4' }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-
-      const mediaRes = await fetch(proxy_url);
-      if (!mediaRes.ok) {
-        const errText = await mediaRes.text();
-        console.error('Proxy fetch failed:', mediaRes.status, errText);
-        throw new Error(`Proxy fetch failed: ${mediaRes.status}`);
-      }
-      const arrayBuffer = await mediaRes.arrayBuffer();
-      // Convert to base64 to return safely with CORS headers (for small clips only)
-      const bytes = new Uint8Array(arrayBuffer);
-      let binary = '';
-      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-      const base64 = btoa(binary);
-      const contentType = mediaRes.headers.get('Content-Type') || (media_type === 'audio' ? 'audio/mpeg' : 'video/mp4');
-      return new Response(JSON.stringify({ base64, content_type: contentType }), {
+      const proxiedUrl = `${url.origin}${url.pathname}?proxy_url=${encodeURIComponent(proxy_url)}&media_type=${media_type}`;
+      // Always return proxied streaming URL for the client to use with <video>/<audio> src
+      return new Response(JSON.stringify({ proxied_url: proxiedUrl, content_type: media_type === 'audio' ? 'audio/mpeg' : 'video/mp4' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
