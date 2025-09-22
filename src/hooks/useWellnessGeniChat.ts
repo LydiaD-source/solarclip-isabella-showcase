@@ -313,7 +313,7 @@ export const useWellnessGeniChat = () => {
         }
         
         // VIDEO: Set up streaming proxy
-        if (data?.result_url) {
+        if (data?.result_url && data?.status === 'done') {
           console.log(`[PERF] 🟢 DID_poll_videoReady=${Date.now() - pollStart}ms`);
           console.log('[D-ID] Video ready - using STREAMING proxy URL for playback');
           
@@ -518,9 +518,11 @@ export const useWellnessGeniChat = () => {
             attemptDispatchPartial('timeout');
           }, 1200); // 1.2s fallback
           
-          // Check for early dispatch conditions
+          // Check for early dispatch conditions  
           const textSoFar = [...partialTokens, token].join(' ');
           if (/[.?!]\s*$/.test(textSoFar) || textSoFar.split(/\s+/).length >= 12) {
+            // Clear current partialTokens before dispatch to prevent duplication
+            setPartialTokens(prev => [...prev, token]);
             attemptDispatchPartial('punctuation_or_length');
           }
         };
@@ -535,7 +537,7 @@ export const useWellnessGeniChat = () => {
           console.log(`[D-ID] 🎬 Early dispatch: "${textToSend}" (${reason})`);
           
           lastDispatchRef.current = textToSend;
-          setPartialTokens([]);
+          setPartialTokens([]); // Clear tokens after dispatch
           firstSentenceSent = true;
           firstSentenceValue = textToSend;
           
@@ -544,6 +546,24 @@ export const useWellnessGeniChat = () => {
             clearTimeout(tokenTimerRef.current);
             tokenTimerRef.current = null;
           }
+          
+          // CRITICAL: Add dispatched text to chat UI immediately
+          const partialMessage: ChatMessage = {
+            id: `partial-${Date.now()}`,
+            text: textToSend,
+            sender: 'isabella',
+            timestamp: new Date(),
+          };
+          
+          setMessages(prev => {
+            const updated = [...prev, partialMessage];
+            try {
+              sessionStorage.setItem('isabella-chat-messages', JSON.stringify(updated));
+            } catch (error) {
+              console.error('Error saving partial message:', error);
+            }
+            return updated;
+          });
           
           // PERFORMANCE: Start narration immediately
           narrate(textToSend);

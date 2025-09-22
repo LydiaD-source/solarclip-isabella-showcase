@@ -155,7 +155,7 @@ useEffect(() => {
               preload="auto"
               autoPlay
               playsInline
-              muted={!hasInteracted}
+              muted={false}
               crossOrigin="anonymous"
               onLoadStart={() => console.log('[D-ID] Video loading started')}
               onCanPlay={() => console.log('[D-ID] Video can play')}
@@ -163,6 +163,7 @@ useEffect(() => {
                 console.log('[D-ID] Video started playing');
                 setVideoStarted(true);
               }}
+              onError={(e) => console.error('[D-ID] Video error:', e)}
               className="w-full h-full"
               style={{ 
                 objectFit: 'contain',
