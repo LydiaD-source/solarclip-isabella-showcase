@@ -113,11 +113,27 @@ export const GoogleSolarMap = () => {
         throw new Error(data.error);
       }
 
-      setSolarData(data);
-      if (data.solarPanelConfigs && data.solarPanelConfigs.length > 0) {
-        setSelectedPanels(data.solarPanelConfigs[0].panelsCount);
-        setCurrentConfig(data.solarPanelConfigs[0]);
+      // Normalize Google Solar API response to our expected shape
+      const potential = data.solarPotential || {};
+      const normalized: SolarData = {
+        name: data.name,
+        center: data.center,
+        maxArrayPanelsCount: potential.maxArrayPanelsCount ?? 0,
+        maxArrayAreaMeters2: potential.maxArrayAreaMeters2 ?? 0,
+        maxSunshineHoursPerYear: potential.maxSunshineHoursPerYear ?? 0,
+        carbonOffsetFactorKgPerMwh: potential.carbonOffsetFactorKgPerMwh ?? 0,
+        wholeRoofStats: potential.wholeRoofStats ?? { areaMeters2: 0, sunshineQuantiles: [], groundAreaMeters2: 0 },
+        roofSegmentStats: potential.roofSegmentStats ?? [],
+        solarPanelConfigs: potential.solarPanelConfigs ?? [],
+        financialAnalyses: potential.financialAnalyses ?? [],
+      };
+
+      setSolarData(normalized);
+      if (normalized.solarPanelConfigs && normalized.solarPanelConfigs.length > 0) {
+        setSelectedPanels(normalized.solarPanelConfigs[0].panelsCount);
+        setCurrentConfig(normalized.solarPanelConfigs[0]);
       }
+
 
       toast({
         title: "Analysis Complete",
@@ -204,6 +220,100 @@ export const GoogleSolarMap = () => {
           .setLngLat([solarData.center.longitude, solarData.center.latitude])
           .addTo(instance);
       }
+
+      // Draw roof segment overlays from bounding boxes
+      instance.on('load', () => {
+        try {
+          const segments = solarData?.roofSegmentStats || [];
+          const features: GeoJSON.Feature<GeoJSON.Polygon>[] = segments.map(
+            (seg, idx): GeoJSON.Feature<GeoJSON.Polygon> => {
+              const sw = seg.boundingBox.sw;
+              const ne = seg.boundingBox.ne;
+              const nw = { latitude: ne.latitude, longitude: sw.longitude };
+              const se = { latitude: sw.latitude, longitude: ne.longitude };
+
+              const ring: [number, number][] = [
+                [sw.longitude, sw.latitude],
+                [se.longitude, se.latitude],
+                [ne.longitude, ne.latitude],
+                [nw.longitude, nw.latitude],
+                [sw.longitude, sw.latitude],
+              ];
+
+              return {
+                type: 'Feature',
+                properties: {
+                  index: idx,
+                  pitch: seg.pitchDegrees,
+                  azimuth: seg.azimuthDegrees,
+                  area: seg.stats.areaMeters2,
+                },
+                geometry: { type: 'Polygon', coordinates: [ring] },
+              };
+            }
+          );
+
+          if (features.length > 0) {
+            const sourceId = 'roof-segments';
+            if (instance.getSource(sourceId)) {
+              (instance.getSource(sourceId) as mapboxgl.GeoJSONSource).setData({
+                type: 'FeatureCollection',
+                features,
+              });
+            } else {
+              instance.addSource(sourceId, {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features },
+              });
+
+              // Fill layer
+              if (!instance.getLayer('roof-fill')) {
+                instance.addLayer({
+                  id: 'roof-fill',
+                  type: 'fill',
+                  source: sourceId,
+                  paint: {
+                    'fill-color': 'rgba(34,197,94,0.28)', // soft green
+                    'fill-outline-color': 'rgba(34,197,94,0.8)',
+                  },
+                });
+              }
+
+              // Outline layer for crisp borders
+              if (!instance.getLayer('roof-outline')) {
+                instance.addLayer({
+                  id: 'roof-outline',
+                  type: 'line',
+                  source: sourceId,
+                  paint: {
+                    'line-color': 'rgba(16,94,47,0.9)',
+                    'line-width': 1.5,
+                  },
+                });
+              }
+            }
+
+            // Fit bounds to all segment polygons
+            let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+            for (const f of features) {
+              for (const [lng, lat] of f.geometry.coordinates[0]) {
+                if (lng < minLng) minLng = lng;
+                if (lat < minLat) minLat = lat;
+                if (lng > maxLng) maxLng = lng;
+                if (lat > maxLat) maxLat = lat;
+              }
+            }
+            if (isFinite(minLng) && isFinite(minLat) && isFinite(maxLng) && isFinite(maxLat)) {
+              instance.fitBounds([[minLng, minLat], [maxLng, maxLat]], {
+                padding: 28,
+                maxZoom: 19,
+              });
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to render roof overlays:', e);
+        }
+      });
     } catch (error) {
       console.error('Error initializing map:', error);
     }
