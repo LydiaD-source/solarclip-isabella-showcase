@@ -61,26 +61,6 @@ serve(async (req) => {
     
     const solarResponse = await fetch(solarUrl);
     
-    // Also fetch the data layers for roof geometry if we got building insights
-    let dataLayersResponse = null;
-    if (solarResponse.ok) {
-      const tempData = await solarResponse.clone().json();
-      if (tempData.name) {
-        const dataLayersUrl = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${location.lat}&location.longitude=${location.lng}&radiusMeters=100&view=FULL_LAYERS&requiredQuality=HIGH&pixelSizeMeters=0.5&key=${GOOGLE_SOLAR_API_KEY}`;
-        console.log('Fetching data layers:', dataLayersUrl);
-        
-        try {
-          dataLayersResponse = await fetch(dataLayersUrl);
-          if (dataLayersResponse.ok) {
-            const dataLayersData = await dataLayersResponse.json();
-            console.log('Data layers received:', JSON.stringify(dataLayersData, null, 2));
-          }
-        } catch (error) {
-          console.warn('Failed to fetch data layers:', error);
-        }
-      }
-    }
-    
     if (!solarResponse.ok) {
       const errorText = await solarResponse.text();
       console.error('Solar API error:', errorText);
@@ -94,6 +74,23 @@ serve(async (req) => {
     }
 
     const solarData = await solarResponse.json();
+    
+    // Also fetch the data layers for roof geometry if we got building insights
+    let dataLayersResponse = null;
+    if (solarData.name) {
+      const dataLayersUrl = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${location.lat}&location.longitude=${location.lng}&radiusMeters=100&view=FULL_LAYERS&requiredQuality=HIGH&pixelSizeMeters=0.5&key=${GOOGLE_SOLAR_API_KEY}`;
+      console.log('Fetching data layers:', dataLayersUrl);
+      
+      try {
+        dataLayersResponse = await fetch(dataLayersUrl);
+        if (dataLayersResponse.ok) {
+          const dataLayersData = await dataLayersResponse.json();
+          console.log('Data layers received:', JSON.stringify(dataLayersData, null, 2));
+        }
+      } catch (error) {
+        console.warn('Failed to fetch data layers:', error);
+      }
+    }
     console.log('Solar data received:', JSON.stringify(solarData, null, 2));
 
     // Combine the data if we have both responses

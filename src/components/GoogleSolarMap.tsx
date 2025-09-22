@@ -386,69 +386,40 @@ export const GoogleSolarMap = () => {
               <div className="text-xs text-muted-foreground">CO₂ offset per year</div>
             </div>
           </Card>
-
-          {/* Panel Capacity Control */}
-          <Card className="card-premium p-3">
-            <h4 className="font-semibold text-sm text-foreground mb-3">Panel capacity</h4>
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border border-border rounded-lg p-3">
-                <Input 
-                  type="number" 
-                  value={panelCapacity} 
-                  onChange={(e) => setPanelCapacity(Math.min(1000, Math.max(250, parseInt(e.target.value) || 250)))}
-                  min="250"
-                  max="1000"
-                  className="border-0 bg-transparent text-2xl font-bold text-foreground text-center focus:ring-0 focus:outline-none"
-                />
-                <span className="text-muted-foreground font-medium ml-2">Watts</span>
-              </div>
-              <Slider 
-                value={[panelCapacity]} 
-                onValueChange={(value) => setPanelCapacity(value[0])} 
-                max={1000} 
-                min={250} 
-                step={10} 
-                className="w-full" 
-              />
-              <div className="flex justify-between text-xs text-muted-foreground">
-                <span>250W</span>
-                <span>1000W</span>
-              </div>
-            </div>
-          </Card>
         </div>
 
-        {/* Right Panel - Full Width Interactive Map */}
-        <div className="flex-1">
+        {/* Right Panel - Map with Address Input */}
+        <div className="flex-1 space-y-2">
+          {/* Address Input - Above map */}
+          <Card className="card-premium p-3">
+            <div className="flex gap-4">
+              <div className="flex-1">
+                <Input type="text" placeholder="Enter property address (e.g., 1600 Amphitheatre Parkway, Mountain View, CA)" 
+                  value={address} onChange={e => setAddress(e.target.value)} 
+                  onKeyDown={e => e.key === 'Enter' && handleAnalyze()} className="w-full" />
+              </div>
+              <Button onClick={handleAnalyze} disabled={isLoading} className="btn-hero min-w-[140px]">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Analyzing...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="w-4 h-4 mr-2" />
+                    Analyze Roof
+                  </>
+                )}
+              </Button>
+            </div>
+          </Card>
+          
+          {/* Map */}
           <Card className="card-premium p-2">
             <div ref={mapRef} className="w-full bg-secondary/20 rounded-lg overflow-hidden" style={{ height: '380px' }} />
           </Card>
         </div>
       </div>
-
-      {/* Address Input Section - Directly below the map layout */}
-      <Card className="card-premium p-3 mb-6">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
-            <Input type="text" placeholder="Enter property address (e.g., 1600 Amphitheatre Parkway, Mountain View, CA)" 
-              value={address} onChange={e => setAddress(e.target.value)} 
-              onKeyDown={e => e.key === 'Enter' && handleAnalyze()} className="w-full" />
-          </div>
-          <Button onClick={handleAnalyze} disabled={isLoading} className="btn-hero min-w-[140px]">
-            {isLoading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Analyzing...
-              </>
-            ) : (
-              <>
-                <MapPin className="w-4 h-4 mr-2" />
-                Analyze Roof
-              </>
-            )}
-          </Button>
-        </div>
-      </Card>
 
       {/* Features Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
