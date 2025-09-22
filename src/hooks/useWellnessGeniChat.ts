@@ -383,34 +383,35 @@ export const useWellnessGeniChat = () => {
 
           // Create proxied video URL for streaming
           const proxiedVideoUrl = `/functions/v1/did-avatar?proxy_url=${encodeURIComponent(data.result_url)}&media_type=video`;
-          setDidVideoUrl(proxiedVideoUrl);
-
-          // Auto-play if video element is available
-          if (didVideoElementRef.current) {
-            didVideoElementRef.current.src = proxiedVideoUrl;
-            didVideoElementRef.current.load();
-            try {
-              await didVideoElementRef.current.play();
-            } catch (playError) {
-              console.warn('[PERF] Autoplay_blocked:', playError);
-            }
+          
+          // Only set video URL if this is still the active talk
+          if (currentTalkIdRef.current === talkId) {
+            setDidVideoUrl(proxiedVideoUrl);
+            
+            // Store for fallback
+            lastDirectUrlRef.current = data.result_url;
           }
 
           break;
         }
 
         retryCount++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500)); // Faster polling
 
       } catch (error) {
         console.error('[PERF] Poll_network_error:', error);
         retryCount++;
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
     if (retryCount >= maxRetries) {
       console.error('[PERF] Poll_timeout:', talkId);
+      // Release lock on timeout
+      if (currentTalkIdRef.current === talkId) {
+        talkLockRef.current = false;
+        currentTalkIdRef.current = null;
+      }
     }
   }, []);
 

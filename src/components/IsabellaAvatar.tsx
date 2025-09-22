@@ -49,27 +49,43 @@ export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, 
 
 // Ensure video starts ASAP; keep Idle visible until actual playback
 useEffect(() => {
-  if (!videoRef.current) return;
+  if (!videoRef.current || !videoUrl) return;
+  
   const v = videoRef.current;
-  // reset start flag when source changes
+  // Reset start flag when source changes
   setVideoStarted(false);
+  
   const onPlaying = () => {
+    console.log('[PERF] Video_playback_start');
     console.log('[D-ID] Video started (playing)');
     setVideoStarted(true);
   };
+  
+  const onEnded = () => {
+    console.log('[PERF] Talk_end');
+    setVideoStarted(false);
+  };
+  
   const tryPlay = async () => {
     try {
+      v.src = videoUrl;
+      v.load();
       await v.play();
     } catch (e) {
-      console.warn('Video play blocked, will retry on canplay', e);
+      console.warn('Video play blocked, will retry on user interaction', e);
     }
   };
+  
   v.addEventListener('playing', onPlaying, { once: true } as any);
+  v.addEventListener('ended', onEnded, { once: true } as any);
   v.addEventListener('canplay', tryPlay as any, { once: true } as any);
-  // kick it off
+  
+  // Initialize playback
   tryPlay();
+  
   return () => {
     v.removeEventListener('playing', onPlaying as any);
+    v.removeEventListener('ended', onEnded as any);
     v.removeEventListener('canplay', tryPlay as any);
   };
 }, [videoUrl]);
@@ -146,35 +162,26 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Isabella Navia Video (D-ID) - Always use proxy for CORS compatibility */}
-        {videoUrl && (
-          <div className="absolute inset-0 w-full h-full z-20" style={{ backgroundColor: 'transparent' }}>
-            <video
-              ref={videoRef}
-              src={videoUrl}
-              preload="auto"
-              autoPlay
-              playsInline
-              muted={false}
-              crossOrigin="anonymous"
-              onLoadStart={() => console.log('[D-ID] Video loading started')}
-              onCanPlay={() => console.log('[D-ID] Video can play')}
-              onPlaying={() => {
-                console.log('[PERF] Video_playback_start');
-                console.log('[D-ID] Video started playing');
-                setVideoStarted(true);
-              }}
-              onError={(e) => console.error('[D-ID] Video error:', e)}
-              className="w-full h-full"
-              style={{ 
-                objectFit: 'contain',
-                objectPosition: 'center top',
-                transform: 'scale(0.85)',
-                backgroundColor: 'transparent'
-              }}
-            />
-          </div>
-        )}
+        {/* Isabella Navia Video (D-ID) - Single video element for single playback */}
+        <div className="absolute inset-0 w-full h-full z-20" style={{ backgroundColor: 'transparent' }}>
+          <video
+            ref={videoRef}
+            preload="auto"
+            playsInline
+            muted={false}
+            crossOrigin="anonymous"
+            onLoadStart={() => console.log('[D-ID] Video loading started')}
+            onCanPlay={() => console.log('[D-ID] Video can play')}
+            onError={(e) => console.error('[D-ID] Video error:', e)}
+            className="w-full h-full"
+            style={{ 
+              objectFit: 'contain',
+              objectPosition: 'center top',
+              transform: 'scale(0.85)',
+              backgroundColor: 'transparent'
+            }}
+          />
+        </div>
       </div>
 
       {/* Removed tooltip to prevent collision during beta testing */}
