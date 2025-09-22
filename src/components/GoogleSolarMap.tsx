@@ -14,6 +14,11 @@ interface SolarData {
     latitude: number;
     longitude: number;
   };
+  imageryDate?: {
+    year: number;
+    month: number;
+    day: number;
+  };
   maxArrayPanelsCount: number;
   maxArrayAreaMeters2: number;
   maxSunshineHoursPerYear: number;
@@ -96,20 +101,14 @@ export const GoogleSolarMap = () => {
     setError(null);
 
     try {
-      const response = await fetch('https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/google-solar-api', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aWtmeXF6d2VwbnViZHNjbGZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjYwOTAsImV4cCI6MjA3MzAwMjA5MH0.pU9K35VK1G2Zp6HATRAhaahMN-QWY_BSXjmtbXEIMrM`
-        },
-        body: JSON.stringify({ address })
+      const { data, error } = await supabase.functions.invoke('google-solar-api', {
+        body: { address }
       });
 
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status}`);
+      if (error) {
+        throw new Error(error.message || 'Failed to analyze solar potential');
       }
 
-      const data = await response.json();
       if (data.error) {
         throw new Error(data.error);
       }
@@ -119,6 +118,7 @@ export const GoogleSolarMap = () => {
       const normalized: SolarData = {
         name: data.name,
         center: data.center,
+        imageryDate: data.imageryDate,
         maxArrayPanelsCount: potential.maxArrayPanelsCount ?? 0,
         maxArrayAreaMeters2: potential.maxArrayAreaMeters2 ?? 0,
         maxSunshineHoursPerYear: potential.maxSunshineHoursPerYear ?? 0,
@@ -134,7 +134,6 @@ export const GoogleSolarMap = () => {
         setSelectedPanels(normalized.solarPanelConfigs[0].panelsCount);
         setCurrentConfig(normalized.solarPanelConfigs[0]);
       }
-
 
       toast({
         title: "Analysis Complete",
@@ -185,10 +184,16 @@ export const GoogleSolarMap = () => {
 
     const init = async () => {
       try {
-        // Get Mapbox token from Supabase Edge Function (falls back to demo token)
-        const { data: tokenData } = await supabase.functions.invoke('mapbox-token');
-        const fallbackToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
-        mapboxgl.accessToken = tokenData?.token || fallbackToken;
+        // Get Mapbox token from Supabase Edge Function
+        const { data: tokenData, error: tokenError } = await supabase.functions.invoke('mapbox-token');
+        
+        if (tokenError || !tokenData?.token) {
+          console.error('Failed to get Mapbox token:', tokenError);
+          setError('Map configuration error. Please check your Mapbox token.');
+          return;
+        }
+        
+        mapboxgl.accessToken = tokenData.token;
 
         // Compute center
         const defaultCenter: [number, number] = solarData?.center
@@ -203,7 +208,7 @@ export const GoogleSolarMap = () => {
         if (destroyed) return;
         instance = new mapboxgl.Map({
           container,
-          style: 'mapbox://styles/mapbox/dark-v11',
+          style: 'mapbox://styles/mapbox/satellite-v9', // Use satellite imagery
           center: defaultCenter,
           zoom: solarData ? 19 : 15,
           pitch: 0,
@@ -220,65 +225,21 @@ export const GoogleSolarMap = () => {
             .addTo(instance);
         }
 
-        // Draw roof overlays when style is ready
+        // Fit to building when data is available
         instance.on('load', () => {
-          try {
-            const segments = solarData?.roofSegmentStats || [];
-            const features: GeoJSON.Feature<GeoJSON.Polygon>[] = segments.map((seg, idx) => {
-              const { sw, ne } = seg.boundingBox;
-              const nw = { latitude: ne.latitude, longitude: sw.longitude };
-              const se = { latitude: sw.latitude, longitude: ne.longitude };
-              const ring: [number, number][] = [
-                [sw.longitude, sw.latitude],
-                [se.longitude, se.latitude],
-                [ne.longitude, ne.latitude],
-                [nw.longitude, nw.latitude],
-                [sw.longitude, sw.latitude],
-              ];
-              return {
-                type: 'Feature',
-                properties: { index: idx, pitch: seg.pitchDegrees, azimuth: seg.azimuthDegrees, area: seg.stats.areaMeters2 },
-                geometry: { type: 'Polygon', coordinates: [ring] },
-              };
+          if (solarData?.center) {
+            // Fit to the building area with appropriate padding
+            const center = [solarData.center.longitude, solarData.center.latitude] as [number, number];
+            instance.flyTo({
+              center,
+              zoom: 19,
+              essential: true
             });
-
-            if (features.length === 0) return;
-
-            const sourceId = 'roof-segments';
-            const data = { type: 'FeatureCollection', features } as GeoJSON.FeatureCollection<GeoJSON.Polygon>;
-
-            if (instance.getSource(sourceId)) {
-              (instance.getSource(sourceId) as mapboxgl.GeoJSONSource).setData(data);
-            } else {
-              instance.addSource(sourceId, { type: 'geojson', data });
-
-              if (!instance.getLayer('roof-fill')) {
-                instance.addLayer({ id: 'roof-fill', type: 'fill', source: sourceId, paint: { 'fill-color': 'rgba(34,197,94,0.28)', 'fill-outline-color': 'rgba(34,197,94,0.8)' } });
-              }
-              if (!instance.getLayer('roof-outline')) {
-                instance.addLayer({ id: 'roof-outline', type: 'line', source: sourceId, paint: { 'line-color': 'rgba(16,94,47,0.9)', 'line-width': 1.5 } });
-              }
-            }
-
-            // Fit to overlays
-            let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
-            for (const f of features) {
-              for (const [lng, lat] of f.geometry.coordinates[0]) {
-                if (lng < minLng) minLng = lng;
-                if (lat < minLat) minLat = lat;
-                if (lng > maxLng) maxLng = lng;
-                if (lat > maxLat) maxLat = lat;
-              }
-            }
-            if (isFinite(minLng) && isFinite(minLat) && isFinite(maxLng) && isFinite(maxLat)) {
-              instance.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 28, maxZoom: 19 });
-            }
-          } catch (e) {
-            console.warn('Failed to render roof overlays:', e);
           }
         });
       } catch (e) {
         console.error('Map init failed:', e);
+        setError('Failed to initialize map. Please check your connection.');
       }
     };
 
@@ -370,12 +331,43 @@ export const GoogleSolarMap = () => {
               <div className="text-xs text-muted-foreground">CO₂ offset per year</div>
             </div>
           </Card>
+
+          {/* Site Details - Compact */}
+          {solarData && (
+            <Card className="card-premium p-3">
+              <h4 className="font-semibold text-sm text-foreground mb-2">Site Details</h4>
+              <div className="space-y-1 text-xs">
+                {solarData.imageryDate && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Imagery:</span>
+                    <span className="font-medium">
+                      {solarData.imageryDate.month}/{solarData.imageryDate.year}
+                    </span>
+                  </div>
+                )}
+                {solarData.center && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Location:</span>
+                    <span className="font-medium text-xs">
+                      {solarData.center.latitude.toFixed(4)}, {solarData.center.longitude.toFixed(4)}
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Roof Area:</span>
+                  <span className="font-medium">
+                    {formatNumber(solarData.wholeRoofStats.areaMeters2)} m²
+                  </span>
+                </div>
+              </div>
+            </Card>
+          )}
         </div>
 
         {/* Right Panel - Full Width Interactive Map */}
         <div className="flex-1">
           <Card className="card-premium p-2">
-            <div ref={mapRef} className="w-full bg-secondary/20 rounded-lg overflow-hidden" style={{ height: '376px' }} />
+            <div ref={mapRef} className="w-full bg-secondary/20 rounded-lg overflow-hidden" style={{ height: '380px' }} />
           </Card>
         </div>
       </div>
