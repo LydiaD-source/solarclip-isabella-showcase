@@ -75,6 +75,7 @@ export const GoogleSolarMap = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedPanels, setSelectedPanels] = useState(20); // Default value
   const [currentConfig, setCurrentConfig] = useState<any>(null);
+  const [panelCapacity, setPanelCapacity] = useState(250); // Panel capacity in watts
   const mapRef = useRef<HTMLDivElement>(null);
   const map = useRef<any>(null);
   const { toast } = useToast();
@@ -234,40 +235,39 @@ export const GoogleSolarMap = () => {
           });
         }
 
-        // Draw roof segments if available
+        // Draw roof segments if available with actual roof shapes
         if (solarData?.roofSegmentStats && solarData.roofSegmentStats.length > 0) {
           solarData.roofSegmentStats.forEach((segment, index) => {
-            const { sw, ne } = segment.boundingBox;
+            // Create a more accurate representation of the roof area
+            // Use the center point and area to create a circular approximation
+            const areaRadius = Math.sqrt(segment.stats.areaMeters2 / Math.PI) * 0.00001; // Convert to degrees approximately
             
-            // Create rectangle for roof segment
-            const rectangle = new (window as any).google.maps.Rectangle({
-              bounds: {
-                north: ne.latitude,
-                south: sw.latitude,
-                east: ne.longitude,
-                west: sw.longitude,
-              },
+            // Create a circle that better represents the actual roof area
+            const roofArea = new (window as any).google.maps.Circle({
+              center: { lat: segment.center.latitude, lng: segment.center.longitude },
+              radius: Math.sqrt(segment.stats.areaMeters2), // Radius in meters
               map: map.current,
               fillColor: '#22c55e',
-              fillOpacity: 0.3,
+              fillOpacity: 0.4,
               strokeColor: '#16a34a',
-              strokeOpacity: 0.8,
-              strokeWeight: 2,
+              strokeOpacity: 0.9,
+              strokeWeight: 3,
             });
 
             // Add info window for segment details
             const infoWindow = new (window as any).google.maps.InfoWindow({
               content: `
-                <div style="font-size: 12px;">
+                <div style="font-size: 12px; color: #333;">
                   <strong>Roof Segment ${index + 1}</strong><br/>
                   Area: ${segment.stats.areaMeters2.toFixed(1)} m²<br/>
                   Pitch: ${segment.pitchDegrees.toFixed(1)}°<br/>
-                  Azimuth: ${segment.azimuthDegrees.toFixed(1)}°
+                  Azimuth: ${segment.azimuthDegrees.toFixed(1)}°<br/>
+                  <em>Potential Solar Area</em>
                 </div>
               `,
             });
 
-            rectangle.addListener('click', () => {
+            roofArea.addListener('click', () => {
               infoWindow.setPosition({ lat: segment.center.latitude, lng: segment.center.longitude });
               infoWindow.open(map.current);
             });
@@ -362,36 +362,35 @@ export const GoogleSolarMap = () => {
             </div>
           </Card>
 
-          {/* Site Details - Compact */}
-          {solarData && (
-            <Card className="card-premium p-3">
-              <h4 className="font-semibold text-sm text-foreground mb-2">Site Details</h4>
-              <div className="space-y-1 text-xs">
-                {solarData.imageryDate && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Imagery:</span>
-                    <span className="font-medium">
-                      {solarData.imageryDate.month}/{solarData.imageryDate.year}
-                    </span>
-                  </div>
-                )}
-                {solarData.center && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Location:</span>
-                    <span className="font-medium text-xs">
-                      {solarData.center.latitude.toFixed(4)}, {solarData.center.longitude.toFixed(4)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Roof Area:</span>
-                  <span className="font-medium">
-                    {formatNumber(solarData.wholeRoofStats.areaMeters2)} m²
-                  </span>
-                </div>
+          {/* Panel Capacity Control */}
+          <Card className="card-premium p-3">
+            <h4 className="font-semibold text-sm text-foreground mb-3">Panel capacity</h4>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border border-border rounded-lg p-3">
+                <Input 
+                  type="number" 
+                  value={panelCapacity} 
+                  onChange={(e) => setPanelCapacity(Math.min(1000, Math.max(250, parseInt(e.target.value) || 250)))}
+                  min="250"
+                  max="1000"
+                  className="border-0 bg-transparent text-2xl font-bold text-foreground text-center focus:ring-0 focus:outline-none"
+                />
+                <span className="text-muted-foreground font-medium ml-2">Watts</span>
               </div>
-            </Card>
-          )}
+              <Slider 
+                value={[panelCapacity]} 
+                onValueChange={(value) => setPanelCapacity(value[0])} 
+                max={1000} 
+                min={250} 
+                step={10} 
+                className="w-full" 
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>250W</span>
+                <span>1000W</span>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* Right Panel - Full Width Interactive Map */}
