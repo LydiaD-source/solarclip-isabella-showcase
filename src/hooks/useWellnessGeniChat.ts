@@ -305,9 +305,12 @@ export const useWellnessGeniChat = () => {
 
       console.log('[PERF] Dispatch_text:', cleanText);
       
-      const response = await fetch('/functions/v1/did-avatar', {
+      const response = await fetch('https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/did-avatar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aWtmeXF6d2VwbnViZHNjbGZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjYwOTAsImV4cCI6MjA3MzAwMjA5MH0.pU9K35VK1G2Zp6HATRAhaahMN-QWY_BSXjmtbXEIMrM'
+        },
         body: JSON.stringify({
           text: cleanText,
           session_id: sessionId,
@@ -359,8 +362,11 @@ export const useWellnessGeniChat = () => {
 
     while (retryCount < maxRetries && currentTalkIdRef.current === talkId) {
       try {
-        const response = await fetch(`/functions/v1/did-avatar?talk_id=${talkId}`, {
+        const response = await fetch(`https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/did-avatar?talk_id=${talkId}`, {
           method: 'GET',
+          headers: {
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im16aWtmeXF6d2VwbnViZHNjbGZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc0MjYwOTAsImV4cCI6MjA3MzAwMjA5MH0.pU9K35VK1G2Zp6HATRAhaahMN-QWY_BSXjmtbXEIMrM'
+          }
         });
 
         if (!response.ok) {
@@ -382,7 +388,7 @@ export const useWellnessGeniChat = () => {
           console.log('[PERF] DID_poll_videoReady:', elapsed + 'ms', talkId);
 
           // Create proxied video URL for streaming
-          const proxiedVideoUrl = `/functions/v1/did-avatar?proxy_url=${encodeURIComponent(data.result_url)}&media_type=video`;
+          const proxiedVideoUrl = `https://mzikfyqzwepnubdsclfd.supabase.co/functions/v1/did-avatar?proxy_url=${encodeURIComponent(data.result_url)}&media_type=video`;
           
           // Only set video URL if this is still the active talk
           if (currentTalkIdRef.current === talkId) {
