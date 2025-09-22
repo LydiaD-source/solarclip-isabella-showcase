@@ -38,7 +38,7 @@ export const usePerformanceMonitor = () => {
       return '🔴'; // Red - Too slow (>3s)
     };
 
-    console.log(`[PERF] ${getColorCode(duration)} Completed: ${name} in ${duration.toFixed(0)}ms`);
+    console.log(`[PERF] ${getColorCode(duration)} ${name}=${duration.toFixed(0)}ms`);
     
     // Alert if critical operations are too slow
     if (name.includes('user-to-response') && duration > 2000) {
@@ -48,6 +48,17 @@ export const usePerformanceMonitor = () => {
     }
 
     return duration;
+  }, []);
+
+  const logPerf = useCallback((stage: string, duration: number, data?: any) => {
+    const getColorCode = (duration: number) => {
+      if (duration < 1000) return '🟢';
+      if (duration < 2000) return '🟡';
+      if (duration < 3000) return '🟠';
+      return '🔴';
+    };
+
+    console.log(`[PERF] ${getColorCode(duration)} ${stage}=${duration}ms`, data ? JSON.stringify(data) : '');
   }, []);
 
   const getMetrics = useCallback(() => {
@@ -65,6 +76,7 @@ export const usePerformanceMonitor = () => {
     startTimer,
     endTimer,
     getMetrics,
-    resetMetrics
+    resetMetrics,
+    logPerf
   };
 };

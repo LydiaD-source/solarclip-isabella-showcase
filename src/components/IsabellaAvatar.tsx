@@ -257,7 +257,7 @@ useEffect(() => {
               {(isProcessing || isStreaming) && (
                 <div className="bg-secondary/50 rounded-lg p-3 mr-4">
                   <p className="text-sm text-muted-foreground">
-                    {isStreaming ? "🔊 Isabella is responding..." : "Isabella is thinking..."}
+                    {isStreaming ? "🔊 syncing voice..." : "Isabella is thinking..."}
                   </p>
                 </div>
               )}

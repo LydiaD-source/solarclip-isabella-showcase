@@ -66,7 +66,7 @@ serve(async (req) => {
 
     console.log('D-ID avatar request', { 
       hasText: !!text, 
-      hasAudio: !!audio_base64 || !!text, 
+      hasAudio: !!audio_base64 || !!text, // hasAudio is true when text is present (TTS)
       poll: !!talk_id,
       textPreview: text?.substring(0, 50),
       audioSize: audio_base64?.length 
@@ -165,8 +165,8 @@ serve(async (req) => {
     console.log('Creating D-ID talk with:', {
       source_url: talkPayload.source_url,
       script_type: talkPayload.script.type,
-      hasText: !!text,
-      hasAudio: !!audio_base64,
+      hasText: !!text, // hasText: true when text provided
+      hasAudio: !!audio_base64 || !!text, // hasAudio: true when audio OR text (TTS) provided
       text_preview: text?.substring(0, 50),
       voice_id: talkPayload.script.provider?.voice_id,
       api_key_length: DID_API_KEY?.length
