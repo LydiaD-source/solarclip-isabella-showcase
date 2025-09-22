@@ -1,194 +1,75 @@
-import { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Volume2, VolumeX, Mic, MicOff, FileText, Calculator, Send } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { MessageCircle, Volume2, FileText, Calculator } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
-// IdleAvatar removed for single-video architecture
 // Using approved Cloudinary image for Isabella Navia
 const isabellaNavia = 'https://res.cloudinary.com/di5gj4nyp/image/upload/v1747229179/isabella_assistant_cfnmc0.jpg';
 
 interface IsabellaAvatarProps {
   onChatToggle?: () => void;
   isExpanded?: boolean;
-  didVideoUrl?: string | null;
-  showInlineChat?: boolean; // if false, hide internal chat UI (used when external chat panel is rendered)
 }
 
-export const IsabellaAvatar = ({ onChatToggle, isExpanded = false, didVideoUrl, showInlineChat = true }: IsabellaAvatarProps) => {
+export const IsabellaAvatar = ({ onChatToggle, isExpanded = false }: IsabellaAvatarProps) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
-  const [inputText, setInputText] = useState('');
-  const [videoStarted, setVideoStarted] = useState(false);
-  const [hasInteracted, setHasInteracted] = useState(false);
-  
-  const {
-    messages,
-    isProcessing,
-    isThinking,
-    isStreaming,
-    streamingText,
-    isSpeakerEnabled,
-    isMicEnabled,
-    isListening,
-    didVideoUrl: hookDidVideoUrl,
-    liveTranscript,
-    isWebSpeechActive,
-    sendMessage,
-    startListening,
-    stopListening,
-    toggleSpeaker,
-    toggleMicrophone,
-    initializeAudio,
-    registerDidVideoElement,
-    narrate,
-  } = useWellnessGeniChat();
-
-  // Prefer parent-provided video URL to avoid duplicate hook instances causing mismatch
-  const videoUrl = didVideoUrl ?? hookDidVideoUrl;
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-// Ensure video starts ASAP; keep Idle visible until actual playback
-useEffect(() => {
-  if (!videoRef.current || !videoUrl) return;
-  
-  const v = videoRef.current;
-  // Reset start flag when source changes
-  setVideoStarted(false);
-  
-  const onPlaying = () => {
-    console.log('[PERF] Video_playback_start');
-    console.log('[D-ID] Video started (playing)');
-    setVideoStarted(true);
-  };
-  
-  const onEnded = () => {
-    console.log('[PERF] Talk_end');
-    setVideoStarted(false);
-  };
-  
-  const tryPlay = async () => {
-    try {
-      v.src = videoUrl;
-      v.load();
-      await v.play();
-    } catch (e) {
-      console.warn('Video play blocked, will retry on user interaction', e);
-    }
-  };
-  
-  v.addEventListener('playing', onPlaying, { once: true } as any);
-  v.addEventListener('ended', onEnded, { once: true } as any);
-  v.addEventListener('canplay', tryPlay as any, { once: true } as any);
-  
-  // Initialize playback
-  tryPlay();
-  
-  return () => {
-    v.removeEventListener('playing', onPlaying as any);
-    v.removeEventListener('ended', onEnded as any);
-    v.removeEventListener('canplay', tryPlay as any);
-  };
-}, [videoUrl]);
 
   useEffect(() => {
-    if (videoRef.current) {
-      registerDidVideoElement(videoRef.current);
-    }
-    return () => {
-      registerDidVideoElement(null);
-    };
-  }, [videoUrl, registerDidVideoElement]);
+    // Auto-play greeting animation on mount
+    const timer = setTimeout(() => {
+      setIsPlaying(true);
+      // Simulate D-ID animation duration (10 seconds)
+      setTimeout(() => setIsPlaying(false), 10000);
+    }, 1000);
 
-  useEffect(() => {
-    // Show tooltip after delay but no auto-greeting - only when user clicks start
+    // Show tooltip after greeting
     const tooltipTimer = setTimeout(() => {
       setShowTooltip(true);
-    }, 3000);
+    }, 12000);
 
     return () => {
+      clearTimeout(timer);
       clearTimeout(tooltipTimer);
     };
   }, []);
 
-  const handleChatToggle = async () => {
+  const handleChatToggle = () => {
     setShowTooltip(false); // Hide tooltip after first interaction
-    setHasInteracted(true);
-    // Initialize audio context to bypass browser restrictions
-    await initializeAudio();
-    // Unmute and attempt playback after user gesture
-    if (videoRef.current) {
-      try {
-        videoRef.current.muted = false;
-        await videoRef.current.play().catch(() => {});
-      } catch {}
-    }
     onChatToggle?.();
-  };
-
-  const handleSendMessage = async () => {
-    if (inputText.trim()) {
-      await sendMessage(inputText);
-      setInputText('');
-    }
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSendMessage();
-    }
   };
 
   return (
     <div className="relative mx-auto lg:mx-0 z-50">
       {/* Avatar - Enlarged and centered without cropping */}
       <div 
-        className={`isabella-avatar w-[62vw] h-[77vw] sm:w-[57vw] sm:h-[73vw] lg:w-[20.5rem] lg:h-[26.5rem] xl:w-[24.5rem] xl:h-[30.5rem] cursor-pointer relative transition-all duration-300 bg-transparent`}
+        className={`isabella-avatar w-[65vw] h-[80vw] sm:w-[60vw] sm:h-[76vw] lg:w-[22rem] lg:h-[28rem] xl:w-[26rem] xl:h-[32rem] cursor-pointer relative overflow-hidden rounded-full bg-gradient-to-br from-purple-50 to-blue-50 border-4 border-accent shadow-2xl transition-all duration-300 hover:scale-105 ${isPlaying ? 'animate-pulse border-accent-glow shadow-accent/30' : 'shadow-black/20 hover:shadow-accent/20'}`}
         onClick={handleChatToggle}
       >
-        {/* Static Isabella Image - Always visible until video starts playing */}
-        {!videoStarted && (
-          <div className="absolute inset-0 w-full h-full z-10">
-            <img 
-              src={isabellaNavia} 
-              alt="Isabella Navia" 
-              className="w-full h-full"
-              style={{ 
-                objectFit: 'contain',
-                objectPosition: 'center top',
-                transform: 'scale(0.85)',
-                backgroundColor: 'transparent'
-              }}
-            />
-          </div>
+        {/* Isabella Navia Image */}
+        <img 
+          src={isabellaNavia} 
+          alt="Isabella Navia - AI Solar Ambassador" 
+          className="w-full h-full object-contain rounded-full p-2"
+        />
+        {/* Status indicators */}
+        {isPlaying && (
+          <div className="absolute bottom-2 right-2 w-4 h-4 bg-accent rounded-full animate-pulse"></div>
         )}
-
-        {/* Isabella Navia Video (D-ID) - Single video element for single playback */}
-        <div className="absolute inset-0 w-full h-full z-20" style={{ backgroundColor: 'transparent' }}>
-          <video
-            ref={videoRef}
-            preload="auto"
-            playsInline
-            muted={false}
-            crossOrigin="anonymous"
-            onLoadStart={() => console.log('[D-ID] Video loading started')}
-            onCanPlay={() => console.log('[D-ID] Video can play')}
-            onError={(e) => console.error('[D-ID] Video error:', e)}
-            className="w-full h-full"
-            style={{ 
-              objectFit: 'contain',
-              objectPosition: 'center top',
-              transform: 'scale(0.85)',
-              backgroundColor: 'transparent'
-            }}
-          />
-        </div>
       </div>
 
-      {/* Removed tooltip to prevent collision during beta testing */}
+      {/* Animated Tooltip - Click to Chat Hint */}
+      {showTooltip && !isExpanded && (
+        <div className="absolute -bottom-20 left-1/2 transform -translate-x-1/2 bg-card/90 backdrop-blur-sm border border-border rounded-lg p-3 shadow-lg animate-[fade-in_0.5s_ease-out,pulse_2s_ease-in-out_infinite] pointer-events-none">
+          <p className="text-xs text-muted-foreground whitespace-nowrap">
+            💬 <span className="text-accent font-medium">Click to chat with me</span>
+          </p>
+          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-l-transparent border-r-4 border-r-transparent border-b-4 border-b-border"></div>
+        </div>
+      )}
 
-      {/* Expanded Chat Panel - Larger, Fluid Design */}
-      {isExpanded && showInlineChat && (
-        <Card className="absolute top-48 lg:top-72 xl:top-80 right-0 w-[90vw] sm:w-[26rem] lg:w-[28rem] xl:w-[32rem] h-[70vh] max-h-[600px] card-premium animate-fade-in-up border-0 shadow-xl bg-gradient-to-br from-card/95 to-secondary/90 backdrop-blur-lg">
+      {/* Expanded Chat Panel */}
+      {isExpanded && (
+        <Card className="absolute top-64 lg:top-96 xl:top-112 right-0 w-80 sm:w-96 h-[500px] card-premium animate-fade-in-up">
           <div className="p-4 border-b border-border">
             <div className="flex items-center gap-3">
               <div className="isabella-avatar w-12 h-12 rounded-full overflow-hidden bg-gradient-to-br from-purple-100 to-blue-100">
@@ -205,106 +86,44 @@ useEffect(() => {
             </div>
           </div>
 
-          <div className="p-4 flex-1 flex flex-col">
-            {/* Voice Controls */}
-            <div className="flex justify-between items-center mb-3">
-              <div className="flex gap-2">
-                <Button
-                  variant={isSpeakerEnabled ? "default" : "outline"}
-                  size="sm"
-                  onClick={toggleSpeaker}
-                  className="h-8 w-8 p-0"
-                >
-                  {isSpeakerEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                </Button>
-                <Button
-                  variant={isMicEnabled ? "default" : "outline"}
-                  size="sm"
-                  onClick={toggleMicrophone}
-                  className="h-8 w-8 p-0"
-                >
-                  {isMicEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-                </Button>
-                {isMicEnabled && (
-                  <Button
-                    variant={isListening ? "destructive" : "secondary"}
-                    size="sm"
-                    onClick={() => startListening()}
-                    disabled={isListening}
-                    className="text-xs px-2"
-                  >
-                    {isListening ? "Listening..." : "Talk"}
-                  </Button>
-                )}
+          <div className="p-4 flex-1">
+            <div className="space-y-3">
+              <div className="bg-secondary/50 rounded-lg p-3">
+                <p className="text-sm text-foreground">
+                  Hello! I'm Isabella Navia, ClearNanoTech's ambassador for SolarClip™. I'm here to answer any questions about our company and our product. Let's explore the future of solar together.
+                </p>
               </div>
-            </div>
 
-            {/* Messages - Auto-scroll to bottom for new messages */}
-            <div 
-              className="flex-1 space-y-3 overflow-y-auto scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent"
-              ref={(el) => {
-                if (el && messages.length > 0) {
-                  setTimeout(() => el.scrollTop = el.scrollHeight, 100);
-                }
-              }}
-            >
-              {/* Messages will show here when Isabella responds */}
-              
-              {messages.map((message) => (
-                <div
-                  key={message.id}
-                  className={`rounded-lg p-3 ${
-                    message.sender === 'user'
-                      ? 'bg-primary/10 ml-4'
-                      : 'bg-secondary/50 mr-4'
-                  }`}
-                >
-                  <p className="text-sm text-foreground">{message.text}</p>
-                </div>
-              ))}
-              
-              {(isProcessing || isStreaming) && (
-                <div className="bg-secondary/50 rounded-lg p-3 mr-4">
-                  <p className="text-sm text-muted-foreground">
-                    {isStreaming ? "🔊 syncing voice..." : "Isabella is thinking..."}
-                  </p>
-                </div>
-              )}
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" size="sm" className="h-auto flex-col gap-1 p-3">
+                  <Calculator className="w-4 h-4" />
+                  <span className="text-xs">Get Quote</span>
+                </Button>
+                <Button variant="outline" size="sm" className="h-auto flex-col gap-1 p-3">
+                  <FileText className="w-4 h-4" />
+                  <span className="text-xs">Guides</span>
+                </Button>
+                <Button variant="outline" size="sm" className="h-auto flex-col gap-1 p-3">
+                  <Volume2 className="w-4 h-4" />
+                  <span className="text-xs">Voice Chat</span>
+                </Button>
+                <Button variant="outline" size="sm" className="h-auto flex-col gap-1 p-3">
+                  <MessageCircle className="w-4 h-4" />
+                  <span className="text-xs">Text Chat</span>
+                </Button>
+              </div>
             </div>
           </div>
 
-          <div className="p-4 border-t border-border/50 bg-gradient-to-r from-secondary/30 to-accent/10">
+          <div className="p-4 border-t border-border">
             <div className="flex gap-2">
               <input 
                 type="text" 
-                placeholder={
-                  isWebSpeechActive ? "🎤 Listening..." : 
-                  isStreaming ? "🔊 syncing voice..." :
-                  "Ask me about SolarClip™ installation, pricing, benefits..."
-                }
-                className="flex-1 px-4 py-3 text-sm border border-border/50 rounded-xl bg-background/80 backdrop-blur-sm transition-all duration-200 focus:border-accent focus:ring-2 focus:ring-accent/20 focus:bg-background"
-                value={isWebSpeechActive ? liveTranscript : inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyPress={handleKeyPress}
-                disabled={isProcessing || isStreaming}
-                style={{ 
-                  color: isWebSpeechActive ? '#10b981' : undefined,
-                  fontStyle: isWebSpeechActive ? 'italic' : undefined
-                }}
+                placeholder="Ask me about SolarClip™..." 
+                className="flex-1 px-3 py-2 text-sm border border-border rounded-lg bg-background"
               />
-              {isWebSpeechActive && (
-                <div className="absolute -top-6 left-4 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                  🎤 Listening...
-                </div>
-              )}
-              <Button 
-                size="default" 
-                variant="default" 
-                onClick={handleSendMessage}
-                disabled={isProcessing || isStreaming || !inputText.trim()}
-                className="px-4 py-3 rounded-xl bg-gradient-to-r from-accent to-accent-light hover:from-accent-light hover:to-accent transition-all duration-200 shadow-lg hover:shadow-accent/20"
-              >
-                <Send className="w-4 h-4" />
+              <Button size="sm" variant="default">
+                Send
               </Button>
             </div>
           </div>

@@ -1,392 +1,71 @@
 import { Button } from '@/components/ui/button';
-import { Play, Send, Mic, Volume2, VolumeX } from 'lucide-react';
-import { useState, useEffect } from 'react';
-import { CinematicCard } from './CinematicCard';
-import { IsabellaAvatar } from './IsabellaAvatar';
-import { useIsabella } from '@/hooks/useIsabella';
-import { useWellnessGeniChat } from '@/hooks/useWellnessGeniChat';
-import { useIsabellaJourney } from '@/hooks/useIsabellaJourney';
-import solarclipLogo from '@/assets/solarclip-logo.png';
+import { ArrowRight, Play } from 'lucide-react';
+import { IsabellaAvatar } from '@/components/IsabellaAvatar';
 
-interface HeroSectionProps { 
-  isExpanded?: boolean; 
-  onChatToggle?: () => void;
-}
-
-const videoThumbnails = [
-  { id: 'ceo', title: 'CEO Testimonial', image: '/alex-president.png' },
-  { id: 'board', title: 'Board Member', image: '/partner-testimonial.png' },
-  { id: 'client', title: 'Happy Client', image: '/mrs-nilles.jpg' },
-  { id: 'owner', title: 'Building Owner', image: '/mr-khun.jpg' }
-];
+interface HeroSectionProps { isExpanded?: boolean; onChatToggle?: () => void }
 
 export const HeroSection = ({ isExpanded = false, onChatToggle }: HeroSectionProps) => {
-  const [showMeetButton, setShowMeetButton] = useState(true);
-  const [currentLanguage, setCurrentLanguage] = useState('EN');
-  const [inputMessage, setInputMessage] = useState('');
-  const { currentCard, closeCard, handleCardAction, getSolarAnalysis, showCard } = useIsabella('solarclip');
-  const { 
-    messages, 
-    isProcessing, 
-    isSpeakerEnabled, 
-    isMicEnabled, 
-    isListening,
-    sendMessage, 
-    sendGreeting,
-    startListening,
-    stopListening,
-    toggleSpeaker, 
-    toggleMicrophone,
-    initializeAudio,
-    narrate,
-    didVideoUrl,
-    isThinking,
-  } = useWellnessGeniChat();
-  const journey = useIsabellaJourney({ narrate, showCard, getSolarAnalysis });
-  
-  const languages = ['EN', 'FR', 'DE', 'LB'];
-
-
-  const handleMeetIsabella = async () => {
-    console.log('Meet Isabella button clicked, current stage:', journey.stage, 'hasStarted:', journey.hasStarted);
-    setShowMeetButton(false);
-    onChatToggle?.(); // Show chat immediately when button is clicked
-    
-    // Initialize audio and start journey in parallel for faster response
-    const [audioInit] = await Promise.all([
-      initializeAudio(),
-      // Pre-warm the journey start to reduce delay
-      Promise.resolve()
-    ]);
-    
-    // Start journey only if it hasn't been started yet
-    if (journey.stage === 'idle' && !journey.hasStarted) {
-      console.log('Starting Isabella journey...');
-      // Start immediately without additional delay
-      journey.start();
-    } else {
-      console.log('Journey already started, skipping duplicate start');
-    }
-  };
-  const handleVideoThumbnail = (videoId: string) => {
-    console.log(`Playing video: ${videoId}`);
-    if (videoId === 'ceo') {
-      showCard({
-        type: 'video',
-        title: 'CEO Testimonial',
-        content: { url: 'https://res.cloudinary.com/di5gj4nyp/video/upload/v1758373486/Alex1.2_gqfcft.mov' },
-        animation: 'swoop-left'
-      });
-    } else if (videoId === 'client') {
-      showCard({
-        type: 'video',
-        title: 'Installation Process',
-        content: { url: 'https://res.cloudinary.com/di5gj4nyp/video/upload/v1758394290/Solarclip_insatallation_thnspd.mp4' },
-        animation: 'swoop-left'
-      });
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!inputMessage.trim() || isProcessing) return;
-    // Let journey intercept when appropriate (await the async handler)
-    const intercepted = await journey.handleUserInput(inputMessage.trim());
-    if (intercepted) {
-      setInputMessage('');
-      return;
-    }
-    await sendMessage(inputMessage.trim());
-    setInputMessage('');
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   return (
-    <section className="relative min-h-screen flex items-center justify-center overflow-hidden hero-bg">
-
-      {/* Language Toggle - Top Right Corner of Isabella's Image - Lifted 3mm up, 2mm right */}
-      <div className="absolute top-5 right-6 z-50">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            const currentIndex = languages.indexOf(currentLanguage);
-            const nextIndex = (currentIndex + 1) % languages.length;
-            setCurrentLanguage(languages[nextIndex]);
-          }}
-          className="text-white/80 hover:text-white bg-transparent hover:bg-transparent p-2 font-medium tracking-wide relative group"
-        >
-          <span className={`transition-all duration-300 ${currentLanguage === languages[languages.indexOf(currentLanguage)] ? 'text-white language-active' : 'text-white/60'}`}>
-            {currentLanguage}
-          </span>
-        </Button>
+    <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
+      {/* Background Gradient */}
+      <div className="absolute inset-0 bg-gradient-to-br from-background via-secondary to-background"></div>
+      
+      {/* Grid Pattern Overlay */}
+      <div className="absolute inset-0 opacity-[0.02]">
+        <div className="w-full h-full bg-[url('data:image/svg+xml,%3Csvg%20width%3D%2260%22%20height%3D%2260%22%20viewBox%3D%220%200%2060%2060%22%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%3E%3Cg%20fill%3D%22none%22%20fill-rule%3D%22evenodd%22%3E%3Cg%20fill%3D%22%23000%22%20fill-opacity%3D%221%22%3E%3Ccircle%20cx%3D%227%22%20cy%3D%227%22%20r%3D%221%22/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] bg-repeat"></div>
       </div>
 
-      {/* Main Content Grid */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-12 items-center h-screen">
-        
+      {/* Hero Content Grid - Two Column Layout */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
         {/* Left Column - Hero Content */}
-        <div className="flex flex-col justify-center space-y-8 lg:mt-12" style={{ transform: 'translateY(-20px)' }}>
+        <div className="lg:max-w-2xl animate-fade-in-up lg:pr-6">
           {/* Main Headline */}
-          <h1 className="font-heading font-bold text-3xl sm:text-4xl lg:text-5xl xl:text-6xl leading-tight mb-6 tracking-wide" style={{ color: 'hsl(var(--heading-navy))' }}>
+          <h1 className="font-heading font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl mb-6 text-foreground leading-tight text-center lg:text-left">
             The Future of
-            <span className="block">Lightweight Solar</span>
+            <span className="block text-gradient">Lightweight Solar</span>
             is Here.
           </h1>
 
-          {/* Subheadline with Logo - Repositioned for vertical alignment */}
-          <div className="relative mb-8" style={{ transform: 'translateY(-5mm)' }}>
-            {/* Logo and first line on same horizontal level */}
-            <div className="flex items-start gap-3 mb-2">
-              <img 
-                src={solarclipLogo}
-                alt="SolarClip Lightweight Solutions"
-                className="h-6 sm:h-7 lg:h-8 w-auto flex-shrink-0"
-              />
-              <div className="text-xl sm:text-2xl leading-relaxed" style={{ color: 'hsl(var(--body-gray))' }}>
-                – the world's first clip-on / clip-off
-              </div>
-            </div>
-            
-            {/* Lines 2 and 3 positioned under the red circle of the logo */}
-            <div className="text-xl sm:text-2xl leading-relaxed ml-8" style={{ color: 'hsl(var(--body-gray))' }}>
-              <div className="mb-1">
-                solar mounting system. <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>Fast. Reversible.</span>
-              </div>
-              <div>
-                <span className="font-semibold" style={{ color: 'hsl(var(--heading-navy))' }}>Roof-safe.</span>
-              </div>
-            </div>
+          {/* Subheadline */}
+          <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground mb-8 leading-relaxed text-center lg:text-left">
+            SolarClip™ — the world's first clip-on / clip-off solar mounting system. 
+            <span className="font-semibold text-foreground"> Fast. Reversible. Roof-safe.</span>
+          </p>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start items-center mb-12">
+            <Button className="btn-hero group">
+              Get Your Quote
+              <ArrowRight className="ml-2 w-5 h-5 transition-transform group-hover:translate-x-1" />
+            </Button>
+            <Button variant="outline" className="btn-outline group">
+              <Play className="mr-2 w-5 h-5" />
+              See How It Works
+            </Button>
           </div>
 
-          {/* Video Thumbnails with Curved Labels - Lifted by 2mm */}
-          <div className="flex gap-6 flex-wrap justify-start" style={{ transform: 'translateY(-8mm)' }}>
-            {videoThumbnails.map((video, index) => {
-              const labels = ['President', 'Partner', 'Client', 'Developer'];
-              return (
-                <div key={video.id} className="video-thumbnail-container">
-                  <div className="curved-text">
-                    {labels[index]}
-                  </div>
-                  <div 
-                    className="video-thumbnail-interactive-large"
-                    onClick={() => handleVideoThumbnail(video.id)}
-                    title={video.title}
-                  >
-                    <img 
-                      src={video.image} 
-                      alt={video.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement;
-                        target.style.display = 'none';
-                        target.parentElement!.innerHTML = `
-                          <div class="w-full h-full bg-primary/20 flex items-center justify-center text-primary font-bold text-lg">
-                            ${video.title.charAt(0)}
-                          </div>
-                        `;
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+          {/* Social Proof / Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8">
+            <div className="text-center lg:text-left">
+              <div className="text-3xl font-bold text-gradient mb-2">4x</div>
+              <div className="text-sm text-muted-foreground">Faster Installation</div>
+            </div>
+            <div className="text-center lg:text-left">
+              <div className="text-3xl font-bold text-gradient mb-2">80%</div>
+              <div className="text-sm text-muted-foreground">More Roofs Qualified</div>
+            </div>
+            <div className="text-center lg:text-left">
+              <div className="text-3xl font-bold text-gradient mb-2">230km/h</div>
+              <div className="text-sm text-muted-foreground">Wind Resistance</div>
+            </div>
           </div>
         </div>
 
-        {/* Right Column - Isabella Avatar - Lifted for better balance */}
-        <div className="flex justify-center lg:justify-end items-center relative" style={{ transform: 'translateY(-8mm)' }}>
-          <div className="relative">
-            <IsabellaAvatar onChatToggle={onChatToggle} isExpanded={isExpanded} didVideoUrl={didVideoUrl} showInlineChat={false} />
-            {showMeetButton && (
-              <div className="absolute bottom-[-1px] -left-36 xl:-left-44 text-center z-10">
-                <Button 
-                  className="text-sm px-5 py-2 transition-all duration-300 hover:shadow-2xl hover:scale-110 text-white rounded-full relative overflow-hidden group start-assistant-enhanced"
-                  style={{ 
-                    backgroundColor: 'hsl(var(--cta-emerald))',
-                    borderColor: 'hsl(var(--cta-emerald))',
-                    transform: 'scale(0.88)',
-                    boxShadow: '0 8px 25px hsl(160 84% 39% / 0.4), 0 0 20px hsl(160 84% 39% / 0.3)'
-                  }}
-                  onClick={handleMeetIsabella}
-                >
-                  <Play className="mr-2 w-5 h-5" />
-                  Start Assistant
-                </Button>
-                 <p className="text-white/70 text-sm mt-2">Your AI guide to SolarClip™</p>
-                </div>
-             )}
-           </div>
-         </div>
-
-        {/* Enhanced Chatbox Panel - Positioned with proper spacing from Isabella */}
-        {isExpanded && (
-          <div className="static lg:absolute lg:top-1/2 lg:left-[55%] xl:left-[57%] 2xl:left-[58%] transform lg:-translate-x-1/2 lg:-translate-y-[40%] w-[88vw] max-w-[340px] sm:w-[320px] lg:w-[320px] h-[460px] sm:h-[480px] mx-auto lg:mx-0 mt-4 lg:mt-0 bg-background/90 backdrop-blur-md border-2 border-accent/30 rounded-2xl shadow-premium z-30 flex flex-col overflow-hidden chatbox-glow">
-            {/* Chat Header with Voice Controls */}
-            <div className="flex justify-between items-center p-4 border-b border-accent/20">
-              <h3 className="text-white font-medium">Isabella AI Assistant</h3>
-              <div className="flex gap-2">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={toggleSpeaker}
-                  className={`text-white/60 hover:text-white hover:bg-white/10 p-2 ${isSpeakerEnabled ? 'text-white' : 'text-white/40'}`}
-                >
-                  {isSpeakerEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                </Button>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  onClick={toggleMicrophone}
-                  className={`text-white/60 hover:text-white hover:bg-white/10 p-2 ${isMicEnabled ? 'text-white' : 'text-white/40'} ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
-                >
-                  <Mic className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-            
-            {/* Chat Messages Area - Auto-scroll to bottom for new messages */}
-            <div 
-              className="flex-1 p-4 overflow-y-auto space-y-3 scrollbar-thin scrollbar-thumb-accent/20 scrollbar-track-transparent"
-              ref={(el) => {
-                if (el && messages.length > 0) {
-                  setTimeout(() => el.scrollTop = el.scrollHeight, 100);
-                }
-              }}
-            >
-              {messages.map((message) => (
-                <div key={message.id} className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`px-4 py-2 rounded-lg max-w-[80%] text-sm ${
-                    message.sender === 'user' 
-                      ? 'bg-primary/20 text-white' 
-                      : 'bg-accent/20 text-white'
-                  }`}>
-                    {message.text}
-                  </div>
-                </div>
-              ))}
-              
-              {isThinking && (
-                <div className="flex justify-start">
-                  <div className="bg-accent/20 text-white px-4 py-2 rounded-lg max-w-[80%] text-sm">
-                    <div className="flex items-center gap-2">
-                      <div>Isabella is thinking...</div>
-                      <div className="flex gap-1">
-                        <div className="w-1 h-1 bg-white rounded-full animate-bounce"></div>
-                        <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                        <div className="w-1 h-1 bg-white rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Enhanced Input Area */}
-            <div className="p-4 border-t border-accent/20">
-              <div className="flex gap-2">
-                <textarea 
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyDown={handleKeyPress}
-                  placeholder="Ask Isabella anything... (Shift+Enter for new line)"
-                  className="flex-1 bg-white/10 border border-accent/30 rounded-lg px-3 py-2 text-white placeholder-white/50 text-sm focus:outline-none focus:border-accent resize-none min-h-[40px] max-h-[80px]"
-                  disabled={isProcessing}
-                />
-                <Button 
-                  size="sm" 
-                  className="bg-accent/30 hover:bg-accent/50 text-white p-2"
-                  onClick={handleSendMessage}
-                  disabled={isProcessing || !inputMessage.trim()}
-                >
-                  <Send className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="flex gap-1 mt-2 flex-wrap">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
-                  onClick={() => sendMessage("Show me the SolarClip video presentation")}
-                  disabled={isProcessing}
-                >
-                  🎥 Videos
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
-                  onClick={() => sendMessage("I need documentation about SolarClip")}
-                  disabled={isProcessing}
-                >
-                  📄 Docs
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className="text-xs text-white/70 border-white/20 hover:bg-white/10 flex-1 min-w-0"
-                  onClick={() => sendMessage("Analyze solar potential for my address")}
-                  disabled={isProcessing}
-                >
-                  🗺️ Solar
-                </Button>
-              </div>
-              
-              {/* Voice Interface */}
-              <div className="flex gap-2 mt-3 pt-2 border-t border-accent/20">
-                <Button 
-                  size="sm" 
-                  className={`bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1 ${isListening ? 'animate-pulse bg-red-500/20' : ''}`}
-                  onClick={isListening ? stopListening : () => startListening()}
-                  disabled={!isMicEnabled || isProcessing}
-                >
-                  <Mic className="w-4 h-4 mr-2" />
-                  {isListening ? 'Stop' : 'Voice Input'}
-                </Button>
-                <Button 
-                  size="sm" 
-                  className="bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex-1"
-                  onClick={() => sendMessage("Tell me about installation process")}
-                  disabled={isProcessing}
-                >
-                  💬 Learn More
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Right Column - Isabella Avatar (stacks below on mobile) */}
+        <div className="flex justify-center lg:justify-end items-start lg:items-center mt-10 lg:mt-8">
+          <IsabellaAvatar isExpanded={isExpanded} onChatToggle={onChatToggle} />
+        </div>
       </div>
-
-      {/* Footer Link */}
-      <div className="absolute bottom-4 right-6">
-        <a 
-          href="https://ovelainteractive.com" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="text-sm text-gradient-blue-footer hover:opacity-80 transition-opacity"
-        >
-          Powered by Ovela AI
-        </a>
-      </div>
-
-      {/* Video Presentation Area - Reserved Space for Sliding Cards */}
-      <div id="video-presentation-area" className="absolute top-1/2 left-8 lg:left-16 transform -translate-y-1/2 w-[350px] h-[250px] pointer-events-none">
-        {/* This area is reserved for sliding video cards from Phase 2 */}
-      </div>
-
-      {/* Cinematic Cards */}
-      {currentCard && (
-        <CinematicCard
-          card={currentCard}
-          onClose={closeCard}
-          onAction={(action, data) => { handleCardAction(action, data); journey.onCardAction(action, data); }}
-        />
-      )}
 
     </section>
   );

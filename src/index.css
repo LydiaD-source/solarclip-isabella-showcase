@@ -4,25 +4,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Next-Gen SolarClip™ Design System - AI-First Cinematic Experience
+/* SolarClip™ Design System - ClearNanoTech Branding
 Navy blue (#002147) for trust/engineering
-Fresh green (#4CAF50) for sustainability  
-Clean whites (#F9FAFB) for clarity
-Cinematic gradients with solar energy themes
+Clean white/light gray (#F9FAFB) for clarity  
+Fresh green accent (#4CAF50) for sustainability
+Soft gradients for depth
 */
 
 @layer base {
   :root {
-    /* Hero Background - Enhanced blue-white blend with more depth */
-    --hero-bg: linear-gradient(135deg, hsl(210, 80%, 85%) 0%, hsl(200, 90%, 90%) 30%, hsl(0, 0%, 98%) 100%);
-    --background: 209 100% 8%; /* Deep navy space */
-    --foreground: 220 20% 99%; /* Pure white text */
-    
-    /* Logo and Color System */
-    --logo-red: 0 84% 50%; /* Vibrant red for SolarClip™ */
-    --heading-navy: 220 100% 15%; /* Dark navy for headings */
-    --body-gray: 220 10% 40%; /* Neutral gray for body text */
-    --cta-emerald: 160 84% 39%; /* Emerald green for CTA button */
+    /* Core Brand Colors - ClearNanoTech */
+    --background: 220 20% 99%;
+    --foreground: 209 100% 14%;
     
     /* Navy Blue Primary - Trust & Engineering */
     --primary: 209 100% 14%; /* #002147 */
@@ -39,22 +32,20 @@ Cinematic gradients with solar energy themes
     /* Clean Whites & Grays */
     --secondary: 220 14% 96%; /* #F9FAFB */
     --secondary-foreground: 209 100% 14%;
-    --muted: 220 14% 88%;
-    --muted-foreground: 220 14% 70%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 215 16% 47%;
     
-    /* Cinematic Gradients with Sun Rays */
-    --gradient-cinematic: linear-gradient(135deg, hsl(209 100% 8%) 0%, hsl(209 100% 12%) 25%, hsl(45 100% 35%) 50%, hsl(209 100% 8%) 75%, hsl(209 100% 5%) 100%);
-    --gradient-solar: radial-gradient(ellipse at top right, hsl(45 100% 50% / 0.3) 0%, hsl(45 100% 40% / 0.2) 30%, transparent 70%);
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(209 100% 14%), hsl(209 100% 25%));
     --gradient-accent: linear-gradient(135deg, hsl(122 48% 56%), hsl(122 48% 66%));
     --gradient-premium: linear-gradient(135deg, hsl(209 100% 14%), hsl(122 48% 56%));
-    --gradient-isabella: linear-gradient(135deg, hsl(280 70% 95%), hsl(190 80% 95%));
-    --gradient-overlay: linear-gradient(90deg, hsla(209, 100%, 8%, 0.8) 0%, transparent 50%, hsla(209, 100%, 8%, 0.9) 100%);
+    --gradient-surface: linear-gradient(180deg, hsl(220 20% 99%), hsl(220 14% 96%));
+    --gradient-isabella: linear-gradient(135deg, hsl(260 100% 97%), hsl(30 100% 96%));
     
-    /* Enhanced Shadows & Effects */
-    --shadow-premium: 0 25px 80px -20px hsl(209 100% 14% / 0.4);
-    --shadow-glow: 0 0 60px hsl(122 48% 56% / 0.6);
-    --shadow-isabella: 0 20px 60px -10px hsl(280 70% 70% / 0.4);
-    --shadow-solar: 0 0 120px hsl(45 100% 50% / 0.3);
+    /* Shadows & Effects */
+    --shadow-premium: 0 20px 60px -20px hsl(209 100% 14% / 0.3);
+    --shadow-glow: 0 0 40px hsl(122 48% 56% / 0.4);
+    --shadow-isabella: 0 10px 30px -10px hsl(260 50% 50% / 0.3);
     
     /* Component Colors */
     --card: 220 20% 99%;
@@ -154,152 +145,17 @@ Cinematic gradients with solar energy themes
     @apply border-2 border-primary text-primary px-6 py-3 rounded-lg font-medium hover:bg-primary hover:text-primary-foreground transition-all duration-300;
   }
   
-  /* Hero Background - Darker blue-white blend with authority */
-  .hero-bg {
-    background: linear-gradient(to bottom, #bfdbfe, #93c5fd, #ffffff);
-    position: relative;
-    overflow: hidden;
-  }
-
-  /* Cinematic Background */
-  .cinematic-bg {
-    background: var(--gradient-cinematic);
-    position: relative;
-    overflow: hidden;
-  }
-  
-  .cinematic-bg::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 60%;
-    height: 100%;
-    background: var(--gradient-solar);
-    pointer-events: none;
-    z-index: 1;
-  }
-  
-  .cinematic-bg::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 40%;
-    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%234CAF50' fill-opacity='0.05'%3E%3Cpath d='M0 0h60v60H0z'/%3E%3Cpath d='M6 6h48v48H6z' fill='%23002147' fill-opacity='0.03'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-    opacity: 0.3;
-    pointer-events: none;
-    z-index: 1;
-  }
-  
-  /* Isabella Avatar - Refined with Gentle Glow */
-  .isabella-avatar-refined {
-    @apply aspect-[4/5] rounded-[50%] border-2 border-accent/15 shadow-lg transition-all duration-500 relative overflow-hidden cursor-pointer;
+  /* Isabella Avatar Animation */
+  .isabella-avatar {
+    @apply rounded-full border-2 border-accent/30 shadow-lg transition-all duration-300;
     background: var(--gradient-isabella);
     box-shadow: var(--shadow-isabella);
-    animation: gentle-pulse 4s ease-in-out infinite;
   }
   
-  .isabella-avatar-refined:hover {
-    @apply border-accent/30 scale-[1.02];
+  .isabella-avatar:hover {
+    @apply scale-105 border-accent/60;
     box-shadow: var(--shadow-glow);
-  }
-  
-  .isabella-avatar-refined::before {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    background: linear-gradient(45deg, hsl(var(--accent) / 0.2), transparent, hsl(var(--primary-glow) / 0.2));
-    border-radius: 50%;
-    z-index: -1;
-    animation: rotate-glow-gentle 6s linear infinite;
-  }
-  
-  /* Video Thumbnail Container with Curved Text */
-  .video-thumbnail-container {
-    @apply relative flex flex-col items-center;
-  }
-
-  .curved-text {
-    position: absolute;
-    top: -14px;
-    left: 50%;
-    transform: translateX(-50%);
-    color: hsl(122 48% 46%); /* Muted light green (lighter than Start Assistant button) */
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5); /* Subtle text shadow for better readability */
-  }
-
-  /* Video Thumbnail Circles - Interactive */
-  .video-thumbnail-interactive {
-    @apply w-16 h-16 rounded-full border-2 border-accent/30 cursor-pointer transition-all duration-300 overflow-hidden;
-    box-shadow: 0 4px 15px hsl(209 100% 14% / 0.3);
-  }
-  
-  .video-thumbnail-interactive:hover {
-    @apply border-accent scale-110;
-    box-shadow: 0 8px 25px hsl(122 48% 56% / 0.4), 0 0 20px hsl(122 48% 56% / 0.3);
-    transform: scale(1.1) translateY(-2px);
-  }
-
-  /* Larger Video Thumbnail Circles - Enhanced size for better visibility */
-  .video-thumbnail-interactive-large {
-    @apply w-24 h-24 rounded-full border-2 border-accent/30 cursor-pointer transition-all duration-300 overflow-hidden;
-  }
-  
-  .video-thumbnail-interactive-large:hover {
-    @apply border-accent scale-110;
-    box-shadow: 0 8px 25px hsl(122 48% 56% / 0.4), 0 0 20px hsl(122 48% 56% / 0.3);
-    transform: scale(1.1) translateY(-2px);
-  }
-  
-  /* Chatbox Glow Effect */
-  .chatbox-glow {
-    box-shadow: 0 0 40px hsl(var(--accent) / 0.3), 0 20px 60px -10px hsl(var(--background) / 0.8);
-  }
-  
-  /* Meet Isabella Button - Refined */
-  .meet-isabella-btn-refined {
-    @apply bg-gradient-to-r from-accent to-accent-light text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105;
-    box-shadow: 0 8px 25px hsl(122 48% 56% / 0.3);
-  }
-  
-  .meet-isabella-btn-refined:hover {
-    box-shadow: 0 12px 35px hsl(122 48% 56% / 0.4);
-  }
-
-  /* Animated Meet Isabella Button with Glow Effect */
-  .meet-isabella-btn-animated {
-    @apply bg-gradient-to-r from-accent to-accent-light text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 8px 25px hsl(122 48% 56% / 0.3);
-  }
-  
-  .meet-isabella-btn-animated::before {
-    content: '';
-    position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    background: linear-gradient(45deg, transparent, hsl(var(--accent) / 0.8), transparent);
-    border-radius: inherit;
-    opacity: 0;
-    animation: button-glow 3s ease-in-out infinite;
-    z-index: -1;
-  }
-  
-  .meet-isabella-btn-animated:hover {
-    box-shadow: 0 12px 35px hsl(122 48% 56% / 0.4);
-  }
-  
-  .meet-isabella-btn-animated:hover::before {
-    animation-duration: 1.5s;
+    animation: pulse-glow 2s ease-in-out infinite;
   }
   
   /* Premium Cards */
@@ -316,102 +172,13 @@ Cinematic gradients with solar energy themes
     -webkit-text-fill-color: transparent;
   }
   
-  /* SolarClip Logo Text - Green gradient with red outline */
-  .text-gradient-red {
-    background: linear-gradient(135deg, #00c853, #64dd17);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 20px rgba(0, 200, 83, 0.3);
-    -webkit-text-stroke: 2px #e53935;
-    text-stroke: 2px #e53935;
-    font-weight: 300;
-  }
-  
-  /* Blue Gradient Text for Ovela Branding */
-  .text-gradient-blue {
-    background: linear-gradient(135deg, #2196f3, #00bcd4);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 20px rgba(33, 150, 243, 0.3);
-  }
-
-  /* Caption style for small footer text */
-  .caption-style {
-    font-size: 0.75rem;
-    line-height: 1rem;
-  }
-  
-  /* Hero Text Glow */
-  .hero-text-glow {
-    text-shadow: 0 2px 10px hsl(209 100% 8% / 0.5), 0 0 20px hsl(209 100% 8% / 0.3);
-  }
-
-  /* Lightweight Solar Text base fill (green) */
-  .hero-text-glow .lw-solar-text {
-    position: relative;
-    display: block;
-    background: linear-gradient(135deg, #00c853, #64dd17);
-    background-clip: text;
-    -webkit-background-clip: text;
-    color: transparent;
-    font-weight: 300;
-    -webkit-text-stroke: 0;
-    text-stroke: 0;
-  }
-  /* Red gradient outline that fades from left to right */
-  .hero-text-glow .lw-solar-text::before {
-    content: attr(data-text);
-    position: absolute;
-    inset: 0;
-    color: transparent;
-    -webkit-text-fill-color: transparent;
-    -webkit-text-stroke-width: 2px;
-    -webkit-text-stroke-image: linear-gradient(90deg, #e53935 0%, #ff5722 30%, #ff6b35 60%, rgba(229, 57, 53, 0.3) 90%, transparent 100%);
-    text-stroke-width: 2px;
-    text-stroke-image: linear-gradient(90deg, #e53935 0%, #ff5722 30%, #ff6b35 60%, rgba(229, 57, 53, 0.3) 90%, transparent 100%);
-    -webkit-mask-image: linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 40%, rgba(0,0,0,0.7) 70%, rgba(0,0,0,0.3) 85%, rgba(0,0,0,0) 100%);
-    mask-image: linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,0.9) 40%, rgba(0,0,0,0.7) 70%, rgba(0,0,0,0.3) 85%, rgba(0,0,0,0) 100%);
-    pointer-events: none;
-  }
-  
-  /* Cinematic Animations */
-  @keyframes gentle-pulse {
+  /* Animations */
+  @keyframes pulse-glow {
     0%, 100% {
       box-shadow: var(--shadow-isabella);
-      transform: scale(1);
     }
     50% {
-      box-shadow: 0 20px 60px -10px hsl(280 70% 70% / 0.6);
-      transform: scale(1.01);
-    }
-  }
-  
-  @keyframes rotate-glow-gentle {
-    0% { transform: rotate(0deg); opacity: 0.3; }
-    50% { opacity: 0.5; }
-    100% { transform: rotate(360deg); opacity: 0.3; }
-  }
-  
-  @keyframes rotate-glow {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-  
-  @keyframes solar-ray {
-    0%, 100% { opacity: 0.3; }
-    50% { opacity: 0.7; }
-  }
-  
-  @keyframes slide-in-card {
-    from {
-      opacity: 0;
-      transform: translateX(100px) scale(0.9);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0) scale(1);
+      box-shadow: var(--shadow-glow);
     }
   }
   
@@ -428,169 +195,5 @@ Cinematic gradients with solar energy themes
   
   .animate-fade-in-up {
     animation: fade-in-up 0.6s ease-out;
-  }
-
-  /* Button Glow Animation */
-  @keyframes button-glow {
-    0%, 100% {
-      opacity: 0;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.6;
-      transform: scale(1.02);
-    }
-  }
-
-  /* Language button active state */
-  .language-active {
-    position: relative;
-  }
-
-  .language-active::after {
-    content: '';
-    position: absolute;
-    bottom: -4px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 100%;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, hsl(var(--accent) / 0.8), transparent);
-    border-radius: 1px;
-    animation: language-glow 2s ease-in-out infinite alternate;
-  }
-
-  @keyframes language-glow {
-    0% {
-      opacity: 0.6;
-      box-shadow: 0 0 5px hsl(var(--accent) / 0.3);
-    }
-    100% {
-      opacity: 1;
-      box-shadow: 0 0 10px hsl(var(--accent) / 0.6);
-    }
-  }
-
-  /* Enhanced Start Assistant Button */
-  .start-assistant-enhanced {
-    position: relative;
-  }
-
-  .start-assistant-enhanced::before {
-    content: '';
-    position: absolute;
-    inset: -2px;
-    background: linear-gradient(45deg, hsl(160 84% 39%), hsl(160 84% 49%), hsl(160 84% 39%));
-    border-radius: inherit;
-    opacity: 0;
-    animation: assistant-pulse 3s ease-in-out infinite;
-    z-index: -1;
-  }
-
-  .start-assistant-enhanced:hover::before {
-    opacity: 0.6;
-    animation-duration: 1.5s;
-  }
-
-  @keyframes assistant-pulse {
-    0%, 100% {
-      opacity: 0;
-      transform: scale(1);
-    }
-    50% {
-      opacity: 0.4;
-      transform: scale(1.02);
-    }
-  }
-}
-
-/* Cinematic 3D swoop animations for Isabella's summoned cards */
-@layer components {
-  @keyframes swoop-in-3d {
-    0% {
-      opacity: 0;
-      transform: translate(-40vw, -40vh) rotateZ(-12deg) rotateY(-25deg) scale(0.92);
-    }
-    100% {
-      opacity: 1;
-      transform: translate(0, 0) rotateZ(0deg) rotateY(0deg) scale(1);
-    }
-  }
-
-  @keyframes swoop-out-3d {
-    0% {
-      opacity: 1;
-      transform: translate(0, 0) rotateZ(0deg) rotateY(0deg) scale(1);
-    }
-    100% {
-      opacity: 0;
-      transform: translate(40vw, -40vh) rotateZ(12deg) rotateY(20deg) scale(0.92);
-    }
-  }
-
-  @keyframes card-float-in {
-    0% {
-      opacity: 0;
-      transform: translateX(-120vw) rotateY(45deg) rotateX(8deg) scale(0.92);
-    }
-    60% {
-      opacity: 0.9;
-      transform: translateX(3vw) rotateY(-10deg) rotateX(2deg) scale(1.05);
-    }
-    100% {
-      opacity: 1;
-      transform: translateX(0) rotateY(0deg) rotateX(0deg) scale(1);
-    }
-  }
-
-  @keyframes card-float-out {
-    0% {
-      opacity: 1;
-      transform: translateX(0) rotateY(0deg) rotateX(0deg) scale(1);
-    }
-    50% {
-      opacity: 0.7;
-      transform: translateX(-50vw) rotateY(15deg) rotateX(3deg) scale(0.95);
-    }
-    100% {
-      opacity: 0;
-      transform: translateX(-120vw) rotateY(45deg) rotateX(8deg) scale(0.7);
-    }
-  }
-}
-
-@layer utilities {
-  .perspective-1200 { 
-    perspective: 1200px; 
-    transform-style: preserve-3d; 
-  }
-  .transform-3d {
-    transform-style: preserve-3d;
-  }
-  .animate-swoop-in { animation: swoop-in-3d 0.6s cubic-bezier(0.22, 0.61, 0.36, 1) both; }
-  .animate-swoop-out { animation: swoop-out-3d 0.5s ease-in both; }
-
-  /* Blue gradient for footer text */
-  .text-gradient-blue-footer {
-    background: linear-gradient(135deg, #007BFF, #00D4FF);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  .animate-card-float-in { animation: card-float-in 4s ease-in-out forwards; }
-  .animate-card-float-out { animation: card-float-out 4s ease-in-out forwards; }
-
-  /* Custom scrollbar for chat */
-  .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
-  }
-  
-  .scrollbar-thumb-accent\/20::-webkit-scrollbar-thumb {
-    background: hsl(var(--accent) / 0.2);
-    border-radius: 0.375rem;
-  }
-  
-  .scrollbar-track-transparent::-webkit-scrollbar-track {
-    background: transparent;
   }
 }
