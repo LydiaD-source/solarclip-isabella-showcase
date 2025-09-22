@@ -162,7 +162,7 @@ export const GoogleSolarMap = () => {
   useEffect(() => {
     if (!mapRef.current) return;
 
-    // Use Mapbox public token - you'll need to add your own token
+    // Use a public Mapbox token for demo
     mapboxgl.accessToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
 
     if (map.current) {
@@ -177,7 +177,7 @@ export const GoogleSolarMap = () => {
     try {
       map.current = new mapboxgl.Map({
         container: mapRef.current,
-        style: 'mapbox://styles/mapbox/satellite-streets-v12',
+        style: 'mapbox://styles/mapbox/satellite-v9',
         center: defaultCenter,
         zoom: solarData ? 19 : 15,
         pitch: 0,
@@ -208,60 +208,40 @@ export const GoogleSolarMap = () => {
   }, [solarData]);
   return (
     <div className="w-full">
-      {/* Interactive Map and Controls */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-6">
-        {/* Left Panel - Interactive Controls */}
-        <div className="lg:col-span-1 space-y-4">
-          <Card className="card-premium p-6">
-            <h3 className="font-heading font-semibold text-lg mb-4 text-foreground">
-              Solar Configuration
-            </h3>
+      {/* Single row layout with map and compact controls */}
+      <div className="flex gap-4 mb-4">
+        {/* Left Panel - Compact Solar Controls */}
+        <div className="w-80 space-y-3">
+          {/* Solar Configuration - Compact */}
+          <Card className="card-premium p-4">
+            <h3 className="font-semibold text-base mb-3 text-foreground">Solar Configuration</h3>
             
             {/* Panel Count Display */}
-            <div className="text-center mb-6">
-              <div className="text-4xl font-bold text-accent mb-2">
-                {selectedPanels}
-              </div>
-              <div className="text-sm text-muted-foreground">Solar Panels</div>
+            <div className="text-center mb-4">
+              <div className="text-3xl font-bold text-accent mb-1">{selectedPanels}</div>
+              <div className="text-xs text-muted-foreground">Solar Panels</div>
             </div>
 
-            {/* Panel Slider with +/- buttons */}
-            <div className="space-y-4">
+            {/* Compact Panel Controls */}
+            <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => {
-                    const newCount = Math.max(1, selectedPanels - 1);
-                    handlePanelChange(newCount);
-                  }} 
-                  disabled={selectedPanels <= 1}
-                >
-                  <Minus className="w-4 h-4" />
+                <Button variant="outline" size="sm" onClick={() => {
+                  const newCount = Math.max(1, selectedPanels - 1);
+                  handlePanelChange(newCount);
+                }} disabled={selectedPanels <= 1}>
+                  <Minus className="w-3 h-3" />
                 </Button>
-                
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => {
-                    const maxPanels = solarData?.maxArrayPanelsCount || 50;
-                    const newCount = Math.min(maxPanels, selectedPanels + 1);
-                    handlePanelChange(newCount);
-                  }} 
-                  disabled={solarData && selectedPanels >= solarData.maxArrayPanelsCount}
-                >
-                  <Plus className="w-4 h-4" />
+                <Button variant="outline" size="sm" onClick={() => {
+                  const maxPanels = solarData?.maxArrayPanelsCount || 50;
+                  const newCount = Math.min(maxPanels, selectedPanels + 1);
+                  handlePanelChange(newCount);
+                }} disabled={solarData && selectedPanels >= solarData.maxArrayPanelsCount}>
+                  <Plus className="w-3 h-3" />
                 </Button>
               </div>
               
-              <Slider 
-                value={[selectedPanels]} 
-                onValueChange={value => handlePanelChange(value[0])} 
-                max={solarData?.maxArrayPanelsCount || 50} 
-                min={1} 
-                step={1} 
-                className="w-full" 
-              />
+              <Slider value={[selectedPanels]} onValueChange={value => handlePanelChange(value[0])} 
+                max={solarData?.maxArrayPanelsCount || 50} min={1} step={1} className="w-full" />
               
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>1</span>
@@ -270,71 +250,58 @@ export const GoogleSolarMap = () => {
             </div>
           </Card>
 
-          {/* Energy Output */}
-          <Card className="card-premium p-6">
-            <h4 className="font-semibold text-foreground mb-4">Energy Output</h4>
-            <div className="space-y-3">
+          {/* Energy Output - Compact */}
+          <Card className="card-premium p-4">
+            <h4 className="font-semibold text-sm text-foreground mb-3">Energy Output</h4>
+            <div className="space-y-2 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Annual Generation:</span>
+                <span className="text-muted-foreground">Annual:</span>
                 <span className="font-semibold text-accent">
-                  {currentConfig ? formatEnergy(currentConfig.yearlyEnergyDcKwh) : `${formatEnergy(selectedPanels * 400)}`}
+                  {currentConfig ? formatEnergy(currentConfig.yearlyEnergyDcKwh) : formatEnergy(selectedPanels * 400)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Panel Area:</span>
+                <span className="text-muted-foreground">Area:</span>
                 <span className="font-medium">
-                  {solarData 
-                    ? formatNumber(selectedPanels / solarData.maxArrayPanelsCount * solarData.maxArrayAreaMeters2) 
-                    : formatNumber(selectedPanels * 2)} m²
+                  {solarData ? formatNumber(selectedPanels / solarData.maxArrayPanelsCount * solarData.maxArrayAreaMeters2) : formatNumber(selectedPanels * 2)} m²
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Sunshine Hours:</span>
+                <span className="text-muted-foreground">Sunshine:</span>
                 <span className="font-medium">
-                  {solarData ? formatNumber(solarData.maxSunshineHoursPerYear) : '2,500'} hrs/year
+                  {solarData ? formatNumber(solarData.maxSunshineHoursPerYear) : '2,500'} hrs/yr
                 </span>
               </div>
             </div>
           </Card>
 
-          {/* Environmental Impact */}
-          <Card className="card-premium p-6">
-            <h4 className="font-semibold text-foreground mb-4">Environmental Impact</h4>
+          {/* Environmental Impact - Compact */}
+          <Card className="card-premium p-4">
+            <h4 className="font-semibold text-sm text-foreground mb-3">Environmental Impact</h4>
             <div className="text-center">
-              <div className="text-2xl font-bold text-accent mb-2">
-                {currentConfig 
-                  ? formatNumber(currentConfig.yearlyEnergyDcKwh / 1000 * (solarData?.carbonOffsetFactorKgPerMwh || 400)) 
-                  : formatNumber(selectedPanels * 160)} kg
+              <div className="text-xl font-bold text-accent mb-1">
+                {currentConfig ? formatNumber(currentConfig.yearlyEnergyDcKwh / 1000 * (solarData?.carbonOffsetFactorKgPerMwh || 400)) : formatNumber(selectedPanels * 160)} kg
               </div>
-              <div className="text-sm text-muted-foreground">CO₂ offset per year</div>
+              <div className="text-xs text-muted-foreground">CO₂ offset per year</div>
             </div>
           </Card>
         </div>
 
-        {/* Right Panel - Interactive Map */}
-        <div className="lg:col-span-3">
-          <Card className="card-premium p-4">
-            <div 
-              ref={mapRef} 
-              className="w-full bg-secondary/20 rounded-lg overflow-hidden" 
-              style={{ height: '400px' }} 
-            />
+        {/* Right Panel - Full Width Interactive Map */}
+        <div className="flex-1">
+          <Card className="card-premium p-2">
+            <div ref={mapRef} className="w-full bg-secondary/20 rounded-lg overflow-hidden" style={{ height: '320px' }} />
           </Card>
         </div>
       </div>
 
-      {/* Address Input Section - Directly below the map */}
+      {/* Address Input Section - Directly below the map layout */}
       <Card className="card-premium p-4 mb-6">
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="flex-1">
-            <Input 
-              type="text" 
-              placeholder="Enter property address (e.g., 1600 Amphitheatre Parkway, Mountain View, CA)" 
-              value={address} 
-              onChange={e => setAddress(e.target.value)} 
-              onKeyPress={e => e.key === 'Enter' && handleAnalyze()} 
-              className="w-full" 
-            />
+            <Input type="text" placeholder="Enter property address (e.g., 1600 Amphitheatre Parkway, Mountain View, CA)" 
+              value={address} onChange={e => setAddress(e.target.value)} 
+              onKeyPress={e => e.key === 'Enter' && handleAnalyze()} className="w-full" />
           </div>
           <Button onClick={handleAnalyze} disabled={isLoading} className="btn-hero min-w-[140px]">
             {isLoading ? (
