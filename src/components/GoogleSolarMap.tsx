@@ -386,6 +386,29 @@ export const GoogleSolarMap = () => {
               <div className="text-xs text-muted-foreground">CO₂ offset per year</div>
             </div>
           </Card>
+
+          {/* Panel Capacity - Compact */}
+          <Card className="card-premium p-3">
+            <h4 className="font-semibold text-sm text-foreground mb-2">Panel capacity</h4>
+            <div className="space-y-2">
+              <div className="text-center">
+                <div className="text-xl font-bold text-accent">{panelCapacity}</div>
+                <div className="text-xs text-muted-foreground">Watts</div>
+              </div>
+              <Slider 
+                value={[panelCapacity]} 
+                onValueChange={value => setPanelCapacity(value[0])} 
+                max={1000} 
+                min={250} 
+                step={10} 
+                className="w-full" 
+              />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>250</span>
+                <span>1000</span>
+              </div>
+            </div>
+          </Card>
         </div>
 
         {/* Right Panel - Map with Address Input */}
