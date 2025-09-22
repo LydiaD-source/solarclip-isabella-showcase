@@ -6,6 +6,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// In-memory idempotency and rate-limit caches (ephemeral, per instance)
+const idempotencyCache = new Map<string, { talk_id: string; ts: number }>();
+const sessionWindow = new Map<string, number[]>();
+const IDEMPOTENCY_TTL_MS = 60_000; // 60s
+const RATE_LIMIT_WINDOW_MS = 60_000; // 60s
+const RATE_LIMIT_MAX = 3; // max talks per session per window
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -54,10 +61,35 @@ serve(async (req) => {
       });
     }
 
+    // GET status poll by talk_id (optional convenience)
+    if (req.method === 'GET' && url.searchParams.get('talk_id')) {
+      const tid = url.searchParams.get('talk_id') as string;
+      console.log('Polling D-ID talk status via GET for ID:', tid);
+      const pollRes = await fetch(`https://api.d-id.com/talks/${tid}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+          'Authorization': `Basic ${Deno.env.get('DID_API_KEY')}`,
+        },
+      });
+      if (!pollRes.ok) {
+        const errText = await pollRes.text();
+        console.error('D-ID poll (GET) error:', pollRes.status, errText);
+        return new Response(JSON.stringify({ error: `D-ID poll error: ${pollRes.status}` }), {
+          status: pollRes.status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const pollData = await pollRes.json();
+      return new Response(JSON.stringify(pollData), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Fallback to JSON body for POST-based operations
     const body = await req.json().catch(() => ({}));
-    const { text, audio_base64, talk_id, source_url } = body || {};
-
+    const { text, audio_base64, talk_id, source_url, idempotency_key, session_id } = body || {};
     const DID_API_KEY = Deno.env.get('DID_API_KEY');
     if (!DID_API_KEY) {
       console.error('D-ID API key not configured in environment');
@@ -126,6 +158,39 @@ serve(async (req) => {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
+    }
+
+    // Idempotency and per-session rate limiting (server-side safety)
+    if (!talk_id) {
+      const nowTs = Date.now();
+      const key = (typeof idempotency_key === 'string' && idempotency_key.length > 0)
+        ? idempotency_key
+        : (typeof session_id === 'string' && hasValidText ? `${session_id}|${text.trim()}` : undefined);
+
+      if (key) {
+        const cached = idempotencyCache.get(key);
+        if (cached && nowTs - cached.ts < IDEMPOTENCY_TTL_MS) {
+          console.log('Idempotency hit, returning existing talk_id:', cached.talk_id);
+          return new Response(JSON.stringify({ talk_id: cached.talk_id, status: 'cached' }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+      }
+
+      // Rate limit per session
+      if (typeof session_id === 'string' && session_id.length > 0) {
+        const arr = sessionWindow.get(session_id) || [];
+        const pruned = arr.filter(ts => nowTs - ts < RATE_LIMIT_WINDOW_MS);
+        if (pruned.length >= RATE_LIMIT_MAX) {
+          console.warn('Rate limited session:', session_id);
+          return new Response(JSON.stringify({ error: 'rate_limited', retry_after_ms: 3000 }), {
+            status: 429,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        pruned.push(nowTs);
+        sessionWindow.set(session_id, pruned);
       }
     }
 
