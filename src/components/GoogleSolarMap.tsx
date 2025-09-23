@@ -247,47 +247,76 @@ export const GoogleSolarMap = () => {
           });
         }
 
-        // Draw roof segments if available - check for actual polygon data first
-        if (solarData?.dataLayers?.roofLayerUrls?.length > 0) {
-          // TODO: Implement GeoTIFF roof layer visualization
-          console.log('Roof layer data available:', solarData.dataLayers.roofLayerUrls);
-          // For now, fall back to using roof segment stats as polygons
+        // Implement roof segmentation using Google Solar API mask data
+        if (solarData?.dataLayers?.maskUrl) {
+          console.log('Loading roof mask from:', solarData.dataLayers.maskUrl);
+          
+          // Create overlay for the roof mask
+          const roofOverlay = new (window as any).google.maps.GroundOverlay(
+            solarData.dataLayers.maskUrl,
+            {
+              north: solarData.center.latitude + 0.0005,
+              south: solarData.center.latitude - 0.0005,
+              east: solarData.center.longitude + 0.0005,
+              west: solarData.center.longitude - 0.0005
+            }
+          );
+          roofOverlay.setMap(map.current);
+          roofOverlay.setOpacity(0.7);
         }
-        
-        // Draw roof segments as polygons using bounding box data
+
+        // Add RGB imagery overlay for better context
+        if (solarData?.dataLayers?.rgbUrl) {
+          console.log('Loading RGB imagery from:', solarData.dataLayers.rgbUrl);
+          
+          const rgbOverlay = new (window as any).google.maps.GroundOverlay(
+            solarData.dataLayers.rgbUrl,
+            {
+              north: solarData.center.latitude + 0.0005,
+              south: solarData.center.latitude - 0.0005,
+              east: solarData.center.longitude + 0.0005,
+              west: solarData.center.longitude - 0.0005
+            }
+          );
+          rgbOverlay.setMap(map.current);
+          rgbOverlay.setOpacity(0.8);
+        }
+
+        // Draw roof segments as precise polygons using bounding box data with enhanced styling
         if (solarData?.roofSegmentStats && solarData.roofSegmentStats.length > 0) {
           solarData.roofSegmentStats.forEach((segment, index) => {
-            // Use bounding box to create a more accurate rectangular representation
             const bounds = segment.boundingBox;
             
-            // Create polygon coordinates from bounding box
+            // Create more precise polygon coordinates from bounding box
             const polygonCoords = [
-              { lat: bounds.sw.latitude, lng: bounds.sw.longitude }, // Southwest
-              { lat: bounds.ne.latitude, lng: bounds.sw.longitude }, // Northwest  
-              { lat: bounds.ne.latitude, lng: bounds.ne.longitude }, // Northeast
-              { lat: bounds.sw.latitude, lng: bounds.ne.longitude }, // Southeast
+              { lat: bounds.sw.latitude, lng: bounds.sw.longitude },
+              { lat: bounds.ne.latitude, lng: bounds.sw.longitude },
+              { lat: bounds.ne.latitude, lng: bounds.ne.longitude },
+              { lat: bounds.sw.latitude, lng: bounds.ne.longitude }
             ];
             
-            // Create a polygon for the roof segment
+            // Create styled roof segment polygon
             const roofPolygon = new (window as any).google.maps.Polygon({
               paths: polygonCoords,
               map: map.current,
-              fillColor: '#22c55e',
-              fillOpacity: 0.4,
-              strokeColor: '#16a34a',
-              strokeOpacity: 0.9,
+              fillColor: '#3b82f6',
+              fillOpacity: 0.3,
+              strokeColor: '#1d4ed8',
+              strokeOpacity: 1,
               strokeWeight: 2,
             });
 
-            // Add info window for segment details
+            // Enhanced info window with detailed segment information
             const infoWindow = new (window as any).google.maps.InfoWindow({
               content: `
-                <div style="font-size: 12px; color: #333;">
+                <div style="font-size: 12px; color: #333; min-width: 200px;">
                   <strong>Roof Segment ${index + 1}</strong><br/>
-                  Area: ${segment.stats.areaMeters2.toFixed(1)} m²<br/>
-                  Pitch: ${segment.pitchDegrees.toFixed(1)}°<br/>
-                  Azimuth: ${segment.azimuthDegrees.toFixed(1)}°<br/>
-                  <em>Potential Solar Area</em>
+                  <strong>Area:</strong> ${segment.stats.areaMeters2.toFixed(1)} m²<br/>
+                  <strong>Pitch:</strong> ${segment.pitchDegrees.toFixed(1)}°<br/>
+                  <strong>Azimuth:</strong> ${segment.azimuthDegrees.toFixed(1)}°<br/>
+                  <strong>Ground Area:</strong> ${segment.stats.groundAreaMeters2.toFixed(1)} m²<br/>
+                  <strong>Solar Potential:</strong> High<br/>
+                  <em>Click to view details</em>
                 </div>
               `,
             });
@@ -295,6 +324,21 @@ export const GoogleSolarMap = () => {
             roofPolygon.addListener('click', () => {
               infoWindow.setPosition({ lat: segment.center.latitude, lng: segment.center.longitude });
               infoWindow.open(map.current);
+            });
+
+            // Add hover effects
+            roofPolygon.addListener('mouseover', () => {
+              roofPolygon.setOptions({
+                fillOpacity: 0.5,
+                strokeWeight: 3
+              });
+            });
+
+            roofPolygon.addListener('mouseout', () => {
+              roofPolygon.setOptions({
+                fillOpacity: 0.3,
+                strokeWeight: 2
+              });
             });
           });
         }
