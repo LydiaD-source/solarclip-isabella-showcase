@@ -249,6 +249,7 @@ export const GoogleSolarMap = () => {
           });
         }
 
+        let overlayRendered = false;
         // Precise roof segmentation using Google Solar API mask (GeoTIFF) rendered to canvas
         if (solarData?.dataLayers?.maskUrl) {
           console.log('Rendering precise roof mask via proxy:', solarData.dataLayers.maskUrl);
@@ -349,6 +350,7 @@ export const GoogleSolarMap = () => {
 
               const overlay = new CanvasOverlay();
               overlay.setMap(map.current);
+              overlayRendered = true;
 
               // Fallback: also add a GroundOverlay using the canvas image
               try {
@@ -361,6 +363,38 @@ export const GoogleSolarMap = () => {
             }
           } catch (e) {
             console.error('Failed to render mask overlay', e);
+          }
+        }
+
+        // Fallback: draw roof bounding boxes if mask overlay is unavailable
+        if (!overlayRendered && solarData?.roofSegmentStats?.length) {
+          try {
+            const boundsUnion = new (window as any).google.maps.LatLngBounds();
+            solarData.roofSegmentStats.forEach((seg: any) => {
+              const sw = seg.boundingBox?.sw;
+              const ne = seg.boundingBox?.ne;
+              if (!sw || !ne) return;
+              const path = [
+                { lat: sw.latitude, lng: sw.longitude },
+                { lat: sw.latitude, lng: ne.longitude },
+                { lat: ne.latitude, lng: ne.longitude },
+                { lat: ne.latitude, lng: sw.longitude },
+              ];
+              const poly = new (window as any).google.maps.Polygon({
+                paths: path,
+                strokeColor: '#3B82F6',
+                strokeOpacity: 0.8,
+                strokeWeight: 1,
+                fillColor: '#3B82F6',
+                fillOpacity: 0.18,
+                map: map.current,
+                zIndex: 2,
+              });
+              path.forEach(p => boundsUnion.extend(new (window as any).google.maps.LatLng(p.lat, p.lng)));
+            });
+            try { (map.current as any).fitBounds(boundsUnion); } catch {}
+          } catch (e) {
+            console.warn('Fallback polygons failed', e);
           }
         }
 
