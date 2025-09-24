@@ -204,16 +204,13 @@ export const GoogleSolarMap = () => {
         }
 
         // Load Google Maps Script
-        if (!(window as any).google) {
+        if (!(window as any).google?.maps) {
           const script = document.createElement('script');
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKeyData.apiKey}&libraries=maps`;
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKeyData.apiKey}&v=weekly&loading=async`;
           script.async = true;
           script.defer = true;
           document.head.appendChild(script);
-          
-          await new Promise((resolve) => {
-            script.onload = resolve;
-          });
+          await new Promise((resolve) => { script.onload = resolve; });
         }
 
         // Initialize map
@@ -221,16 +218,24 @@ export const GoogleSolarMap = () => {
           ? { lat: solarData.center.latitude, lng: solarData.center.longitude }
           : { lat: 37.4220, lng: -122.0842 };
 
-        map.current = new (window as any).google.maps.Map(container, {
-          center,
-          zoom: solarData ? 20 : 15,
-          mapTypeId: 'hybrid',
-          tilt: 0,
-          mapTypeControl: true,
-          streetViewControl: false,
-          fullscreenControl: true,
-          zoomControl: true,
-        });
+        if (!map.current) {
+          map.current = new (window as any).google.maps.Map(container, {
+            center,
+            zoom: solarData ? 20 : 15,
+            mapTypeId: 'hybrid',
+            tilt: 0,
+            mapTypeControl: true,
+            streetViewControl: false,
+            fullscreenControl: true,
+            zoomControl: true,
+          });
+        } else {
+          try {
+            map.current.setMapTypeId('hybrid');
+            map.current.setCenter(center);
+            map.current.setZoom(solarData ? 20 : 15);
+          } catch {}
+        }
 
         // Debug when tiles are actually loaded
         (window as any).google.maps.event.addListenerOnce(map.current, 'tilesloaded', () => {
@@ -285,6 +290,7 @@ export const GoogleSolarMap = () => {
               canvas.width = width;
               canvas.height = height;
               const ctx = canvas.getContext('2d');
+              let drawn = 0;
               if (ctx) {
                 const imgData = ctx.createImageData(width, height);
                 const dataArr = imgData.data;
@@ -295,10 +301,11 @@ export const GoogleSolarMap = () => {
                     dataArr[idx] = 59;      // R
                     dataArr[idx + 1] = 130; // G
                     dataArr[idx + 2] = 246; // B
-                    dataArr[idx + 3] = 110; // A (0-255)
+                    dataArr[idx + 3] = 130; // A (0-255)
+                    drawn++;
                   }
                 }
-                ctx.putImageData(imgData, 0, 0);
+                if (drawn > 0) ctx.putImageData(imgData, 0, 0);
               }
 
               // Position canvas on map via OverlayView using GeoTIFF bounds
@@ -353,17 +360,19 @@ export const GoogleSolarMap = () => {
                 }
               }
 
-              const overlay = new CanvasOverlay();
-              overlay.setMap(map.current);
-              overlayRendered = true;
+              if (typeof drawn !== 'undefined' && drawn > 0) {
+                const overlay = new CanvasOverlay();
+                overlay.setMap(map.current);
+                overlayRendered = true;
 
-              // Fallback: also add a GroundOverlay using the canvas image
-              try {
-                const url = canvas.toDataURL('image/png');
-                const ground = new (window as any).google.maps.GroundOverlay(url, bounds, { opacity: 0.65 });
-                ground.setMap(map.current);
-              } catch (e) {
-                console.warn('GroundOverlay fallback failed', e);
+                // Fallback: also add a GroundOverlay using the canvas image
+                try {
+                  const url = canvas.toDataURL('image/png');
+                  const ground = new (window as any).google.maps.GroundOverlay(url, bounds, { opacity: 0.6 });
+                  ground.setMap(map.current);
+                } catch (e) {
+                  console.warn('GroundOverlay fallback failed', e);
+                }
               }
             }
           } catch (e) {
