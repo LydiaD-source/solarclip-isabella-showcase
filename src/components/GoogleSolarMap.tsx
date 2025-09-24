@@ -272,6 +272,8 @@ export const GoogleSolarMap = () => {
               const height = image.getHeight();
               const raster: any = await image.readRasters({ interleave: true, samples: [0] });
 
+              console.info('Mask GeoTIFF info', { bbox, width, height, sampleMin: Math.min(...raster.slice(0, 1000)), sampleMax: Math.max(...raster.slice(0, 1000)) });
+
               // Draw mask onto a canvas (brand accent color)
               const canvas = document.createElement('canvas');
               canvas.width = width;
@@ -299,6 +301,19 @@ export const GoogleSolarMap = () => {
                 { lat: bbox[3], lng: bbox[2] }
               );
 
+              // Ensure the mask bounds are visible
+              try { (map.current as any).fitBounds(bounds); } catch {}
+
+              // Draw a thin debug rectangle to verify bounds (temporary aid)
+              new (window as any).google.maps.Rectangle({
+                bounds,
+                map: map.current,
+                strokeColor: '#00FFFF',
+                strokeOpacity: 0.5,
+                strokeWeight: 1,
+                fillOpacity: 0,
+              });
+
               class CanvasOverlay extends (window as any).google.maps.OverlayView {
                 private div: HTMLDivElement;
                 constructor() {
@@ -310,7 +325,8 @@ export const GoogleSolarMap = () => {
                 onAdd() {
                   const panes = (this as any).getPanes();
                   this.div.appendChild(canvas);
-                  panes.overlayLayer.appendChild(this.div);
+                  // Use overlayImage pane so it stacks like GroundOverlay
+                  panes.overlayImage.appendChild(this.div);
                 }
                 draw() {
                   const projection = (this as any).getProjection();
@@ -333,6 +349,15 @@ export const GoogleSolarMap = () => {
 
               const overlay = new CanvasOverlay();
               overlay.setMap(map.current);
+
+              // Fallback: also add a GroundOverlay using the canvas image
+              try {
+                const url = canvas.toDataURL('image/png');
+                const ground = new (window as any).google.maps.GroundOverlay(url, bounds, { opacity: 0.65 });
+                ground.setMap(map.current);
+              } catch (e) {
+                console.warn('GroundOverlay fallback failed', e);
+              }
             }
           } catch (e) {
             console.error('Failed to render mask overlay', e);
