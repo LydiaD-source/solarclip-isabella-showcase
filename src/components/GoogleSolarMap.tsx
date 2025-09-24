@@ -6,7 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { MapPin, Zap, BarChart3, Home, Loader2, Plus, Minus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { fromUrl as geotiffFromUrl } from 'geotiff';
+import { fromUrl as geotiffFromUrl, fromArrayBuffer as geotiffFromArrayBuffer } from 'geotiff';
 interface SolarData {
   name?: string;
   center?: {
@@ -250,79 +250,92 @@ export const GoogleSolarMap = () => {
 
         // Precise roof segmentation using Google Solar API mask (GeoTIFF) rendered to canvas
         if (solarData?.dataLayers?.maskUrl) {
-          console.log('Rendering precise roof mask from:', solarData.dataLayers.maskUrl);
+          console.log('Rendering precise roof mask via proxy:', solarData.dataLayers.maskUrl);
           try {
-            const tiff = await geotiffFromUrl(solarData.dataLayers.maskUrl);
-            const image = await tiff.getImage();
-            const bbox = image.getBoundingBox(); // [west, south, east, north]
-            const width = image.getWidth();
-            const height = image.getHeight();
-            const raster: any = await image.readRasters({ interleave: true, samples: [0] });
+            const { data: proxyData, error: proxyErr } = await supabase.functions.invoke('fetch-solar-asset', {
+              body: { url: solarData.dataLayers.maskUrl },
+            });
+            if (proxyErr || !proxyData?.base64) {
+              console.error('fetch-solar-asset failed', proxyErr || proxyData);
+            } else {
+              // Decode base64 to ArrayBuffer
+              const byteString = atob(proxyData.base64);
+              const len = byteString.length;
+              const bytes = new Uint8Array(len);
+              for (let i = 0; i < len; i++) bytes[i] = byteString.charCodeAt(i);
 
-            // Draw mask onto a canvas (blue fill, semi-transparent)
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              const imgData = ctx.createImageData(width, height);
-              const dataArr = imgData.data;
-              for (let i = 0; i < width * height; i++) {
-                const v = raster[i];
-                if (v > 0) {
-                  const idx = i * 4;
-                  dataArr[idx] = 59;      // R
-                  dataArr[idx + 1] = 130; // G
-                  dataArr[idx + 2] = 246; // B
-                  dataArr[idx + 3] = 90;  // A (0-255)
+              const tiff = await geotiffFromArrayBuffer(bytes.buffer);
+              const image = await tiff.getImage();
+              const bbox = image.getBoundingBox(); // [west, south, east, north]
+              const width = image.getWidth();
+              const height = image.getHeight();
+              const raster: any = await image.readRasters({ interleave: true, samples: [0] });
+
+              // Draw mask onto a canvas (brand accent color)
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                const imgData = ctx.createImageData(width, height);
+                const dataArr = imgData.data;
+                for (let i = 0; i < width * height; i++) {
+                  const v = raster[i];
+                  if (v > 0) {
+                    const idx = i * 4;
+                    dataArr[idx] = 59;      // R
+                    dataArr[idx + 1] = 130; // G
+                    dataArr[idx + 2] = 246; // B
+                    dataArr[idx + 3] = 110; // A (0-255)
+                  }
+                }
+                ctx.putImageData(imgData, 0, 0);
+              }
+
+              // Position canvas on map via OverlayView using GeoTIFF bounds
+              const bounds = new (window as any).google.maps.LatLngBounds(
+                { lat: bbox[1], lng: bbox[0] },
+                { lat: bbox[3], lng: bbox[2] }
+              );
+
+              class CanvasOverlay extends (window as any).google.maps.OverlayView {
+                private div: HTMLDivElement;
+                constructor() {
+                  super();
+                  this.div = document.createElement('div');
+                  this.div.style.position = 'absolute';
+                  this.div.style.pointerEvents = 'none';
+                }
+                onAdd() {
+                  const panes = (this as any).getPanes();
+                  this.div.appendChild(canvas);
+                  panes.overlayLayer.appendChild(this.div);
+                }
+                draw() {
+                  const projection = (this as any).getProjection();
+                  const sw = projection.fromLatLngToDivPixel(bounds.getSouthWest());
+                  const ne = projection.fromLatLngToDivPixel(bounds.getNorthEast());
+                  this.div.style.left = `${sw.x}px`;
+                  this.div.style.top = `${ne.y}px`;
+                  const w = ne.x - sw.x;
+                  const h = sw.y - ne.y;
+                  canvas.style.width = `${w}px`;
+                  canvas.style.height = `${h}px`;
+                }
+                onRemove() {
+                  this.div.parentNode?.removeChild(this.div);
                 }
               }
-              ctx.putImageData(imgData, 0, 0);
+
+              const overlay = new CanvasOverlay();
+              overlay.setMap(map.current);
             }
-
-            // Position canvas on map via OverlayView using GeoTIFF bounds
-            const bounds = new (window as any).google.maps.LatLngBounds(
-              { lat: bbox[1], lng: bbox[0] },
-              { lat: bbox[3], lng: bbox[2] }
-            );
-
-            class CanvasOverlay extends (window as any).google.maps.OverlayView {
-              private div: HTMLDivElement;
-              constructor() {
-                super();
-                this.div = document.createElement('div');
-                this.div.style.position = 'absolute';
-                this.div.style.pointerEvents = 'none';
-              }
-              onAdd() {
-                const panes = (this as any).getPanes();
-                this.div.appendChild(canvas);
-                panes.overlayLayer.appendChild(this.div);
-              }
-              draw() {
-                const projection = (this as any).getProjection();
-                const sw = projection.fromLatLngToDivPixel(bounds.getSouthWest());
-                const ne = projection.fromLatLngToDivPixel(bounds.getNorthEast());
-                this.div.style.left = `${sw.x}px`;
-                this.div.style.top = `${ne.y}px`;
-                const w = ne.x - sw.x;
-                const h = sw.y - ne.y;
-                canvas.style.width = `${w}px`;
-                canvas.style.height = `${h}px`;
-              }
-              onRemove() {
-                this.div.parentNode?.removeChild(this.div);
-              }
-            }
-
-            const overlay = new CanvasOverlay();
-            overlay.setMap(map.current);
           } catch (e) {
             console.error('Failed to render mask overlay', e);
           }
         }
 
-        // RGB overlay is a GeoTIFF as well; omit for now to keep performance reasonable.
+        // RGB overlay omitted for performance.
 
         // Bounding-box polygons removed in favor of precise segmentation mask overlay.
 
