@@ -224,12 +224,17 @@ export const GoogleSolarMap = () => {
         map.current = new (window as any).google.maps.Map(container, {
           center,
           zoom: solarData ? 20 : 15,
-          mapTypeId: 'satellite',
+          mapTypeId: 'hybrid',
           tilt: 0,
           mapTypeControl: true,
           streetViewControl: false,
           fullscreenControl: true,
           zoomControl: true,
+        });
+
+        // Debug when tiles are actually loaded
+        (window as any).google.maps.event.addListenerOnce(map.current, 'tilesloaded', () => {
+          console.info('Google Map tiles loaded');
         });
 
         // Add marker at center
@@ -542,7 +547,7 @@ export const GoogleSolarMap = () => {
           
           {/* Map */}
           <Card className="card-premium p-2">
-            <div ref={mapRef} className="w-full bg-secondary/20 rounded-lg overflow-hidden" style={{ height: '380px' }} />
+            <div ref={mapRef} className="w-full h-[380px] bg-secondary/20 rounded-lg overflow-hidden" />
           </Card>
         </div>
       </div>
