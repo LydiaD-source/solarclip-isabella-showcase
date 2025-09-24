@@ -203,14 +203,19 @@ export const GoogleSolarMap = () => {
           return;
         }
 
-        // Load Google Maps Script
-        if (!(window as any).google?.maps) {
+        // Load Google Maps Script (use modern importLibrary)
+        if (!(window as any).google?.maps?.importLibrary) {
           const script = document.createElement('script');
           script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKeyData.apiKey}&v=weekly&loading=async`;
           script.async = true;
           script.defer = true;
           document.head.appendChild(script);
           await new Promise((resolve) => { script.onload = resolve; });
+        }
+        const maps = (window as any).google.maps;
+        // Ensure the core 'maps' library is ready
+        if (maps?.importLibrary) {
+          await maps.importLibrary('maps');
         }
 
         // Initialize map
@@ -242,20 +247,16 @@ export const GoogleSolarMap = () => {
           console.info('Google Map tiles loaded');
         });
 
-        // Add marker at center
+        // Optional: mark the analyzed location with a small circle
         if (solarData?.center) {
-          new (window as any).google.maps.Marker({
-            position: { lat: solarData.center.latitude, lng: solarData.center.longitude },
+          new (window as any).google.maps.Circle({
+            center: { lat: solarData.center.latitude, lng: solarData.center.longitude },
+            radius: 5,
+            strokeColor: '#3B82F6',
+            strokeOpacity: 0.9,
+            strokeWeight: 2,
+            fillOpacity: 0,
             map: map.current,
-            title: 'Solar Analysis Location',
-            icon: {
-              path: (window as any).google.maps.SymbolPath.CIRCLE,
-              scale: 8,
-              fillColor: '#ff6b35',
-              fillOpacity: 1,
-              strokeWeight: 2,
-              strokeColor: '#ffffff',
-            },
           });
         }
 
