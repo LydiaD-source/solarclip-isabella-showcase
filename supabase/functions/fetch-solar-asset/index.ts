@@ -44,8 +44,13 @@ serve(async (req) => {
       });
     }
 
-    // Proxy fetch the asset (GeoTIFF or image)
-    const upstream = await fetch(url);
+    // Proxy fetch the asset (GeoTIFF or image) - append API key if missing
+    const hasKey = parsed.searchParams.has('key');
+    const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY') || Deno.env.get('GOOGLE_SOLAR_API_KEY') || '';
+    if (!hasKey && apiKey) {
+      parsed.searchParams.set('key', apiKey);
+    }
+    const upstream = await fetch(parsed.toString());
     if (!upstream.ok) {
       const text = await upstream.text();
       console.error('Upstream fetch failed', upstream.status, text);
