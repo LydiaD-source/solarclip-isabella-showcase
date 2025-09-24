@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.send-quote-email]
 verify_jwt = false
+
+[functions.fetch-solar-asset]
+verify_jwt = false

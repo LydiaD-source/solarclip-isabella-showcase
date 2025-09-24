@@ -139,6 +139,7 @@ export const GoogleSolarMap = () => {
         roofSegmentStats: potential.roofSegmentStats ?? [],
         solarPanelConfigs: potential.solarPanelConfigs ?? [],
         financialAnalyses: potential.financialAnalyses ?? [],
+        dataLayers: data.dataLayers ?? undefined,
       };
 
       setSolarData(normalized);
@@ -319,6 +320,9 @@ export const GoogleSolarMap = () => {
                   this.div.style.top = `${ne.y}px`;
                   const w = ne.x - sw.x;
                   const h = sw.y - ne.y;
+                  this.div.style.width = `${w}px`;
+                  this.div.style.height = `${h}px`;
+                  this.div.style.zIndex = '3';
                   canvas.style.width = `${w}px`;
                   canvas.style.height = `${h}px`;
                 }
