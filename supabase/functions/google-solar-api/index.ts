@@ -57,7 +57,7 @@ serve(async (req) => {
     console.log('Geocoded location:', location);
 
     // Then, call the Solar API with data layers for roof geometry
-    const solarUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&requiredQuality=HIGH&key=${GOOGLE_SOLAR_API_KEY}`;
+    const solarUrl = `https://solar.googleapis.com/v1/buildingInsights:findClosest?location.latitude=${location.lat}&location.longitude=${location.lng}&requiredQuality=MEDIUM&key=${GOOGLE_SOLAR_API_KEY}`;
     
     const solarResponse = await fetch(solarUrl);
     
@@ -65,7 +65,7 @@ serve(async (req) => {
       const errorText = await solarResponse.text();
       console.error('Solar API error:', errorText);
       return new Response(
-        JSON.stringify({ error: `Solar API error: ${solarResponse.status}` }),
+        JSON.stringify({ error: `Solar API ${solarResponse.status}: ${errorText}` }),
         { 
           status: solarResponse.status, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -78,7 +78,7 @@ serve(async (req) => {
     // Also fetch the data layers for roof geometry if we got building insights
     let combinedData = solarData;
     if (solarData.name) {
-      const dataLayersUrl = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${location.lat}&location.longitude=${location.lng}&radiusMeters=100&view=FULL_LAYERS&requiredQuality=HIGH&pixelSizeMeters=0.5&key=${GOOGLE_SOLAR_API_KEY}`;
+      const dataLayersUrl = `https://solar.googleapis.com/v1/dataLayers:get?location.latitude=${location.lat}&location.longitude=${location.lng}&radiusMeters=100&view=IMAGERY_AND_ANNUAL_FLUX_LAYERS&requiredQuality=MEDIUM&exactQualityRequired=false&pixelSizeMeters=0.5&key=${GOOGLE_SOLAR_API_KEY}`;
       console.log('Fetching data layers:', dataLayersUrl);
       
       try {

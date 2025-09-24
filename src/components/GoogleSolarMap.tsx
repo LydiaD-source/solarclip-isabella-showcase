@@ -6,6 +6,7 @@ import { Slider } from '@/components/ui/slider';
 import { MapPin, Zap, BarChart3, Home, Loader2, Plus, Minus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { fromUrl as geotiffFromUrl } from 'geotiff';
 interface SolarData {
   name?: string;
   center?: {
@@ -247,101 +248,83 @@ export const GoogleSolarMap = () => {
           });
         }
 
-        // Implement roof segmentation using Google Solar API mask data
+        // Precise roof segmentation using Google Solar API mask (GeoTIFF) rendered to canvas
         if (solarData?.dataLayers?.maskUrl) {
-          console.log('Loading roof mask from:', solarData.dataLayers.maskUrl);
-          
-          // Create overlay for the roof mask
-          const roofOverlay = new (window as any).google.maps.GroundOverlay(
-            solarData.dataLayers.maskUrl,
-            {
-              north: solarData.center.latitude + 0.0005,
-              south: solarData.center.latitude - 0.0005,
-              east: solarData.center.longitude + 0.0005,
-              west: solarData.center.longitude - 0.0005
+          console.log('Rendering precise roof mask from:', solarData.dataLayers.maskUrl);
+          try {
+            const tiff = await geotiffFromUrl(solarData.dataLayers.maskUrl);
+            const image = await tiff.getImage();
+            const bbox = image.getBoundingBox(); // [west, south, east, north]
+            const width = image.getWidth();
+            const height = image.getHeight();
+            const raster: any = await image.readRasters({ interleave: true, samples: [0] });
+
+            // Draw mask onto a canvas (blue fill, semi-transparent)
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              const imgData = ctx.createImageData(width, height);
+              const dataArr = imgData.data;
+              for (let i = 0; i < width * height; i++) {
+                const v = raster[i];
+                if (v > 0) {
+                  const idx = i * 4;
+                  dataArr[idx] = 59;      // R
+                  dataArr[idx + 1] = 130; // G
+                  dataArr[idx + 2] = 246; // B
+                  dataArr[idx + 3] = 90;  // A (0-255)
+                }
+              }
+              ctx.putImageData(imgData, 0, 0);
             }
-          );
-          roofOverlay.setMap(map.current);
-          roofOverlay.setOpacity(0.7);
-        }
 
-        // Add RGB imagery overlay for better context
-        if (solarData?.dataLayers?.rgbUrl) {
-          console.log('Loading RGB imagery from:', solarData.dataLayers.rgbUrl);
-          
-          const rgbOverlay = new (window as any).google.maps.GroundOverlay(
-            solarData.dataLayers.rgbUrl,
-            {
-              north: solarData.center.latitude + 0.0005,
-              south: solarData.center.latitude - 0.0005,
-              east: solarData.center.longitude + 0.0005,
-              west: solarData.center.longitude - 0.0005
+            // Position canvas on map via OverlayView using GeoTIFF bounds
+            const bounds = new (window as any).google.maps.LatLngBounds(
+              { lat: bbox[1], lng: bbox[0] },
+              { lat: bbox[3], lng: bbox[2] }
+            );
+
+            class CanvasOverlay extends (window as any).google.maps.OverlayView {
+              private div: HTMLDivElement;
+              constructor() {
+                super();
+                this.div = document.createElement('div');
+                this.div.style.position = 'absolute';
+                this.div.style.pointerEvents = 'none';
+              }
+              onAdd() {
+                const panes = (this as any).getPanes();
+                this.div.appendChild(canvas);
+                panes.overlayLayer.appendChild(this.div);
+              }
+              draw() {
+                const projection = (this as any).getProjection();
+                const sw = projection.fromLatLngToDivPixel(bounds.getSouthWest());
+                const ne = projection.fromLatLngToDivPixel(bounds.getNorthEast());
+                this.div.style.left = `${sw.x}px`;
+                this.div.style.top = `${ne.y}px`;
+                const w = ne.x - sw.x;
+                const h = sw.y - ne.y;
+                canvas.style.width = `${w}px`;
+                canvas.style.height = `${h}px`;
+              }
+              onRemove() {
+                this.div.parentNode?.removeChild(this.div);
+              }
             }
-          );
-          rgbOverlay.setMap(map.current);
-          rgbOverlay.setOpacity(0.8);
+
+            const overlay = new CanvasOverlay();
+            overlay.setMap(map.current);
+          } catch (e) {
+            console.error('Failed to render mask overlay', e);
+          }
         }
 
-        // Draw roof segments as precise polygons using bounding box data with enhanced styling
-        if (solarData?.roofSegmentStats && solarData.roofSegmentStats.length > 0) {
-          solarData.roofSegmentStats.forEach((segment, index) => {
-            const bounds = segment.boundingBox;
-            
-            // Create more precise polygon coordinates from bounding box
-            const polygonCoords = [
-              { lat: bounds.sw.latitude, lng: bounds.sw.longitude },
-              { lat: bounds.ne.latitude, lng: bounds.sw.longitude },
-              { lat: bounds.ne.latitude, lng: bounds.ne.longitude },
-              { lat: bounds.sw.latitude, lng: bounds.ne.longitude }
-            ];
-            
-            // Create styled roof segment polygon
-            const roofPolygon = new (window as any).google.maps.Polygon({
-              paths: polygonCoords,
-              map: map.current,
-              fillColor: '#3b82f6',
-              fillOpacity: 0.3,
-              strokeColor: '#1d4ed8',
-              strokeOpacity: 1,
-              strokeWeight: 2,
-            });
+        // RGB overlay is a GeoTIFF as well; omit for now to keep performance reasonable.
 
-            // Enhanced info window with detailed segment information
-            const infoWindow = new (window as any).google.maps.InfoWindow({
-              content: `
-                <div style="font-size: 12px; color: #333; min-width: 200px;">
-                  <strong>Roof Segment ${index + 1}</strong><br/>
-                  <strong>Area:</strong> ${segment.stats.areaMeters2.toFixed(1)} m²<br/>
-                  <strong>Pitch:</strong> ${segment.pitchDegrees.toFixed(1)}°<br/>
-                  <strong>Azimuth:</strong> ${segment.azimuthDegrees.toFixed(1)}°<br/>
-                  <strong>Ground Area:</strong> ${segment.stats.groundAreaMeters2.toFixed(1)} m²<br/>
-                  <strong>Solar Potential:</strong> High<br/>
-                  <em>Click to view details</em>
-                </div>
-              `,
-            });
-
-            roofPolygon.addListener('click', () => {
-              infoWindow.setPosition({ lat: segment.center.latitude, lng: segment.center.longitude });
-              infoWindow.open(map.current);
-            });
-
-            // Add hover effects
-            roofPolygon.addListener('mouseover', () => {
-              roofPolygon.setOptions({
-                fillOpacity: 0.5,
-                strokeWeight: 3
-              });
-            });
-
-            roofPolygon.addListener('mouseout', () => {
-              roofPolygon.setOptions({
-                fillOpacity: 0.3,
-                strokeWeight: 2
-              });
-            });
-          });
-        }
+        // Bounding-box polygons removed in favor of precise segmentation mask overlay.
 
       } catch (error) {
         console.error('Map initialization failed:', error);
